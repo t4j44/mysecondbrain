@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Taj's Second Brain">
+  <rect width="512" height="512" rx="112" fill="#0a0510"/>
+  <path d="M151 150h210v52H282v190h-55V202h-76z" fill="#00ff9d"/>
+  <path d="M143 120h226v302H143z" fill="none" stroke="#9b5cff" stroke-width="18"/>
+  <circle cx="369" cy="120" r="22" fill="#ff4fd8"/>
+</svg>

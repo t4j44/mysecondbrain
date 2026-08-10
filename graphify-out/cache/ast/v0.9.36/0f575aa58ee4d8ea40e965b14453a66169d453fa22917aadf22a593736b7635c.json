@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_supabase_migrations_0002_create_enums_sql", "label": "0002_create_enums.sql", "file_type": "code", "source_file": "supabase/migrations/0002_create_enums.sql", "source_location": null}], "edges": []}

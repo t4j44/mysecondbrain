@@ -1,0 +1,29 @@
+{
+  "extends": "../../packages/config/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "types": ["@testing-library/jest-dom", "vitest/globals"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*", "./*"],
+      "@second-brain/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "../../packages/shared-types/*": ["../../packages/shared-types/src/index.ts"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "tests/**/*"
+  ],
+  "exclude": ["node_modules"]
+}

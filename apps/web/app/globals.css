@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Retro-Futuristic Founder Terminal Theme Tokens (Dark Mode Default) */
+    --background: 268 56% 7%;      /* #12081d Deep Purple */
+    --foreground: 44 48% 94%;      /* #f7f4ea Cream Text */
+    
+    --card: 268 62% 4%;            /* #0a0510 Black Console Surface */
+    --card-foreground: 44 48% 94%;
+    
+    --popover: 268 62% 5%;
+    --popover-foreground: 44 48% 94%;
+    
+    --primary: 157 100% 50%;      /* #00ff9d Neon Green Operational Accent */
+    --primary-foreground: 268 62% 4%;
+    
+    --secondary: 271 42% 25%;     /* Electric Mauve Muted */
+    --secondary-foreground: 44 48% 94%;
+    
+    --muted: 268 40% 15%;
+    --muted-foreground: 265 20% 65%;
+    
+    --accent: 271 50% 30%;
+    --accent-foreground: 157 100% 50%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 44 48% 94%;
+    
+    --border: 268 45% 20%;        /* Structural Console Grid Border */
+    --input: 268 45% 15%;
+    --ring: 157 100% 50%;         /* Neon Green Focus Ring */
+    
+    --radius: 0.5rem;
+  }
+
+  .light {
+    /* Clean Editorial Light Contrast Variation */
+    --background: 44 48% 96%;      /* Light Cream */
+    --foreground: 268 56% 10%;     /* Deepest Purple */
+    --card: 0 0% 100%;
+    --card-foreground: 268 56% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 268 56% 10%;
+    --primary: 268 60% 30%;        /* Solid Purple Primary in Light */
+    --primary-foreground: 44 48% 96%;
+    --secondary: 268 20% 88%;
+    --secondary-foreground: 268 56% 15%;
+    --muted: 268 15% 90%;
+    --muted-foreground: 268 20% 45%;
+    --accent: 157 80% 40%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 268 20% 82%;
+    --input: 268 20% 88%;
+    --ring: 268 60% 30%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-[#00ff9d] selection:text-[#0a0510];
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Accessibility: Visible Focus Indicators and Reduced Motion Compliance */
+@layer utilities {
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-all;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Custom Scrollbar for Terminal Console Vibe */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0510;
+}
+::-webkit-scrollbar-thumb {
+  background: #2d1645;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00ff9d;
+}

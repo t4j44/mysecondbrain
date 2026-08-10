@@ -1,0 +1,61 @@
+name: Security & Quality CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  security-audit:
+    name: Security & Quality Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy bandit pytest pytest-cov -r apps/api/requirements.txt
+
+      - name: Run Ruff Linter
+        run: |
+          ruff check apps/api apps/mcp-server
+
+      - name: Run Bandit Security Scanner
+        run: |
+          bandit -r apps/api apps/mcp-server -x tests
+
+      - name: Run Pytest Security & Backend Suite
+        env:
+          SUPABASE_URL: "https://mock.supabase.co"
+          SUPABASE_SERVICE_ROLE_KEY: "mock_service_role_key_for_testing_only"
+          SUPABASE_JWT_SECRET: "mock_jwt_secret_for_local_pytest_suite_only_32bytes"
+          TOKEN_ENCRYPTION_KEY: "mock_token_encryption_key_for_local_tests"
+          GEMINI_API_KEY: "mock_gemini_key"
+        run: |
+          pytest apps/api/tests/ --cov=apps/api/app --cov-report=term-missing
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Run Frontend Typecheck & Lint
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm lint
+          pnpm typecheck

@@ -1,0 +1,21 @@
+{
+  "name": "tajs-second-brain-monorepo",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "test": "pnpm --filter web test",
+    "lint": "pnpm --filter web lint",
+    "typecheck": "pnpm --filter web typecheck"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "unrs-resolver"
+    ]
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
