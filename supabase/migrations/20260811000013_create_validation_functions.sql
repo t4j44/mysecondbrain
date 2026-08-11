@@ -15,7 +15,7 @@ BEGIN
         IF NOT EXISTS (
             SELECT 1 FROM public.ventures WHERE id = NEW.venture_id AND user_id = NEW.user_id
         ) THEN
-            RAISE EXCEPTION 'Cross-user or non-existent venture reference forbidden.' ERRCODE 'P0001';
+            RAISE EXCEPTION 'Cross-user or non-existent venture reference forbidden.' USING ERRCODE = 'P0001';
         END IF;
     END IF;
     RETURN NEW;
@@ -39,23 +39,23 @@ DECLARE
 BEGIN
     -- Validate Venture Ownership
     IF NEW.venture_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.ventures WHERE id = NEW.venture_id AND user_id = NEW.user_id) THEN
-        RAISE EXCEPTION 'Task venture must belong to the same user.' ERRCODE 'P0001';
+        RAISE EXCEPTION 'Task venture must belong to the same user.' USING ERRCODE = 'P0001';
     END IF;
 
     -- Validate Project Ownership & Venture Compatibility
     IF NEW.project_id IS NOT NULL THEN
         SELECT venture_id INTO proj_venture_id FROM public.projects WHERE id = NEW.project_id AND user_id = NEW.user_id;
         IF NOT FOUND THEN
-            RAISE EXCEPTION 'Task project must belong to the same user.' ERRCODE 'P0001';
+            RAISE EXCEPTION 'Task project must belong to the same user.' USING ERRCODE = 'P0001';
         END IF;
         IF NEW.venture_id IS NOT NULL AND proj_venture_id IS NOT NULL AND NEW.venture_id <> proj_venture_id THEN
-            RAISE EXCEPTION 'Task venture and project venture must be logically compatible.' ERRCODE 'P0001';
+            RAISE EXCEPTION 'Task venture and project venture must be logically compatible.' USING ERRCODE = 'P0001';
         END IF;
     END IF;
 
     -- Validate Person Ownership
     IF NEW.person_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.people WHERE id = NEW.person_id AND user_id = NEW.user_id) THEN
-        RAISE EXCEPTION 'Task cannot reference another users person.' ERRCODE 'P0001';
+        RAISE EXCEPTION 'Task cannot reference another users person.' USING ERRCODE = 'P0001';
     END IF;
 
     RETURN NEW;
@@ -78,7 +78,7 @@ BEGIN
     IF NEW.organization_id IS NOT NULL AND NOT EXISTS (
         SELECT 1 FROM public.organizations WHERE id = NEW.organization_id AND user_id = NEW.user_id
     ) THEN
-        RAISE EXCEPTION 'Person organization must belong to the same user.' ERRCODE 'P0001';
+        RAISE EXCEPTION 'Person organization must belong to the same user.' USING ERRCODE = 'P0001';
     END IF;
     RETURN NEW;
 END;
@@ -98,16 +98,16 @@ SET search_path = public, extensions
 AS $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM public.memories WHERE id = NEW.memory_id AND user_id = NEW.user_id) THEN
-        RAISE EXCEPTION 'Memory must belong to the user.' ERRCODE 'P0001';
+        RAISE EXCEPTION 'Memory must belong to the user.' USING ERRCODE = 'P0001';
     END IF;
     IF TG_TABLE_NAME = 'memory_people' AND NOT EXISTS (SELECT 1 FROM public.people WHERE id = NEW.person_id AND user_id = NEW.user_id) THEN
-        RAISE EXCEPTION 'Memory linked person must belong to the user.' ERRCODE 'P0001';
+        RAISE EXCEPTION 'Memory linked person must belong to the user.' USING ERRCODE = 'P0001';
     END IF;
     IF TG_TABLE_NAME = 'memory_projects' AND NOT EXISTS (SELECT 1 FROM public.projects WHERE id = NEW.project_id AND user_id = NEW.user_id) THEN
-        RAISE EXCEPTION 'Memory linked project must belong to the user.' ERRCODE 'P0001';
+        RAISE EXCEPTION 'Memory linked project must belong to the user.' USING ERRCODE = 'P0001';
     END IF;
     IF TG_TABLE_NAME = 'memory_ventures' AND NOT EXISTS (SELECT 1 FROM public.ventures WHERE id = NEW.venture_id AND user_id = NEW.user_id) THEN
-        RAISE EXCEPTION 'Memory linked venture must belong to the user.' ERRCODE 'P0001';
+        RAISE EXCEPTION 'Memory linked venture must belong to the user.' USING ERRCODE = 'P0001';
     END IF;
     RETURN NEW;
 END;
@@ -137,7 +137,7 @@ SET search_path = public, extensions
 AS $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM public.documents WHERE id = NEW.document_id AND user_id = NEW.user_id) THEN
-        RAISE EXCEPTION 'Document must belong to the user.' ERRCODE 'P0001';
+        RAISE EXCEPTION 'Document must belong to the user.' USING ERRCODE = 'P0001';
     END IF;
     RETURN NEW;
 END;
@@ -162,10 +162,10 @@ SET search_path = public, extensions
 AS $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM public.interactions WHERE id = NEW.interaction_id AND user_id = NEW.user_id) THEN
-        RAISE EXCEPTION 'Interaction must belong to the user.' ERRCODE 'P0001';
+        RAISE EXCEPTION 'Interaction must belong to the user.' USING ERRCODE = 'P0001';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM public.people WHERE id = NEW.person_id AND user_id = NEW.user_id) THEN
-        RAISE EXCEPTION 'Participant person must belong to the user.' ERRCODE 'P0001';
+        RAISE EXCEPTION 'Participant person must belong to the user.' USING ERRCODE = 'P0001';
     END IF;
     RETURN NEW;
 END;

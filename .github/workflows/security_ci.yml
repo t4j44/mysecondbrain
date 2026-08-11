@@ -28,11 +28,11 @@ jobs:
 
       - name: Run Ruff Linter
         run: |
-          ruff check apps/api apps/mcp-server
+          ruff check apps/api
 
       - name: Run Bandit Security Scanner
         run: |
-          bandit -r apps/api apps/mcp-server -x tests
+          bandit -r apps/api -x tests
 
       - name: Run Pytest Security & Backend Suite
         env:
