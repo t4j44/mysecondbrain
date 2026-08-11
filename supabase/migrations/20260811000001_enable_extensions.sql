@@ -23,5 +23,3 @@ CREATE EXTENSION IF NOT EXISTS "citext" WITH SCHEMA extensions;
 -- 5. pg_trgm: Required for trigram index generation to enable fast fuzzy keyword and similarity searches
 CREATE EXTENSION IF NOT EXISTS "pg_trgm" WITH SCHEMA extensions;
 
--- Ensure extensions are in default search path
-ALTER DATABASE CURRENT SET search_path TO public, extensions;
