@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # Security & Encryption Credentials
     JWT_SECRET: str = "placeholder_jwt_secret_key_at_least_32_chars_long_for_testing"
-    SUPABASE_JWT_SECRET: str = "placeholder_jwt_secret_key_at_least_32_chars_long_for_testing"
+    SUPABASE_JWT_SECRET: str = ""  # Temporary migration / local test fallback for legacy HS256 tokens
     JWT_ALGORITHM: str = "HS256"
     TOKEN_ENCRYPTION_KEY: str = "tajs_second_brain_secure_master_token_key_for_dev_and_tests"
 
@@ -28,9 +28,11 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = "placeholder_openai_key"
     OPENAI_MODEL: str = "gpt-4o"
 
-    # Storage & Integrations
+    # Supabase Integration & Storage
     SUPABASE_URL: str = ""
-    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    SUPABASE_SECRET_KEY: str = ""  # Primary modern server secret key (sb_secret_...)
+    SUPABASE_SERVICE_ROLE_KEY: str = ""  # Backward-compatible legacy fallback key
+    SUPABASE_JWKS_URL: str = ""  # Optional JWKS URL override
     STORAGE_BUCKET_DOCUMENTS: str = "brain-documents"
     FRONTEND_URL: str = "http://localhost:3000"
     MAX_FILE_SIZE_MB: int = 50
@@ -52,6 +54,20 @@ class Settings(BaseSettings):
         "testserver:*",
     ]
 
+    @property
+    def supabase_secret(self) -> str:
+        """Returns the primary modern secret key (sb_secret_...) or legacy service_role key fallback."""
+        return self.SUPABASE_SECRET_KEY or self.SUPABASE_SERVICE_ROLE_KEY
+
+    @property
+    def supabase_jwks_url(self) -> str:
+        """Returns configured JWKS URL or auto-derives from SUPABASE_URL."""
+        if self.SUPABASE_JWKS_URL:
+            return self.SUPABASE_JWKS_URL
+        if self.SUPABASE_URL:
+            return f"{self.SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
+        return ""
+
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() == "production" or self.APP_ENV.lower() == "production"
 
@@ -62,8 +78,6 @@ class Settings(BaseSettings):
 
         required_secrets = {
             "SUPABASE_URL": self.SUPABASE_URL,
-            "SUPABASE_SERVICE_ROLE_KEY": self.SUPABASE_SERVICE_ROLE_KEY,
-            "SUPABASE_JWT_SECRET": self.SUPABASE_JWT_SECRET,
             "TOKEN_ENCRYPTION_KEY": self.TOKEN_ENCRYPTION_KEY,
         }
         invalid = [
@@ -71,6 +85,10 @@ class Settings(BaseSettings):
             for name, value in required_secrets.items()
             if not value or value.lower().startswith(("placeholder", "your-", "tajs_second_brain"))
         ]
+        secret = self.supabase_secret
+        if not secret or secret.lower().startswith(("placeholder", "your-", "tajs_second_brain")):
+            invalid.append("SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY)")
+
         if invalid:
             raise ValueError(
                 "Production configuration is missing real values for: " + ", ".join(invalid)

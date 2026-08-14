@@ -12,11 +12,11 @@ from app.utils.files import calculate_checksum, validate_upload_file
 class StorageService:
     def __init__(self, bucket_name: str = settings.STORAGE_BUCKET_DOCUMENTS):
         self.bucket_name = bucket_name
-        self.use_supabase = bool(settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY)
+        self.use_supabase = bool(settings.SUPABASE_URL and settings.supabase_secret)
         if settings.is_production() and not self.use_supabase:
             raise RuntimeError(
                 "Production document storage requires SUPABASE_URL and "
-                "SUPABASE_SERVICE_ROLE_KEY."
+                "SUPABASE_SECRET_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY)."
             )
 
         # Local disk is an explicit development fallback only. Production uses
@@ -31,9 +31,10 @@ class StorageService:
 
     @property
     def _service_headers(self) -> dict[str, str]:
+        secret_key = settings.supabase_secret
         return {
-            "apikey": settings.SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",
+            "apikey": secret_key,
+            "Authorization": f"Bearer {secret_key}",
         }
 
     async def save_upload(

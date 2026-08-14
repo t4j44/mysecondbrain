@@ -12,7 +12,7 @@ client = TestClient(app)
 def create_mock_jwt(
     user_id: str, secret: str = None, alg: str = "HS256", expired: bool = False
 ) -> str:
-    secret = secret or settings.SUPABASE_JWT_SECRET
+    secret = secret or settings.SUPABASE_JWT_SECRET or settings.JWT_SECRET
     payload = {
         "sub": user_id,
         "aud": "authenticated",

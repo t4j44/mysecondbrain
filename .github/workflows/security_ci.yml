@@ -37,6 +37,7 @@ jobs:
       - name: Run Pytest Security & Backend Suite
         env:
           SUPABASE_URL: "https://mock.supabase.co"
+          SUPABASE_SECRET_KEY: "sb_secret_mock_secret_key_for_testing_only"
           SUPABASE_SERVICE_ROLE_KEY: "mock_service_role_key_for_testing_only"
           SUPABASE_JWT_SECRET: "mock_jwt_secret_for_local_pytest_suite_only_32bytes"
           TOKEN_ENCRYPTION_KEY: "mock_token_encryption_key_for_local_tests"
