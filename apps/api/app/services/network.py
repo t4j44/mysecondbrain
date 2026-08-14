@@ -3,7 +3,7 @@ from typing import Any, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
-from app.core.pagination import PaginatedResponse, PaginationParams
+from app.core.pagination import PaginatedResult, PaginationParams
 from app.models.entities import Interaction, Meeting, Organization, Person
 from app.repositories.network import (
     InteractionRepository,
@@ -27,7 +27,7 @@ class PersonService:
 
     async def list_people(
         self, pagination: PaginationParams, **filters
-    ) -> PaginatedResponse[Person]:
+    ) -> PaginatedResult[Person]:
         return await self.repo.list(self.db, self.user_id, pagination=pagination, **filters)
 
     async def get_person(self, id: str) -> Person:
@@ -65,7 +65,7 @@ class OrganizationService:
 
     async def list_organizations(
         self, pagination: PaginationParams
-    ) -> PaginatedResponse[Organization]:
+    ) -> PaginatedResult[Organization]:
         return await self.repo.list(self.db, self.user_id, pagination=pagination)
 
 
@@ -83,7 +83,7 @@ class InteractionService:
 
     async def list_interactions(
         self, pagination: PaginationParams
-    ) -> PaginatedResponse[Interaction]:
+    ) -> PaginatedResult[Interaction]:
         return await self.repo.list(self.db, self.user_id, pagination=pagination)
 
 
@@ -99,5 +99,5 @@ class MeetingService:
         await self.db.commit()
         return res
 
-    async def list_meetings(self, pagination: PaginationParams) -> PaginatedResponse[Meeting]:
+    async def list_meetings(self, pagination: PaginationParams) -> PaginatedResult[Meeting]:
         return await self.repo.list(self.db, self.user_id, pagination=pagination)

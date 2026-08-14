@@ -10,7 +10,7 @@ from app.core.errors import (
     NotFoundError,
     ValidationError,
 )
-from app.core.pagination import PaginatedResponse, PaginationParams
+from app.core.pagination import PaginatedResult, PaginationParams
 from app.models.entities import KPI, KPIEntry, Profile, Project, Task, Venture, WeeklyReview
 from app.repositories.knowledge import (
     KPIEntryRepository,
@@ -94,7 +94,7 @@ class VentureService:
 
     async def list_ventures(
         self, pagination: PaginationParams, **filters
-    ) -> PaginatedResponse[Venture]:
+    ) -> PaginatedResult[Venture]:
         return await self.repo.list(self.db, self.user_id, pagination=pagination, **filters)
 
     async def get_venture(self, id: str) -> Venture:
@@ -154,7 +154,7 @@ class ProjectService:
 
     async def list_projects(
         self, pagination: PaginationParams, venture_id: Optional[str] = None
-    ) -> PaginatedResponse[Project]:
+    ) -> PaginatedResult[Project]:
         filters = {}
         if venture_id:
             filters["venture_id"] = venture_id
@@ -195,7 +195,7 @@ class TaskService:
 
     async def list_tasks(
         self, pagination: PaginationParams, status: Optional[str] = None
-    ) -> PaginatedResponse[Task]:
+    ) -> PaginatedResult[Task]:
         filters = {}
         if status:
             filters["status"] = status
@@ -240,7 +240,7 @@ class KPIService:
 
     async def list_kpis(
         self, pagination: PaginationParams, category: Optional[str] = None
-    ) -> PaginatedResponse[KPI]:
+    ) -> PaginatedResult[KPI]:
         filters = {}
         if category:
             filters["category"] = category
@@ -270,7 +270,7 @@ class ReviewService:
         await self.db.commit()
         return res
 
-    async def list_reviews(self, pagination: PaginationParams) -> PaginatedResponse[WeeklyReview]:
+    async def list_reviews(self, pagination: PaginationParams) -> PaginatedResult[WeeklyReview]:
         return await self.repo.list(self.db, self.user_id, pagination)
 
 

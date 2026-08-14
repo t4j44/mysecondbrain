@@ -3,7 +3,7 @@ from typing import Any, Dict, Generic, Optional, Type, TypeVar
 from sqlalchemy import asc, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.pagination import PaginatedResponse, PaginationParams, validate_sort_field
+from app.core.pagination import PaginatedResult, PaginationParams, validate_sort_field
 from app.models.entities import Base
 
 ModelType = TypeVar("ModelType", bound=Base)
@@ -39,7 +39,7 @@ class BaseRepository(Generic[ModelType]):
         include_archived: Any = False,
         allowlist_sort_fields: Any = None,
         **filters: Any,
-    ) -> PaginatedResponse[ModelType]:
+    ) -> PaginatedResult[ModelType]:
         stmt = select(self.model).where(self.model.user_id == user_id)
         count_stmt = (
             select(func.count()).select_from(self.model).where(self.model.user_id == user_id)
@@ -76,7 +76,7 @@ class BaseRepository(Generic[ModelType]):
         result = await db.execute(stmt)
         items = list(result.scalars().all())
 
-        return PaginatedResponse.create(
+        return PaginatedResult.create(
             items=items,
             total=total,
             limit=pagination.limit,

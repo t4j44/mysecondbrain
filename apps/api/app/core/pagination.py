@@ -1,6 +1,7 @@
-from typing import Generic, List, Optional, TypeVar
+from dataclasses import dataclass
+from typing import Any, Dict, Generic, List, Optional, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 
@@ -16,12 +17,62 @@ class PaginationParams(BaseModel):
     sort_order: str = Field(default="desc", description="Sort order: asc or desc")
 
 
-class PaginatedResponse(BaseModel, Generic[T]):
+@dataclass
+class PaginatedResult(Generic[T]):
+    """
+    Internal pagination result container for repository and domain service layers.
+    Decoupled from Pydantic schema generation so SQLAlchemy ORM models can be
+    safely contained without triggering PydanticSchemaGenerationError.
+    """
+
     items: List[T]
     total: int
     limit: int
     offset: int
     has_more: bool
+
+    @classmethod
+    def create(cls, items: List[T], total: int, limit: int, offset: int) -> "PaginatedResult[T]":
+        return cls(
+            items=items,
+            total=total,
+            limit=limit,
+            offset=offset,
+            has_more=(offset + len(items)) < total,
+        )
+
+    def model_dump(self) -> Dict[str, Any]:
+        return {
+            "items": self.items,
+            "total": self.total,
+            "limit": self.limit,
+            "offset": self.offset,
+            "has_more": self.has_more,
+        }
+
+    def dict(self) -> Dict[str, Any]:
+        return self.model_dump()
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """
+    Pydantic response schema for FastAPI public HTTP endpoint serialization.
+    Used exclusively with Pydantic DTO models (e.g. MemoryResponse, IdeaResponse).
+    """
+
+    items: List[T]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+    model_config = ConfigDict(from_attributes=True)
 
     @classmethod
     def create(cls, items: List[T], total: int, limit: int, offset: int) -> "PaginatedResponse[T]":

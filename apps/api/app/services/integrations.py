@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.background import BackgroundTasks
 
-from app.core.pagination import PaginatedResponse, PaginationParams
+from app.core.pagination import PaginatedResult, PaginationParams
 from app.integrations.google_client import GoogleIntegrationService
 from app.models.entities import AuditLog, ExportRecord, Integration, JobRecord
 from app.repositories.integrations import (
@@ -23,7 +23,7 @@ class IntegrationManagementService:
 
     async def list_integrations(
         self, pagination: PaginationParams
-    ) -> PaginatedResponse[Integration]:
+    ) -> PaginatedResult[Integration]:
         return await self.repo.list(self.db, self.user_id, pagination=pagination)
 
     async def handle_google_callback(self, code: str, state: Optional[str]) -> Dict[str, Any]:
@@ -102,7 +102,7 @@ class ExportService:
 
     async def get_export_history(
         self, pagination: PaginationParams
-    ) -> PaginatedResponse[ExportRecord]:
+    ) -> PaginatedResult[ExportRecord]:
         return await self.repo.list(self.db, self.user_id, pagination=pagination)
 
 
@@ -136,7 +136,7 @@ class AuditService:
 
     async def list_audit_logs(
         self, pagination: PaginationParams, event_type: Optional[str] = None
-    ) -> PaginatedResponse[AuditLog]:
+    ) -> PaginatedResult[AuditLog]:
         filters = {}
         if event_type:
             filters["event_type"] = event_type

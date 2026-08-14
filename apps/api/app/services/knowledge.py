@@ -8,7 +8,7 @@ from app.ai.prompts import get_system_prompt
 from app.ai.provider import get_llm_provider
 from app.ai.retrieval import format_rag_context, perform_hybrid_search
 from app.core.errors import ConflictError, ErrorCode, NotFoundError
-from app.core.pagination import PaginatedResponse, PaginationParams
+from app.core.pagination import PaginatedResult, PaginationParams
 from app.integrations.storage_client import StorageService
 from app.models.entities import (
     Achievement,
@@ -48,7 +48,7 @@ class MemoryService:
 
     async def list_memories(
         self, pagination: PaginationParams, type: Optional[str] = None
-    ) -> PaginatedResponse[Memory]:
+    ) -> PaginatedResult[Memory]:
         filters = {}
         if type:
             filters["type"] = type
@@ -76,7 +76,7 @@ class IdeaService:
 
     async def list_ideas(
         self, pagination: PaginationParams, status: Optional[str] = None
-    ) -> PaginatedResponse[Idea]:
+    ) -> PaginatedResult[Idea]:
         filters = {}
         if status:
             filters["status"] = status
@@ -125,7 +125,7 @@ class DecisionService:
         await self.db.commit()
         return res
 
-    async def list_decisions(self, pagination: PaginationParams) -> PaginatedResponse[Decision]:
+    async def list_decisions(self, pagination: PaginationParams) -> PaginatedResult[Decision]:
         return await self.repo.list(self.db, self.user_id, pagination)
 
 
@@ -187,7 +187,7 @@ class DocumentService:
 
         return doc
 
-    async def list_documents(self, pagination: PaginationParams) -> PaginatedResponse[Document]:
+    async def list_documents(self, pagination: PaginationParams) -> PaginatedResult[Document]:
         return await self.repo.list(self.db, self.user_id, pagination)
 
 
@@ -260,7 +260,7 @@ class AchievementService:
 
     async def list_achievements(
         self, pagination: PaginationParams
-    ) -> PaginatedResponse[Achievement]:
+    ) -> PaginatedResult[Achievement]:
         return await self.repo.list(self.db, self.user_id, pagination)
 
 
@@ -278,7 +278,7 @@ class PortfolioService:
 
     async def list_case_studies(
         self, pagination: PaginationParams
-    ) -> PaginatedResponse[PortfolioCaseStudy]:
+    ) -> PaginatedResult[PortfolioCaseStudy]:
         return await self.repo.list(self.db, self.user_id, pagination)
 
 
@@ -308,7 +308,7 @@ class ContentService:
 
     async def list_content(
         self, pagination: PaginationParams, content_type: Optional[str] = None
-    ) -> PaginatedResponse[ContentItem]:
+    ) -> PaginatedResult[ContentItem]:
         filters = {}
         if content_type:
             filters["content_type"] = content_type
