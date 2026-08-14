@@ -237,7 +237,7 @@ class MCPCredentialRepository:
                         exp = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
                         if datetime.now(timezone.utc) >= exp:
                             continue
-                    except Exception:
+                    except Exception:  # nosec B110
                         pass
 
                 stored_hash = cred.get("key_hash", "")

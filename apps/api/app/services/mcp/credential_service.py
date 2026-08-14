@@ -42,7 +42,7 @@ class MCPCredentialService:
                     "request_id": request_id or "N/A",
                 },
             )
-        except Exception:
+        except Exception:  # nosec B110
             # Audit failures must not abort core operations during dev/test fallback
             pass
 

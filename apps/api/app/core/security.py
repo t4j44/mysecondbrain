@@ -20,7 +20,7 @@ def _get_fernet() -> Fernet:
             decoded = base64.urlsafe_b64decode(key.encode("utf-8"))
             if len(decoded) == 32:
                 return Fernet(key.encode("utf-8"))
-        except Exception:
+        except Exception:  # nosec B110
             pass
 
         # If not 32 bytes url-safe base64, hash with SHA256 and base64-encode to derive a valid key

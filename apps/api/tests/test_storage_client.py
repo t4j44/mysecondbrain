@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import httpx
 import pytest
 from pydantic import ValidationError
 
@@ -101,3 +102,90 @@ async def test_development_storage_uses_local_fallback(
 
     expected = tmp_path / ".storage_buckets" / storage.bucket_name / relative_path
     assert expected.read_bytes() == b"local development only"
+
+    # Test local signed URL
+    local_signed = await storage.get_signed_url(relative_path)
+    assert f"/api/storage/{storage.bucket_name}/{relative_path}" in local_signed
+
+    # Test local delete
+    deleted = await storage.delete_file(relative_path)
+    assert deleted is True
+    assert not expected.exists()
+
+
+@pytest.mark.asyncio
+async def test_supabase_save_upload_with_secret_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "SUPABASE_URL", "https://prod.supabase.co")
+    monkeypatch.setattr(settings, "SUPABASE_SECRET_KEY", "sb_secret_test_upload_key_123")
+    monkeypatch.setattr(settings, "SUPABASE_SERVICE_ROLE_KEY", "")
+
+    recorded_requests = []
+
+    async def mock_post(self, url, headers=None, content=None, **kwargs):
+        recorded_requests.append({"url": str(url), "headers": headers, "content": content})
+        req = httpx.Request("POST", str(url), headers=headers)
+        return httpx.Response(200, json={"Key": "test-key"}, request=req)
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
+
+    storage = StorageService(bucket_name="test-bucket")
+    sanitized, ext, size, checksum, relative_path = await storage.save_upload(
+        "usr_123", "test_file.txt", b"secret storage content", "text/plain"
+    )
+
+    assert len(recorded_requests) == 1
+    req = recorded_requests[0]
+    assert req["url"].startswith("https://prod.supabase.co/storage/v1/object/test-bucket/usr_123/")
+    assert req["headers"]["apikey"] == "sb_secret_test_upload_key_123"
+    assert req["headers"]["Authorization"] == "Bearer sb_secret_test_upload_key_123"
+    assert req["headers"]["x-upsert"] == "false"
+    assert req["content"] == b"secret storage content"
+    assert sanitized == "test_file.txt"
+    assert ext == "txt"
+    assert size == len(b"secret storage content")
+
+
+@pytest.mark.asyncio
+async def test_supabase_get_signed_url_with_secret_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "SUPABASE_URL", "https://prod.supabase.co")
+    monkeypatch.setattr(settings, "SUPABASE_SECRET_KEY", "sb_secret_test_sign_key_456")
+    monkeypatch.setattr(settings, "SUPABASE_SERVICE_ROLE_KEY", "")
+
+    async def mock_post(self, url, headers=None, json=None, **kwargs):
+        assert headers["apikey"] == "sb_secret_test_sign_key_456"
+        assert headers["Authorization"] == "Bearer sb_secret_test_sign_key_456"
+        assert json == {"expiresIn": 1800}
+        req = httpx.Request("POST", str(url), headers=headers)
+        return httpx.Response(
+            200,
+            json={"signedURL": "/object/sign/test-bucket/usr_123/file.txt?token=xyz"},
+            request=req,
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
+
+    storage = StorageService(bucket_name="test-bucket")
+    signed_url = await storage.get_signed_url("usr_123/file.txt", expires_seconds=1800)
+    assert signed_url == "https://prod.supabase.co/storage/v1/object/sign/test-bucket/usr_123/file.txt?token=xyz"
+
+
+@pytest.mark.asyncio
+async def test_supabase_delete_file_with_secret_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "SUPABASE_URL", "https://prod.supabase.co")
+    monkeypatch.setattr(settings, "SUPABASE_SECRET_KEY", "sb_secret_test_del_key_789")
+    monkeypatch.setattr(settings, "SUPABASE_SERVICE_ROLE_KEY", "")
+
+    async def mock_request(self, method, url, headers=None, json=None, **kwargs):
+        assert method == "DELETE"
+        assert url == "https://prod.supabase.co/storage/v1/object/test-bucket"
+        assert headers["apikey"] == "sb_secret_test_del_key_789"
+        assert headers["Authorization"] == "Bearer sb_secret_test_del_key_789"
+        assert json == {"prefixes": ["usr_123/file.txt"]}
+        req = httpx.Request(method, str(url), headers=headers)
+        return httpx.Response(200, json={"message": "Successfully deleted"}, request=req)
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", mock_request)
+
+    storage = StorageService(bucket_name="test-bucket")
+    success = await storage.delete_file("usr_123/file.txt")
+    assert success is True
