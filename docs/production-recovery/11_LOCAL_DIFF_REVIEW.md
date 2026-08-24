@@ -166,7 +166,7 @@ Local tree contained substantial recovery/audit work not on GitHub `main` (~Aug 
 
 ```
 BRANCH: recovery/core-daily-driver
-COMMIT SHA: a4e947b7dbf7cafdbccb69955ccbb11347172e66
+COMMIT SHA: 368e507f2994b11b9505de6101046e4bd072245e
 FILES CHANGED: ~80+ (57 tracked modifications + 30 untracked additions − scratch scripts)
 TESTS PASSED: Backend 64/64; Frontend unit 14/14; Ruff PASS; Mypy PASS; Typecheck PASS; Lint PASS; Build PASS
 TESTS FAILED: 0
