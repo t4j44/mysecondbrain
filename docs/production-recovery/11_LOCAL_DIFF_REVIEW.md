@@ -151,44 +151,33 @@ Local tree contained substantial recovery/audit work not on GitHub `main` (~Aug 
 
 ---
 
-## Verification Matrix (fill after runs)
-
-| Suite | Command | Result |
-|-------|---------|--------|
-| Backend pytest | `python -m pytest apps/api/tests/ -v` (from `apps/api` or PYTHONPATH) | _pending_ |
-| Ruff | `ruff check apps/api` | _pending_ |
-| Mypy | `mypy apps/api/app` | _pending_ |
-| Frontend unit | `pnpm --filter @second-brain/web test` | _pending_ |
-| Frontend typecheck | `pnpm --filter @second-brain/web typecheck` | _pending_ |
-| Frontend lint | `pnpm --filter @second-brain/web lint` | _pending_ |
-| Frontend build | `pnpm --filter @second-brain/web build` | _pending_ |
-| Playwright | auth fixture | **BLOCKED** (no verified auth fixture) |
-
----
-
-## Commit Structure (Authorized)
-
-1. `docs: add independent final audit`  
-2. `fix: reconcile recovery foundation`  
-3. `test: repair CI and verification gates`
-
-No push. No commit to `main`.
+| Backend pytest | `python -m pytest apps/api/tests/ -v` | **64 passed / 0 failed** |
+| Ruff | `ruff check apps/api` | **PASS** |
+| Mypy | `mypy apps/api/app` | **PASS** (113 files) |
+| Frontend unit | `pnpm --filter @second-brain/web test` | **14 passed / 0 failed** (6 files) |
+| Frontend typecheck | `pnpm --filter @second-brain/web typecheck` | **PASS** |
+| Frontend lint | `pnpm --filter @second-brain/web lint` | **PASS** |
+| Frontend build | `pnpm --filter @second-brain/web build` | **PASS** |
+| Playwright | auth fixture | **BLOCKED** (no verified auth fixture; CI documents deferral to Prompt 3) |
 
 ---
 
 ## Prompt 1 Exit Report
 
-*(Updated after verification + commits)*
-
 ```
 BRANCH: recovery/core-daily-driver
-COMMIT SHA: <pending>
-FILES CHANGED: <pending>
-TESTS PASSED: <pending>
-TESTS FAILED: <pending>
+COMMIT SHA: <set after commits>
+FILES CHANGED: ~80+ (57 tracked modifications + 30 untracked additions − scratch scripts)
+TESTS PASSED: Backend 64/64; Frontend unit 14/14; Ruff PASS; Mypy PASS; Typecheck PASS; Lint PASS; Build PASS
+TESTS FAILED: 0
 TESTS BLOCKED: Playwright E2E (no auth fixture)
 
-RECOVERY BRANCH STATUS: <READY FOR CORE FRONTEND | NOT READY>
+RECOVERY BRANCH STATUS: READY FOR CORE FRONTEND
 ```
 
-Prompt 2 must start only if status is **READY FOR CORE FRONTEND**.
+**Prompt 2 may proceed** on this branch. Playwright gate remains **Prompt 3** with a fresh QA session.
+
+**Known deferred (not Prompt 1 blockers):**
+- Ventures/Projects/Tasks UI may still be stub/minimal — Prompt 2 owns wiring
+- RAG hardcoded scores / simulated Google — Prompts 4–7
+- `finalize_work_session` productization — Prompt 5
