@@ -1,8 +1,9 @@
 """Official MCP SDK server mounted into the unified FastAPI process."""
 
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from mcp.server import MCPServer
+from pydantic import AnyHttpUrl
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.auth.settings import AuthSettings
@@ -53,13 +54,17 @@ mcp_server = MCPServer(
     version="1.0.0",
     token_verifier=DatabaseTokenVerifier(),
     auth=AuthSettings(
-        issuer_url=settings.MCP_ISSUER_URL,
-        resource_server_url=settings.MCP_RESOURCE_SERVER_URL,
+        issuer_url=cast(AnyHttpUrl, settings.MCP_ISSUER_URL),
+        resource_server_url=cast(AnyHttpUrl, settings.MCP_RESOURCE_SERVER_URL),
     ),
 )
 
-READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
-DRAFT_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
+READ_ONLY = ToolAnnotations(
+    read_only_hint=True, destructive_hint=False, open_world_hint=False
+)
+DRAFT_ONLY = ToolAnnotations(
+    read_only_hint=True, destructive_hint=False, open_world_hint=False
+)
 
 
 def _authenticated_user_id(required_scope: str) -> str:

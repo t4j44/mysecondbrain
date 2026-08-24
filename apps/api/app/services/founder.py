@@ -22,7 +22,13 @@ from app.repositories.profiles import ProfileRepository
 from app.repositories.projects import ProjectRepository
 from app.repositories.tasks import TaskRepository
 from app.repositories.ventures import VentureRepository
-from app.schemas import DashboardInsightsResponse, DashboardSummaryResponse
+from app.schemas.founder import (
+    DashboardInsightsResponse,
+    DashboardSummaryResponse,
+    KPIResponse,
+    TaskResponse,
+)
+from app.schemas.knowledge import MemoryResponse
 from app.utils.dates import get_user_today_bounds, validate_date_range
 from app.utils.identifiers import slugify
 
@@ -329,10 +335,10 @@ class DashboardService:
         return DashboardSummaryResponse(
             active_ventures_count=v_count,
             in_progress_projects_count=p_count,
-            tasks_today=[t for t in today_tasks],
-            overdue_tasks=[t for t in overdue],
-            recent_memories=[m for m in memories],
-            kpi_highlights=[k for k in kpis][:4],
+            tasks_today=[TaskResponse.model_validate(t) for t in today_tasks],
+            overdue_tasks=[TaskResponse.model_validate(t) for t in overdue],
+            recent_memories=[MemoryResponse.model_validate(m) for m in memories],
+            kpi_highlights=[KPIResponse.model_validate(k) for k in kpis][:4],
         )
 
     async def get_insights(self) -> DashboardInsightsResponse:

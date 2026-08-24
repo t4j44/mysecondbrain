@@ -156,8 +156,8 @@ class DocumentExtractor:
 
     @staticmethod
     def _extract_pdf(content: bytes) -> tuple[str, int, Dict[str, Any]]:
-        from pypdf import PdfReader
-        from pypdf.errors import PdfReadError
+        from pypdf import PdfReader  # type: ignore[import-not-found]
+        from pypdf.errors import PdfReadError  # type: ignore[import-not-found]
 
         try:
             reader = PdfReader(io.BytesIO(content))

@@ -14,7 +14,9 @@ from app.dependencies.auth import AuthenticatedUser, get_current_user
 from app.dependencies.database import get_db_session
 from app.schemas.mcp import (
     MCPCredentialCreateRequest,
+    MCPCredentialCreateResponse,
     MCPCredentialListResponse,
+    MCPCredentialMeta,
     MCPCredentialSecretResponse,
     MCPCredentialSingleResponse,
 )
@@ -41,7 +43,10 @@ async def list_credentials(
 ) -> MCPCredentialListResponse:
     creds = await service.list_credentials(db, user_id=current_user.id)
     req_id = getattr(request.state, "request_id", "N/A")
-    return MCPCredentialListResponse(data=creds, meta=build_meta(req_id))
+    return MCPCredentialListResponse(
+        data=[MCPCredentialMeta.model_validate(c) for c in creds],
+        meta=build_meta(req_id),
+    )
 
 
 @router.post(
@@ -59,7 +64,10 @@ async def create_credential(
     req_id = getattr(request.state, "request_id", "N/A")
     cred = await service.create_credential(db, user_id=current_user.id, req=body, request_id=req_id)
     await db.commit()
-    return MCPCredentialSecretResponse(data=cred, meta=build_meta(req_id))
+    return MCPCredentialSecretResponse(
+        data=MCPCredentialCreateResponse.model_validate(cred),
+        meta=build_meta(req_id),
+    )
 
 
 @router.get(
@@ -78,7 +86,10 @@ async def get_credential(
             detail="Requested MCP credential was not found in your workspace.",
         )
     req_id = getattr(request.state, "request_id", "N/A")
-    return MCPCredentialSingleResponse(data=cred, meta=build_meta(req_id))
+    return MCPCredentialSingleResponse(
+        data=MCPCredentialMeta.model_validate(cred),
+        meta=build_meta(req_id),
+    )
 
 
 @router.post(
@@ -102,7 +113,10 @@ async def rotate_credential(
             detail="Requested MCP credential was not found in your workspace.",
         )
     await db.commit()
-    return MCPCredentialSecretResponse(data=cred, meta=build_meta(req_id))
+    return MCPCredentialSecretResponse(
+        data=MCPCredentialCreateResponse.model_validate(cred),
+        meta=build_meta(req_id),
+    )
 
 
 @router.post(
@@ -126,7 +140,10 @@ async def revoke_credential(
             detail="Requested MCP credential was not found in your workspace.",
         )
     await db.commit()
-    return MCPCredentialSingleResponse(data=cred, meta=build_meta(req_id))
+    return MCPCredentialSingleResponse(
+        data=MCPCredentialMeta.model_validate(cred),
+        meta=build_meta(req_id),
+    )
 
 
 @router.delete(
