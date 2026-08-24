@@ -151,14 +151,22 @@ Local tree contained substantial recovery/audit work not on GitHub `main` (~Aug 
 
 ---
 
+## Verification Matrix (2026-08-25 re-run)
+
+| Suite | Command | Result |
+|-------|---------|--------|
 | Backend pytest | `python -m pytest apps/api/tests/ -v` | **64 passed / 0 failed** |
-| Ruff | `ruff check apps/api` | **PASS** |
-| Mypy | `mypy apps/api/app` | **PASS** (113 files) |
+| Ruff | `python -m ruff check apps/api` | **PASS** |
+| Mypy | `python -m mypy apps/api/app` | **PASS** (113 files) |
 | Frontend unit | `pnpm --filter @second-brain/web test` | **14 passed / 0 failed** (6 files) |
 | Frontend typecheck | `pnpm --filter @second-brain/web typecheck` | **PASS** |
 | Frontend lint | `pnpm --filter @second-brain/web lint` | **PASS** |
-| Frontend build | `pnpm --filter @second-brain/web build` | **PASS** |
+| Frontend build | `pnpm --filter @second-brain/web build` (with CI env vars) | **PASS** |
 | Playwright | auth fixture | **BLOCKED** (no verified auth fixture; CI documents deferral to Prompt 3) |
+
+Additional Prompt 1 fixes in verification pass: vitest fail-closed env (`vitest.config.ts`), mypy typing for dashboard summary + MCP credential responses + `ToolAnnotations` snake_case, pypdf import override.
+
+Master plan: [`MASTER_PRODUCTION_PLAN.md`](./MASTER_PRODUCTION_PLAN.md).
 
 ---
 
@@ -166,8 +174,8 @@ Local tree contained substantial recovery/audit work not on GitHub `main` (~Aug 
 
 ```
 BRANCH: recovery/core-daily-driver
-COMMIT SHA: 368e507f2994b11b9505de6101046e4bd072245e
-FILES CHANGED: ~80+ (57 tracked modifications + 30 untracked additions − scratch scripts)
+COMMIT SHA: 6d47fdfe268cd85685e5fc178b8d4e3c1139033d
+FILES CHANGED: 86 files vs main (+9835 / −1811 lines)
 TESTS PASSED: Backend 64/64; Frontend unit 14/14; Ruff PASS; Mypy PASS; Typecheck PASS; Lint PASS; Build PASS
 TESTS FAILED: 0
 TESTS BLOCKED: Playwright E2E (no auth fixture)
