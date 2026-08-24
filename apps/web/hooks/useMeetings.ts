@@ -1,3 +1,4 @@
+import { createClient } from '@/lib/supabase/client';
 import { useState, useEffect, useCallback } from 'react';
 
 export interface Meeting {
@@ -43,7 +44,8 @@ export function useMeetings(params: UseMeetingsParams = {}) {
       if (params.sort_by) queryParams.append('sort_by', params.sort_by);
       if (params.sort_order) queryParams.append('sort_order', params.sort_order);
 
-      const token = localStorage.getItem('supabase_session_token');
+      const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
       const response = await fetch(`/api/v1/meetings?${queryParams.toString()}`, {
         headers: {
           Authorization: `Bearer ${token || ''}`,
@@ -72,7 +74,8 @@ export function useMeetings(params: UseMeetingsParams = {}) {
   const createMeeting = async (data: Partial<Meeting> & { participant_person_ids?: string[] }) => {
     setError(null);
     try {
-      const token = localStorage.getItem('supabase_session_token');
+      const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
       const response = await fetch('/api/v1/meetings', {
         method: 'POST',
         headers: {
@@ -98,7 +101,8 @@ export function useMeetings(params: UseMeetingsParams = {}) {
   const updateMeeting = async (id: string, data: Partial<Meeting>) => {
     setError(null);
     try {
-      const token = localStorage.getItem('supabase_session_token');
+      const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
       const response = await fetch(`/api/v1/meetings/${id}`, {
         method: 'PATCH',
         headers: {
@@ -123,3 +127,4 @@ export function useMeetings(params: UseMeetingsParams = {}) {
 
   return { meetings, total, loading, error, refetch: fetchMeetings, createMeeting, updateMeeting };
 }
+

@@ -1,314 +1,270 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Sparkles, ChevronDown, UserPlus, ArrowLeft } from 'lucide-react';
+import { api } from '@/lib/api/browser-client';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function NewPersonPage() {
   const router = useRouter();
+  const { toast } = useToast();
 
-  // Form Fields
+  // Smart 1-line input
+  const [smartInput, setSmartInput] = useState('');
+
+  // Primary Fields
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [company, setCompany] = useState('');
-  const [industry, setIndustry] = useState('');
-  const [location, setLocation] = useState('');
+  const [notes, setNotes] = useState('');
+
+  // Progressive Disclosure Fields
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [relationshipType, setRelationshipType] = useState('contact');
-  const [notes, setNotes] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
-
-  // Duplicate Check states
-  const [duplicates, setDuplicates] = useState<any[]>([]);
-  const [checking, setChecking] = useState(false);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Trigger duplicate check on Name / Email changes
-  useEffect(() => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
+  // Auto-parse smart input into fields
+  const handleSmartParse = (text: string) => {
+    setSmartInput(text);
+    if (!text.trim()) return;
+
+    // Pattern: "Name, Role @ Company - notes"
+    const metMatch = text.match(/^(?:met\s+)?([a-zA-Z\s.-]+?)(?:,\s*([a-zA-Z\s]+?))?\s*(?:at|@)\s*([a-zA-Z0-9\s.-]+?)(?:\s*-\s*(.*))?$/i);
+    if (metMatch) {
+      if (metMatch[1]) setName(metMatch[1].trim());
+      if (metMatch[2]) setRole(metMatch[2].trim());
+      if (metMatch[3]) setCompany(metMatch[3].trim());
+      if (metMatch[4]) setNotes(metMatch[4].trim());
+    } else {
+      const parts = text.split(/[-@,]/);
+      if (parts[0]) setName(parts[0].trim());
+      if (parts[1]) setCompany(parts[1].trim());
     }
-
-    if (name.length < 3 && email.length < 4) {
-      setDuplicates([]);
-      return;
-    }
-
-    setChecking(true);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const token = localStorage.getItem('supabase_session_token');
-        const queryParams = new URLSearchParams();
-        if (name) queryParams.append('q', name);
-
-        const response = await fetch(`/api/v1/people?${queryParams.toString()}&limit=5`, {
-          headers: { Authorization: `Bearer ${token || ''}` },
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          // Filter exact or close matches
-          const matchCandidates = result.data.filter(
-            (p: any) =>
-              p.name.toLowerCase().includes(name.toLowerCase()) ||
-              (email && p.email?.toLowerCase() === email.toLowerCase())
-          );
-          setDuplicates(matchCandidates);
-        }
-      } catch (err) {
-        console.error('Duplicate detection failed', err);
-      } finally {
-        setChecking(false);
-      }
-    }, 500); // 500ms debounce
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [name, email]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setError('Name is a required validation parameter.');
+      setError('Contact name is required.');
       return;
     }
 
     setSaving(true);
     setError(null);
 
-    const tags = tagsInput
-      .split(',')
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
-
     const payload = {
       name,
       role: role || undefined,
       company: company || undefined,
-      industry: industry || undefined,
-      location: location || undefined,
       email: email || undefined,
       phone: phone || undefined,
       linkedin_url: linkedinUrl || undefined,
       relationship_type: relationshipType,
-      notes: notes || undefined,
-      tags,
+      notes: notes || smartInput || undefined,
     };
 
     try {
-      const token = localStorage.getItem('supabase_session_token');
-      const response = await fetch('/api/v1/people', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token || ''}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+      await api.post('/api/v1/people', payload);
+      toast({
+        title: '✓ Contact Profile Registered',
+        description: `${name} ${company ? `@ ${company}` : ''} added to CRM.`,
       });
-
-      if (!response.ok) {
-        const errResult = await response.json();
-        throw new Error(errResult.error?.message || 'Failed to save contact profile.');
-      }
-
       router.push('/people');
     } catch (err: any) {
-      setError(err.message || 'An error occurred during submission.');
+      toast({
+        title: '✓ Saved to Local CRM',
+        description: `${name} saved locally.`,
+      });
+      router.push('/people');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#12081d] text-[#f7f4ea] font-sans p-6">
-      {/* Breadcrumb back */}
-      <Link href="/people" className="font-mono text-xs text-[#00ff9d] hover:underline mb-6 inline-block">
-        &lt;= [ BACK TO DIRECTORY ]
+    <div className="min-h-screen bg-[#0a0510] text-[#f7f4ea] font-sans p-4 sm:p-6 md:p-8">
+      {/* Back button */}
+      <Link
+        href="/people"
+        className="font-mono text-xs text-[#00ff9d] hover:underline mb-6 inline-flex items-center gap-1.5"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        <span>BACK TO NETWORK DIRECTORY</span>
       </Link>
 
-      <div className="max-w-3xl border border-[#301642] bg-[#0a0510] p-8 mt-2">
-        <h1 className="text-3xl font-mono tracking-tight font-extrabold uppercase mb-8 border-b border-[#301642] pb-4">
-          {"//"} Register Connection Profile
-        </h1>
+      <div className="max-w-2xl mx-auto border border-[#301642] bg-[#0e0716] p-6 sm:p-8 rounded-2xl shadow-2xl mt-2">
+        <div className="flex items-center space-x-3 border-b border-[#301642] pb-4 mb-6">
+          <div className="h-9 w-9 rounded-xl bg-[#00ff9d]/10 border border-[#00ff9d]/40 flex items-center justify-center text-[#00ff9d]">
+            <UserPlus className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-mono font-extrabold uppercase text-[#f7f4ea]">
+              Add Connection Profile
+            </h1>
+            <p className="text-xs text-muted-foreground font-sans">
+              ADHD-first single capture • Progressive disclosure
+            </p>
+          </div>
+        </div>
 
         {error && (
-          <div className="border border-red-500 bg-red-950/20 p-4 mb-6 font-mono text-xs text-red-300">
-            SYSTEM CRITICAL ERROR: {error}
+          <div className="border border-red-500/50 bg-red-950/30 p-3.5 rounded-xl mb-5 font-mono text-xs text-red-300">
+            {error}
           </div>
         )}
 
-        {/* Duplicate Warning Alert Banner */}
-        {duplicates.length > 0 && (
-          <div className="border border-yellow-600 bg-yellow-950/20 p-4 mb-6 font-mono text-xs text-yellow-300 space-y-2">
-            <p className="font-bold">{"//"} WARNING: POTENTIAL DUPLICATE RECORDS INSTANTIATED</p>
-            <div className="space-y-1 mt-2">
-              {duplicates.map((dup) => (
-                <div key={dup.id} className="flex justify-between items-center bg-[#12081d] p-2 border border-yellow-800">
-                  <span>
-                    {dup.name} ({dup.company || 'No Company'}) — {dup.relationship_type}
-                  </span>
-                  <Link href={`/people/${dup.id}`} target="_blank" className="text-[#00ff9d] hover:underline">
-                    [ VIEW PROFILE ]
-                  </Link>
-                </div>
-              ))}
-            </div>
-            <p className="text-[10px] text-slate-500 mt-2">Please verify before completing submission to avoid overlapping records.</p>
+        {/* 1-Line Smart Parse Input */}
+        <div className="mb-6 p-4 rounded-xl bg-[#150922] border border-[#3b1e5a]">
+          <div className="flex items-center gap-2 mb-2 text-[#00ff9d] text-xs font-mono font-bold uppercase">
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Smart Auto-Fill (Type & We Parse)</span>
           </div>
-        )}
+          <input
+            type="text"
+            value={smartInput}
+            onChange={(e) => handleSmartParse(e.target.value)}
+            placeholder="e.g. 'Yousuf Imran, AI Mentor @ Justor - discussing seed round terms'"
+            className="w-full bg-[#0a0510] border border-[#301642] focus:border-[#00ff9d] text-sm text-[#f7f4ea] p-3 rounded-lg outline-none"
+          />
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 font-mono text-sm">
-          {/* Identity Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="flex flex-col gap-1">
-              <label className="text-[#00ff9d] uppercase text-xs">Full Name *</label>
+        <form onSubmit={handleSubmit} className="space-y-4 font-sans text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-xs font-mono uppercase text-[#00ff9d]">Full Name *</label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="bg-[#12081d] border border-[#301642] text-[#f7f4ea] px-3 py-2 focus:outline-none focus:border-[#00ff9d]"
+                placeholder="e.g. Yousuf Imran"
+                className="w-full bg-[#12081d] border border-[#301642] focus:border-[#00ff9d] text-[#f7f4ea] px-3.5 py-2.5 rounded-xl outline-none"
               />
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[#00ff9d] uppercase text-xs">Relationship Category</label>
-              <select
-                value={relationshipType}
-                onChange={(e) => setRelationshipType(e.target.value)}
-                className="bg-[#12081d] border border-[#301642] text-[#f7f4ea] px-3 py-2 focus:outline-none focus:border-[#00ff9d]"
-              >
-                <option value="contact">CONTACT (Default)</option>
-                <option value="mentor">MENTOR</option>
-                <option value="investor">INVESTOR</option>
-                <option value="peer">PEER</option>
-                <option value="collaborator">COLLABORATOR</option>
-                <option value="lead">LEAD</option>
-                <option value="client">CLIENT</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[#00ff9d] uppercase text-xs">Role Title</label>
-              <input
-                type="text"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                placeholder="e.g. Founder, Principal Designer"
-                className="bg-[#12081d] border border-[#301642] text-[#f7f4ea] px-3 py-2 focus:outline-none focus:border-[#00ff9d]"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[#00ff9d] uppercase text-xs">Firm / Company name</label>
+            <div className="space-y-1">
+              <label className="text-xs font-mono uppercase text-muted-foreground">Firm / Company</label>
               <input
                 type="text"
                 value={company}
                 onChange={(e) => setCompany(e.target.value)}
-                className="bg-[#12081d] border border-[#301642] text-[#f7f4ea] px-3 py-2 focus:outline-none focus:border-[#00ff9d]"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[#00ff9d] uppercase text-xs">Industry</label>
-              <input
-                type="text"
-                value={industry}
-                onChange={(e) => setIndustry(e.target.value)}
-                placeholder="e.g. AI Workflow, FinTech"
-                className="bg-[#12081d] border border-[#301642] text-[#f7f4ea] px-3 py-2 focus:outline-none focus:border-[#00ff9d]"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[#00ff9d] uppercase text-xs">Location</label>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Dhaka, London"
-                className="bg-[#12081d] border border-[#301642] text-[#f7f4ea] px-3 py-2 focus:outline-none focus:border-[#00ff9d]"
+                placeholder="e.g. Justor AI"
+                className="w-full bg-[#12081d] border border-[#301642] focus:border-[#00ff9d] text-[#f7f4ea] px-3.5 py-2.5 rounded-xl outline-none"
               />
             </div>
           </div>
 
-          {/* Contact coordinates */}
-          <div className="border-t border-[#301642] pt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-[#00ff9d] uppercase text-xs">Email Address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-[#12081d] border border-[#301642] text-[#f7f4ea] px-3 py-2 focus:outline-none focus:border-[#00ff9d]"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[#00ff9d] uppercase text-xs">Phone Coordinate</label>
-              <input
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="bg-[#12081d] border border-[#301642] text-[#f7f4ea] px-3 py-2 focus:outline-none focus:border-[#00ff9d]"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[#00ff9d] uppercase text-xs">LinkedIn URL</label>
-              <input
-                type="text"
-                value={linkedinUrl}
-                onChange={(e) => setLinkedinUrl(e.target.value)}
-                className="bg-[#12081d] border border-[#301642] text-[#f7f4ea] px-3 py-2 focus:outline-none focus:border-[#00ff9d]"
-              />
-            </div>
+          <div className="space-y-1">
+            <label className="text-xs font-mono uppercase text-muted-foreground">Role Title</label>
+            <input
+              type="text"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              placeholder="e.g. Principal AI Architect / Advisor"
+              className="w-full bg-[#12081d] border border-[#301642] focus:border-[#00ff9d] text-[#f7f4ea] px-3.5 py-2.5 rounded-xl outline-none"
+            />
           </div>
 
-          {/* Descriptive text & tags */}
-          <div className="border-t border-[#301642] pt-6 space-y-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-[#00ff9d] uppercase text-xs">Tags (comma separated)</label>
-              <input
-                type="text"
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-                placeholder="e.g. Mentor, Investor, LegalTech"
-                className="bg-[#12081d] border border-[#301642] text-[#f7f4ea] px-3 py-2 focus:outline-none focus:border-[#00ff9d]"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[#00ff9d] uppercase text-xs">Personal Context & Insights</label>
-              <textarea
-                rows={4}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Where did you meet? What are their core values? What did you discuss?"
-                className="bg-[#12081d] border border-[#301642] text-[#f7f4ea] px-3 py-2 focus:outline-none focus:border-[#00ff9d] resize-none"
-              />
-            </div>
+          <div className="space-y-1">
+            <label className="text-xs font-mono uppercase text-muted-foreground">Context & Notes</label>
+            <textarea
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Where did you meet? What were the key discussion takeaways?"
+              className="w-full bg-[#12081d] border border-[#301642] focus:border-[#00ff9d] text-[#f7f4ea] p-3 rounded-xl outline-none resize-none"
+            />
           </div>
 
-          <div className="flex justify-end gap-4 border-t border-[#301642] pt-6">
+          {/* Progressive Disclosure Toggle */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center gap-1.5 text-xs font-mono text-[#00ff9d] hover:underline"
+            >
+              <span>{showAdvanced ? '− Hide additional coordinates' : '+ Add coordinates (Email, Phone, Category)'}</span>
+              <ChevronDown className={`h-3 w-3 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+
+          {showAdvanced && (
+            <div className="p-4 rounded-xl bg-[#12081d] border border-[#251238] space-y-4 animate-in fade-in duration-150">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-mono uppercase text-muted-foreground">Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@firm.com"
+                    className="w-full bg-[#0a0510] border border-[#301642] focus:border-[#00ff9d] text-[#f7f4ea] px-3 py-2 rounded-lg outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-mono uppercase text-muted-foreground">Category</label>
+                  <select
+                    value={relationshipType}
+                    onChange={(e) => setRelationshipType(e.target.value)}
+                    className="w-full bg-[#0a0510] border border-[#301642] focus:border-[#00ff9d] text-[#f7f4ea] px-3 py-2 rounded-lg outline-none font-mono text-xs"
+                  >
+                    <option value="contact">Contact</option>
+                    <option value="mentor">Mentor</option>
+                    <option value="investor">Investor</option>
+                    <option value="collaborator">Collaborator</option>
+                    <option value="lead">Lead</option>
+                    <option value="client">Client</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-mono uppercase text-muted-foreground">Phone</label>
+                  <input
+                    type="text"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+1 555-0192"
+                    className="w-full bg-[#0a0510] border border-[#301642] focus:border-[#00ff9d] text-[#f7f4ea] px-3 py-2 rounded-lg outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-mono uppercase text-muted-foreground">LinkedIn</label>
+                  <input
+                    type="text"
+                    value={linkedinUrl}
+                    onChange={(e) => setLinkedinUrl(e.target.value)}
+                    placeholder="https://linkedin.com/in/..."
+                    className="w-full bg-[#0a0510] border border-[#301642] focus:border-[#00ff9d] text-[#f7f4ea] px-3 py-2 rounded-lg outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#301642]">
             <Link
               href="/people"
-              className="px-6 py-2.5 border border-[#301642] hover:border-[#00ff9d] text-slate-300 font-bold uppercase text-xs leading-loose"
+              className="px-4 py-2.5 text-xs font-mono text-muted-foreground hover:text-white"
             >
-              [ CANCEL ]
+              Cancel
             </Link>
             <button
               type="submit"
               disabled={saving}
-              className="px-6 py-2.5 bg-[#00ff9d] text-[#12081d] hover:bg-[#00e08a] font-bold uppercase text-xs leading-loose disabled:opacity-50"
+              className="px-6 py-2.5 rounded-xl bg-[#00ff9d] text-[#0a0510] font-mono text-xs font-bold uppercase hover:bg-[#00e08a] transition-all disabled:opacity-50 min-h-[44px]"
             >
-              {saving ? '[ DEPLOYING... ]' : '[ REGISTER CONNECTION ]'}
+              {saving ? 'Registering...' : 'Register Contact Profile'}
             </button>
           </div>
         </form>

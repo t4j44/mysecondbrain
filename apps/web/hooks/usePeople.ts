@@ -1,3 +1,4 @@
+import { createClient } from '@/lib/supabase/client';
 import { useState, useEffect, useCallback } from 'react';
 
 export interface Person {
@@ -49,7 +50,8 @@ export function usePeople(params: UsePeopleParams = {}) {
       if (params.sort_by) queryParams.append('sort_by', params.sort_by);
       if (params.sort_order) queryParams.append('sort_order', params.sort_order);
 
-      const token = localStorage.getItem('supabase_session_token');
+      const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
       const response = await fetch(`/api/v1/people?${queryParams.toString()}`, {
         headers: {
           Authorization: `Bearer ${token || ''}`,
@@ -78,7 +80,8 @@ export function usePeople(params: UsePeopleParams = {}) {
   const createPerson = async (data: Partial<Person>) => {
     setError(null);
     try {
-      const token = localStorage.getItem('supabase_session_token');
+      const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
       const response = await fetch('/api/v1/people', {
         method: 'POST',
         headers: {
@@ -104,7 +107,8 @@ export function usePeople(params: UsePeopleParams = {}) {
   const updatePerson = async (id: string, data: Partial<Person>) => {
     setError(null);
     try {
-      const token = localStorage.getItem('supabase_session_token');
+      const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
       const response = await fetch(`/api/v1/people/${id}`, {
         method: 'PATCH',
         headers: {
@@ -129,3 +133,4 @@ export function usePeople(params: UsePeopleParams = {}) {
 
   return { people, total, loading, error, refetch: fetchPeople, createPerson, updatePerson };
 }
+

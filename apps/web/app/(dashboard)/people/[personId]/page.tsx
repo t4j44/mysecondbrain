@@ -1,3 +1,4 @@
+import { createClient } from '@/lib/supabase/client';
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -22,7 +23,8 @@ export default function PersonDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('supabase_session_token');
+        const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
         const headers = { Authorization: `Bearer ${token || ''}` };
 
         // Fetch Person Details

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { ChatMessage, UseChatOptions, UseChatHelpers, Citation } from '../types/chat';
 
 /**
@@ -88,10 +89,16 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
       abortControllerRef.current = abortController;
 
       try {
+        const {
+          data: { session },
+        } = await createClient().auth.getSession();
+        const token = session?.access_token;
+
         const response = await fetch(api, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
             ...headers,
           },
           body: JSON.stringify({
