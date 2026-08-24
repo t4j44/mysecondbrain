@@ -229,6 +229,12 @@ class KPIEntryCreate(BaseModel):
     entry_date: Optional[datetime] = None
 
 
+class KPIEntryUpdate(BaseModel):
+    numeric_value: Optional[float] = None
+    text_value: Optional[str] = None
+    entry_date: Optional[datetime] = None
+
+
 class KPIEntryResponse(BaseModel):
     id: str
     kpi_id: str

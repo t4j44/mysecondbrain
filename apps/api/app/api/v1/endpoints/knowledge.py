@@ -17,12 +17,15 @@ from app.dependencies.services import (
 from app.schemas.knowledge import (
     DecisionCreate,
     DecisionResponse,
+    DecisionUpdate,
     DocumentResponse,
     IdeaConvertResponse,
     IdeaCreate,
     IdeaResponse,
+    IdeaUpdate,
     MemoryCreate,
     MemoryResponse,
+    MemoryUpdate,
 )
 
 router = APIRouter()
@@ -71,6 +74,29 @@ async def read_memory(
     return await service.get_memory(id)
 
 
+@router.patch(
+    "/memories/{id}", response_model=MemoryResponse, summary="Update canonical memory record"
+)
+async def update_memory(
+    id: str,
+    payload: MemoryUpdate,
+    service: MemoryService = Depends(get_memory_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.update_memory(id, payload.model_dump(exclude_unset=True))
+
+
+@router.delete(
+    "/memories/{id}", status_code=status.HTTP_204_NO_CONTENT, summary="Archive or delete memory record"
+)
+async def delete_memory(
+    id: str,
+    service: MemoryService = Depends(get_memory_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    await service.delete_memory(id)
+
+
 # --- IDEAS ENDPOINTS (Task 19) ---
 @router.post(
     "/ideas",
@@ -101,6 +127,46 @@ async def list_ideas(
     pagination = PaginationParams(limit=limit, offset=offset)
     res = await service.list_ideas(pagination, status=status_val)
     return res
+
+
+@router.get(
+    "/ideas/{id}",
+    response_model=IdeaResponse,
+    summary="Retrieve single venture idea details",
+)
+async def read_idea(
+    id: str,
+    service: IdeaService = Depends(get_idea_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.get_idea(id)
+
+
+@router.patch(
+    "/ideas/{id}",
+    response_model=IdeaResponse,
+    summary="Update venture hypothesis or status",
+)
+async def update_idea(
+    id: str,
+    payload: IdeaUpdate,
+    service: IdeaService = Depends(get_idea_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.update_idea(id, payload.model_dump(exclude_unset=True))
+
+
+@router.delete(
+    "/ideas/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Archive or remove venture idea",
+)
+async def delete_idea(
+    id: str,
+    service: IdeaService = Depends(get_idea_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    await service.delete_idea(id)
 
 
 @router.post(
@@ -148,6 +214,46 @@ async def list_decisions(
     return res
 
 
+@router.get(
+    "/decisions/{id}",
+    response_model=DecisionResponse,
+    summary="Retrieve decision log by ID",
+)
+async def read_decision(
+    id: str,
+    service: DecisionService = Depends(get_decision_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.get_decision(id)
+
+
+@router.patch(
+    "/decisions/{id}",
+    response_model=DecisionResponse,
+    summary="Update decision details and impact",
+)
+async def update_decision(
+    id: str,
+    payload: DecisionUpdate,
+    service: DecisionService = Depends(get_decision_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.update_decision(id, payload.model_dump(exclude_unset=True))
+
+
+@router.delete(
+    "/decisions/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove decision log entry",
+)
+async def delete_decision(
+    id: str,
+    service: DecisionService = Depends(get_decision_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    await service.delete_decision(id)
+
+
 # --- DOCUMENTS ENDPOINTS (Task 21) ---
 @router.post(
     "/documents",
@@ -183,3 +289,16 @@ async def list_documents(
     pagination = PaginationParams(limit=limit, offset=offset)
     res = await service.list_documents(pagination)
     return res
+
+
+@router.delete(
+    "/documents/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete uploaded document",
+)
+async def delete_document(
+    id: str,
+    service: DocumentService = Depends(get_document_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    await service.delete_document(id)

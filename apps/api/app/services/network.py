@@ -68,6 +68,26 @@ class OrganizationService:
     ) -> PaginatedResult[Organization]:
         return await self.repo.list(self.db, self.user_id, pagination=pagination)
 
+    async def get_organization(self, id: str) -> Organization:
+        res = await self.repo.get_by_id(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError("Organization record not found.")
+        return res
+
+    async def update_organization(self, id: str, data: Dict[str, Any]) -> Organization:
+        res = await self.repo.update(self.db, self.user_id, id, data)
+        if not res:
+            raise NotFoundError("Organization record not found.")
+        await self.db.commit()
+        return res
+
+    async def delete_organization(self, id: str) -> bool:
+        res = await self.repo.delete(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError("Organization record not found.")
+        await self.db.commit()
+        return res
+
 
 class InteractionService:
     def __init__(self, db: AsyncSession, user_id: str):
@@ -82,9 +102,34 @@ class InteractionService:
         return res
 
     async def list_interactions(
-        self, pagination: PaginationParams
+        self, pagination: PaginationParams, person_id: Any = None, venture_id: Any = None
     ) -> PaginatedResult[Interaction]:
-        return await self.repo.list(self.db, self.user_id, pagination=pagination)
+        filters: Dict[str, Any] = {}
+        if person_id:
+            filters["person_id"] = person_id
+        if venture_id:
+            filters["venture_id"] = venture_id
+        return await self.repo.list(self.db, self.user_id, pagination=pagination, **filters)
+
+    async def get_interaction(self, id: str) -> Interaction:
+        res = await self.repo.get_by_id(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError("Interaction record not found.")
+        return res
+
+    async def update_interaction(self, id: str, data: Dict[str, Any]) -> Interaction:
+        res = await self.repo.update(self.db, self.user_id, id, data)
+        if not res:
+            raise NotFoundError("Interaction record not found.")
+        await self.db.commit()
+        return res
+
+    async def delete_interaction(self, id: str) -> bool:
+        res = await self.repo.delete(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError("Interaction record not found.")
+        await self.db.commit()
+        return res
 
 
 class MeetingService:
@@ -101,3 +146,23 @@ class MeetingService:
 
     async def list_meetings(self, pagination: PaginationParams) -> PaginatedResult[Meeting]:
         return await self.repo.list(self.db, self.user_id, pagination=pagination)
+
+    async def get_meeting(self, id: str) -> Meeting:
+        res = await self.repo.get_by_id(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError("Meeting record not found.")
+        return res
+
+    async def update_meeting(self, id: str, data: Dict[str, Any]) -> Meeting:
+        res = await self.repo.update(self.db, self.user_id, id, data)
+        if not res:
+            raise NotFoundError("Meeting record not found.")
+        await self.db.commit()
+        return res
+
+    async def delete_meeting(self, id: str) -> bool:
+        res = await self.repo.delete(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError("Meeting record not found.")
+        await self.db.commit()
+        return res

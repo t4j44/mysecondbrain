@@ -60,6 +60,20 @@ class MemoryService:
             raise NotFoundError("Memory record not found.")
         return res
 
+    async def update_memory(self, id: str, data: Dict[str, Any]) -> Memory:
+        res = await self.repo.update(self.db, self.user_id, id, data)
+        if not res:
+            raise NotFoundError('Memory not found.')
+        await self.db.commit()
+        return res
+
+    async def delete_memory(self, id: str) -> bool:
+        res = await self.repo.delete(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError('Memory not found.')
+        await self.db.commit()
+        return res
+
 
 class IdeaService:
     def __init__(self, db: AsyncSession, user_id: str):
@@ -112,6 +126,20 @@ class IdeaService:
         await self.db.commit()
         return idea, str(proj.id)
 
+    async def update_idea(self, id: str, data: Dict[str, Any]) -> Idea:
+        res = await self.repo.update(self.db, self.user_id, id, data)
+        if not res:
+            raise NotFoundError('Idea not found.')
+        await self.db.commit()
+        return res
+
+    async def delete_idea(self, id: str) -> bool:
+        res = await self.repo.delete(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError('Idea not found.')
+        await self.db.commit()
+        return res
+
 
 class DecisionService:
     def __init__(self, db: AsyncSession, user_id: str):
@@ -127,6 +155,26 @@ class DecisionService:
 
     async def list_decisions(self, pagination: PaginationParams) -> PaginatedResult[Decision]:
         return await self.repo.list(self.db, self.user_id, pagination)
+
+    async def get_decision(self, id: str) -> Decision:
+        res = await self.repo.get_by_id(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError('Decision not found.')
+        return res
+
+    async def update_decision(self, id: str, data: Dict[str, Any]) -> Decision:
+        res = await self.repo.update(self.db, self.user_id, id, data)
+        if not res:
+            raise NotFoundError('Decision not found.')
+        await self.db.commit()
+        return res
+
+    async def delete_decision(self, id: str) -> bool:
+        res = await self.repo.delete(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError('Decision not found.')
+        await self.db.commit()
+        return res
 
 
 class DocumentService:
@@ -166,7 +214,7 @@ class DocumentService:
                 "processing_status": "pending",
             },
         )
-        await self.db.commit()
+        await self.db.flush()
 
         job_repo = JobRepository()
         job = await job_repo.create(
@@ -189,6 +237,19 @@ class DocumentService:
 
     async def list_documents(self, pagination: PaginationParams) -> PaginatedResult[Document]:
         return await self.repo.list(self.db, self.user_id, pagination)
+
+    async def get_document(self, id: str) -> Document:
+        res = await self.repo.get_by_id(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError('Document not found.')
+        return res
+
+    async def delete_document(self, id: str) -> bool:
+        res = await self.repo.delete(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError('Document not found.')
+        await self.db.commit()
+        return res
 
 
 class AIService:
@@ -263,6 +324,26 @@ class AchievementService:
     ) -> PaginatedResult[Achievement]:
         return await self.repo.list(self.db, self.user_id, pagination)
 
+    async def get_achievement(self, id: str) -> Achievement:
+        res = await self.repo.get_by_id(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError('Achievement not found.')
+        return res
+
+    async def update_achievement(self, id: str, data: Dict[str, Any]) -> Achievement:
+        res = await self.repo.update(self.db, self.user_id, id, data)
+        if not res:
+            raise NotFoundError('Achievement not found.')
+        await self.db.commit()
+        return res
+
+    async def delete_achievement(self, id: str) -> bool:
+        res = await self.repo.delete(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError('Achievement not found.')
+        await self.db.commit()
+        return res
+
 
 class PortfolioService:
     def __init__(self, db: AsyncSession, user_id: str):
@@ -280,6 +361,26 @@ class PortfolioService:
         self, pagination: PaginationParams
     ) -> PaginatedResult[PortfolioCaseStudy]:
         return await self.repo.list(self.db, self.user_id, pagination)
+
+    async def get_case_study(self, id: str) -> PortfolioCaseStudy:
+        res = await self.repo.get_by_id(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError('Case study not found.')
+        return res
+
+    async def update_case_study(self, id: str, data: Dict[str, Any]) -> PortfolioCaseStudy:
+        res = await self.repo.update(self.db, self.user_id, id, data)
+        if not res:
+            raise NotFoundError('Case study not found.')
+        await self.db.commit()
+        return res
+
+    async def delete_case_study(self, id: str) -> bool:
+        res = await self.repo.delete(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError('Case study not found.')
+        await self.db.commit()
+        return res
 
 
 class ContentService:
@@ -343,3 +444,17 @@ class ContentService:
 
     async def list_versions(self, content_id: str) -> List[ContentVersion]:
         return await self.ver_repo.list_versions(self.db, self.user_id, content_id)
+
+    async def get_content(self, id: str) -> ContentItem:
+        res = await self.repo.get_by_id(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError('Content not found.')
+        return res
+
+    async def delete_content(self, id: str) -> bool:
+        res = await self.repo.delete(self.db, self.user_id, id)
+        if not res:
+            raise NotFoundError('Content not found.')
+        await self.db.commit()
+        return res
+

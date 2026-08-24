@@ -17,6 +17,7 @@ from app.dependencies.services import (
 from app.schemas import (
     AchievementCreate,
     AchievementResponse,
+    AchievementUpdate,
     AIContentGenerateRequest,
     AIContentGenerateResponse,
     AICoverletterRequest,
@@ -27,6 +28,7 @@ from app.schemas import (
     ContentVersionResponse,
     PortfolioCaseStudyCreate,
     PortfolioCaseStudyResponse,
+    PortfolioCaseStudyUpdate,
     SearchRequest,
     SearchResultResponse,
 )
@@ -134,6 +136,46 @@ async def list_achievements(
     return res.model_dump()
 
 
+@router.get(
+    "/achievements/{id}",
+    response_model=AchievementResponse,
+    summary="Retrieve achievement details by ID",
+)
+async def read_achievement(
+    id: str,
+    service: AchievementService = Depends(get_achievement_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.get_achievement(id)
+
+
+@router.patch(
+    "/achievements/{id}",
+    response_model=AchievementResponse,
+    summary="Update achievement details",
+)
+async def update_achievement(
+    id: str,
+    payload: AchievementUpdate,
+    service: AchievementService = Depends(get_achievement_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.update_achievement(id, payload.model_dump(exclude_unset=True))
+
+
+@router.delete(
+    "/achievements/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Archive or remove achievement record",
+)
+async def delete_achievement(
+    id: str,
+    service: AchievementService = Depends(get_achievement_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    await service.delete_achievement(id)
+
+
 @router.post(
     "/portfolio/case-studies",
     response_model=PortfolioCaseStudyResponse,
@@ -160,6 +202,46 @@ async def list_case_studies(
     pagination = PaginationParams(limit=limit, offset=offset)
     res = await service.list_case_studies(pagination)
     return res.model_dump()
+
+
+@router.get(
+    "/portfolio/case-studies/{id}",
+    response_model=PortfolioCaseStudyResponse,
+    summary="Retrieve portfolio case study by ID",
+)
+async def read_case_study(
+    id: str,
+    service: PortfolioService = Depends(get_portfolio_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.get_case_study(id)
+
+
+@router.patch(
+    "/portfolio/case-studies/{id}",
+    response_model=PortfolioCaseStudyResponse,
+    summary="Update portfolio case study",
+)
+async def update_case_study(
+    id: str,
+    payload: PortfolioCaseStudyUpdate,
+    service: PortfolioService = Depends(get_portfolio_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.update_case_study(id, payload.model_dump(exclude_unset=True))
+
+
+@router.delete(
+    "/portfolio/case-studies/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Archive or delete portfolio case study",
+)
+async def delete_case_study(
+    id: str,
+    service: PortfolioService = Depends(get_portfolio_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    await service.delete_case_study(id)
 
 
 # --- CONTENT ENDPOINTS (Task 27) ---
@@ -190,6 +272,19 @@ async def list_content(
     return res.model_dump()
 
 
+@router.get(
+    "/content/{id}",
+    response_model=ContentResponse,
+    summary="Retrieve single content piece details",
+)
+async def read_content(
+    id: str,
+    service: ContentService = Depends(get_content_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.get_content(id)
+
+
 @router.patch(
     "/content/{id}",
     response_model=ContentResponse,
@@ -202,6 +297,19 @@ async def update_content(
     _user: AuthenticatedUser = Depends(get_current_user),
 ):
     return await service.update_content(id, payload.model_dump(exclude_unset=True))
+
+
+@router.delete(
+    "/content/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete authored content item",
+)
+async def delete_content(
+    id: str,
+    service: ContentService = Depends(get_content_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    await service.delete_content(id)
 
 
 @router.get(

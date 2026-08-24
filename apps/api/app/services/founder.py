@@ -246,6 +246,20 @@ class KPIService:
             filters["category"] = category
         return await self.repo.list(self.db, self.user_id, pagination, **filters)
 
+    async def update_kpi(self, kpi_id: str, data: Dict[str, Any]) -> KPI:
+        res = await self.repo.update(self.db, self.user_id, kpi_id, data)
+        if not res:
+            raise NotFoundError("KPI not found.")
+        await self.db.commit()
+        return res
+
+    async def delete_kpi(self, kpi_id: str) -> bool:
+        res = await self.repo.delete(self.db, self.user_id, kpi_id)
+        if not res:
+            raise NotFoundError("KPI not found.")
+        await self.db.commit()
+        return res
+
     async def record_entry(self, kpi_id: str, data: Dict[str, Any]) -> KPIEntry:
         kpi = await self.repo.get_by_id(self.db, self.user_id, kpi_id)
         if not kpi:
@@ -256,6 +270,20 @@ class KPIService:
             kpi.current_value = entry.numeric_value
         await self.db.commit()
         return entry
+
+    async def update_entry(self, entry_id: str, data: Dict[str, Any]) -> KPIEntry:
+        entry = await self.entry_repo.update(self.db, self.user_id, entry_id, data)
+        if not entry:
+            raise NotFoundError("KPI Entry not found.")
+        await self.db.commit()
+        return entry
+
+    async def delete_entry(self, entry_id: str) -> bool:
+        res = await self.entry_repo.delete(self.db, self.user_id, entry_id, hard_delete=True)
+        if not res:
+            raise NotFoundError("KPI Entry not found.")
+        await self.db.commit()
+        return res
 
 
 class ReviewService:
