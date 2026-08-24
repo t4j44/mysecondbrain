@@ -18,30 +18,30 @@ test.describe('Taj\'s Second Brain — Essential E2E Workflows', () => {
 
   test('Venture and Project hierarchy pages render cleanly', async ({ page }) => {
     await page.goto('/ventures');
-    await expect(page.locator('h1, h2, span')).toBeDefined();
+    await expect(page.locator('h1').first()).toBeVisible();
 
     await page.goto('/projects');
-    await expect(page.locator('h1, h2, span')).toBeDefined();
+    await expect(page.locator('h1').first()).toBeVisible();
 
     await page.goto('/tasks');
-    await expect(page.locator('h1, h2, span')).toBeDefined();
+    await expect(page.locator('h1').first()).toBeVisible();
   });
 
   test('People directory and Memories log display structured views', async ({ page }) => {
     await page.goto('/people');
-    await expect(page.locator('h1, h2, span')).toBeDefined();
+    await expect(page.locator('h1').first()).toBeVisible();
 
     await page.goto('/memories');
-    await expect(page.locator('h1, h2, span')).toBeDefined();
+    await expect(page.locator('h1').first()).toBeVisible();
   });
 
   test('AI Assistant panel loads prompt area and grounded citations placeholder', async ({ page }) => {
     await page.goto('/assistant');
-    await expect(page.locator('textarea, input')).toBeDefined();
+    await expect(page.locator('textarea, input').first()).toBeVisible();
   });
 
   test('Settings integrations panel renders credential status', async ({ page }) => {
     await page.goto('/settings/integrations');
-    await expect(page.locator('h1, h2, div')).toBeDefined();
+    await expect(page.locator('h1').first()).toBeVisible();
   });
 });
