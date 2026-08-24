@@ -59,7 +59,7 @@ classmethod-decorators = ["pydantic.validator", "validator", "pydantic.field_val
 
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = false
 ignore_missing_imports = true
 warn_unused_ignores = true

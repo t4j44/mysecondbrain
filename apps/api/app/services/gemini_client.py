@@ -79,8 +79,9 @@ class GoogleGenAIClient:
                 temperature=temperature,
             )
 
+            content_parts: list[Any] = [part, user_text]
             response = client.models.generate_content(
-                model=self.model_name, contents=[part, user_text], config=config
+                model=self.model_name, contents=content_parts, config=config
             )
 
             text_result = getattr(response, "text", "") or str(response)
