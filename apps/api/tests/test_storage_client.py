@@ -9,8 +9,18 @@ from app.integrations.storage_client import StorageService
 
 
 def test_production_settings_reject_placeholder_configuration() -> None:
+    # Explicit empty secrets so OS env from CI/local pytest does not leak into this case.
     with pytest.raises(ValidationError, match="Production configuration is missing real values"):
-        Settings(_env_file=None, ENVIRONMENT="production", APP_ENV="production")
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            APP_ENV="production",
+            SUPABASE_URL="",
+            SUPABASE_SECRET_KEY="",
+            SUPABASE_SERVICE_ROLE_KEY="",
+            TOKEN_ENCRYPTION_KEY="placeholder_should_fail",
+            DATABASE_URL="sqlite+aiosqlite:///:memory:",
+        )
 
 
 def test_production_settings_valid_with_supabase_secret_key() -> None:
@@ -21,6 +31,7 @@ def test_production_settings_valid_with_supabase_secret_key() -> None:
         APP_ENV="production",
         SUPABASE_URL="https://prod.supabase.co",
         SUPABASE_SECRET_KEY="sb_secret_real_production_key_123456789",
+        SUPABASE_SERVICE_ROLE_KEY="",
         TOKEN_ENCRYPTION_KEY="real_fernet_production_master_encryption_key",
         DATABASE_URL="postgresql+asyncpg://postgres:pass@db.prod.supabase.co:5432/postgres",
         MCP_ISSUER_URL="https://tajs-second-brain.onrender.com",
@@ -38,6 +49,7 @@ def test_production_settings_valid_with_legacy_service_role_key() -> None:
         ENVIRONMENT="production",
         APP_ENV="production",
         SUPABASE_URL="https://prod.supabase.co",
+        SUPABASE_SECRET_KEY="",  # force legacy path; do not inherit CI mock secret
         SUPABASE_SERVICE_ROLE_KEY="legacy_service_role_secret_key_12345",
         TOKEN_ENCRYPTION_KEY="real_fernet_production_master_encryption_key",
         DATABASE_URL="postgresql+asyncpg://postgres:pass@db.prod.supabase.co:5432/postgres",

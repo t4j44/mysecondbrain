@@ -70,7 +70,9 @@ def auth_headers(test_user_id: str) -> dict:
         "exp": datetime.now(timezone.utc) + timedelta(hours=1),
         "iat": datetime.now(timezone.utc),
     }
-    token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    # Must match decode_and_verify_token: SUPABASE_JWT_SECRET takes precedence over JWT_SECRET
+    secret = settings.SUPABASE_JWT_SECRET or settings.JWT_SECRET
+    token = jwt.encode(payload, secret, algorithm=settings.JWT_ALGORITHM)
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -83,5 +85,6 @@ def other_auth_headers(other_user_id: str) -> dict:
         "exp": datetime.now(timezone.utc) + timedelta(hours=1),
         "iat": datetime.now(timezone.utc),
     }
-    token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    secret = settings.SUPABASE_JWT_SECRET or settings.JWT_SECRET
+    token = jwt.encode(payload, secret, algorithm=settings.JWT_ALGORITHM)
     return {"Authorization": f"Bearer {token}"}
