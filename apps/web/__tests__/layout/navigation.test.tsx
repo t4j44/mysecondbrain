@@ -12,13 +12,14 @@ describe('Global App Shell & Navigation', () => {
     expect(screen.getByText('VENTURES')).toBeInTheDocument();
   });
 
-  it('renders desktop Sidebar displaying all core domain navigation groups', () => {
+  it('renders desktop Sidebar displaying primary surfaces and secondary groups', () => {
     render(<Sidebar />);
-    expect(screen.getByText('Command Center')).toBeInTheDocument();
-    expect(screen.getByText('Build')).toBeInTheDocument();
-    expect(screen.getByText('Relationships & Knowledge')).toBeInTheDocument();
-    expect(screen.getByText('Growth & Output')).toBeInTheDocument();
-    expect(screen.getByText('Intelligence')).toBeInTheDocument();
-    expect(screen.getByText('System')).toBeInTheDocument();
+    expect(screen.getByText('Primary Surfaces')).toBeInTheDocument();
+    expect(screen.getByText('TODAY')).toBeInTheDocument();
+    expect(screen.getByText('ASK BRAIN')).toBeInTheDocument();
+    expect(screen.getByText('NETWORK')).toBeInTheDocument();
+    expect(screen.getByText('WORK & EVIDENCE')).toBeInTheDocument();
+    expect(screen.getByText('Venture Execution')).toBeInTheDocument();
+    expect(screen.getByText('Growth & Synthesis')).toBeInTheDocument();
   });
 });
