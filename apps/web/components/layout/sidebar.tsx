@@ -5,146 +5,201 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
+  Bot,
+  Users,
   CheckSquare,
   Briefcase,
   FolderKanban,
   Lightbulb,
-  Users,
   Building2,
   Calendar,
   Brain,
   LineChart,
   Trophy,
   FileText,
-  Bot,
   Settings,
   Terminal,
+  Plus,
+  ChevronDown,
+  Sparkles,
 } from 'lucide-react';
 
-interface NavGroup {
-  group: string;
-  items: {
-    title: string;
-    href: string;
-    icon: React.ElementType;
-    badge?: string;
-  }[];
+interface SidebarProps {
+  className?: string;
+  onOpenQuickCapture?: () => void;
 }
 
-const navigationGroups: NavGroup[] = [
-  {
-    group: 'Command Center',
-    items: [
-      { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { title: 'Tasks Engine', href: '/tasks', icon: CheckSquare },
-    ],
-  },
-  {
-    group: 'Build',
-    items: [
-      { title: 'Ventures', href: '/ventures', icon: Briefcase },
-      { title: 'Projects', href: '/projects', icon: FolderKanban },
-      { title: 'Idea Incubator', href: '/ideas', icon: Lightbulb },
-    ],
-  },
-  {
-    group: 'Relationships & Knowledge',
-    items: [
-      { title: 'People & CRM', href: '/people', icon: Users },
-      { title: 'Organizations', href: '/organizations', icon: Building2 },
-      { title: 'Meetings & Audio', href: '/meetings', icon: Calendar },
-      { title: 'Second Brain', href: '/memories', icon: Brain, badge: 'RAG' },
-    ],
-  },
-  {
-    group: 'Growth & Output',
-    items: [
-      { title: 'Life KPIs', href: '/kpis', icon: LineChart },
-      { title: 'Achievements', href: '/achievements', icon: Trophy },
-      { title: 'Content Engine', href: '/content', icon: FileText },
-    ],
-  },
-  {
-    group: 'Intelligence',
-    items: [
-      { title: 'AI Assistant', href: '/assistant', icon: Bot, badge: 'ACTIVE' },
-    ],
-  },
-  {
-    group: 'System',
-    items: [
-      { title: 'Operator Settings', href: '/settings', icon: Settings },
-    ],
-  },
-];
-
-export function Sidebar({ className = '' }: { className?: string }) {
+export function Sidebar({ className = '', onOpenQuickCapture }: SidebarProps) {
   const pathname = usePathname();
+  const [showSecondary, setShowSecondary] = React.useState(true);
+
+  // 4 Primary Surfaces
+  const primarySurfaces = [
+    { title: 'TODAY', href: '/dashboard', icon: LayoutDashboard, badge: 'SURFACE' },
+    { title: 'ASK BRAIN', href: '/assistant', icon: Bot, badge: 'AI RAG' },
+    { title: 'NETWORK', href: '/people', icon: Users },
+    { title: 'WORK & EVIDENCE', href: '/tasks', icon: CheckSquare },
+  ];
+
+  // Secondary Modules underneath
+  const secondaryGroups = [
+    {
+      group: 'Venture Execution',
+      items: [
+        { title: 'Projects', href: '/projects', icon: FolderKanban },
+        { title: 'Ventures', href: '/ventures', icon: Briefcase },
+        { title: 'Idea Incubator', href: '/ideas', icon: Lightbulb },
+        { title: 'Second Brain Vault', href: '/memories', icon: Brain },
+        { title: 'Meetings & Audio', href: '/meetings', icon: Calendar },
+        { title: 'Organizations', href: '/organizations', icon: Building2 },
+      ],
+    },
+    {
+      group: 'Growth & Synthesis',
+      items: [
+        { title: 'Life KPIs', href: '/kpis', icon: LineChart },
+        { title: 'Achievements', href: '/achievements', icon: Trophy },
+        { title: 'Content Engine', href: '/content', icon: FileText },
+        { title: 'Operator Settings', href: '/settings', icon: Settings },
+      ],
+    },
+  ];
 
   return (
-    <aside aria-label="Main Navigation" className={`flex flex-col border-r border-[#251238] bg-[#0a0510] text-[#f7f4ea] w-64 shrink-0 select-none ${className}`}>
+    <aside
+      aria-label="Main Navigation"
+      className={`flex flex-col border-r border-[#251238] bg-[#0a0510] text-[#f7f4ea] w-64 shrink-0 select-none ${className}`}
+    >
       {/* Brand Header */}
-      <div className="flex h-16 items-center px-6 border-b border-[#251238]/80">
+      <div className="flex h-16 items-center px-5 border-b border-[#251238]/80">
         <Link href="/dashboard" className="flex items-center space-x-3 group">
           <div className="h-9 w-9 rounded-lg bg-[#00ff9d]/10 border border-[#00ff9d] flex items-center justify-center text-[#00ff9d] group-hover:bg-[#00ff9d]/20 transition-all shadow-[0_0_15px_rgba(0,255,157,0.2)]">
             <Terminal className="h-5 w-5" />
           </div>
           <div>
             <span className="text-sm font-bold tracking-tight text-[#f7f4ea] block">Taj’s Second Brain</span>
-            <span className="text-[10px] font-mono text-[#00ff9d] uppercase block tracking-widest">OS // v2.0 TERMINAL</span>
+            <span className="text-[10px] font-mono text-[#00ff9d] uppercase block tracking-widest">ADHD-FIRST OS</span>
           </div>
         </Link>
       </div>
 
-      {/* Grouped Navigation Links */}
-      <nav aria-label="Section Navigation" className="flex-1 overflow-y-auto p-4 space-y-6">
-        {navigationGroups.map((navGroup) => (
-          <div key={navGroup.group} className="space-y-1.5">
-            <div className="px-2 text-[10px] font-mono uppercase text-muted-foreground/70 tracking-widest font-semibold">
-              {navGroup.group}
-            </div>
-            <div className="space-y-1">
-              {navGroup.items.map((item) => {
-                const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-                const Icon = item.icon;
+      {/* Quick Capture CTA Button */}
+      {onOpenQuickCapture && (
+        <div className="p-3 border-b border-[#251238]/60">
+          <button
+            type="button"
+            onClick={onOpenQuickCapture}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[#00ff9d] hover:bg-[#00e08a] text-[#0a0510] font-mono text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(0,255,157,0.25)] min-h-[44px]"
+          >
+            <Plus className="h-4 w-4 stroke-[3]" />
+            <span>Smart Capture [Q]</span>
+          </button>
+        </div>
+      )}
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center justify-between px-3 py-2 rounded-md text-sm font-sans font-medium transition-all duration-200 group ${
+      {/* Navigation Links */}
+      <nav aria-label="Primary Navigation" className="flex-1 overflow-y-auto p-3 space-y-5">
+        {/* PRIMARY SURFACES */}
+        <div className="space-y-1">
+          <div className="px-3 py-1 text-[10px] font-mono uppercase text-[#00ff9d] tracking-widest font-bold flex items-center justify-between">
+            <span>Primary Surfaces</span>
+            <Sparkles className="h-3 w-3 text-[#00ff9d]" />
+          </div>
+
+          {primarySurfaces.map((item) => {
+            const isActive =
+              item.href === '/dashboard'
+                ? pathname === '/dashboard' || pathname === '/'
+                : pathname === item.href || pathname.startsWith(item.href);
+            const Icon = item.icon;
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-sans font-semibold transition-all duration-200 group min-h-[44px] ${
+                  isActive
+                    ? 'bg-[#00ff9d]/15 text-[#00ff9d] border border-[#00ff9d]/40 shadow-[0_0_15px_rgba(0,255,157,0.15)]'
+                    : 'text-[#f7f4ea]/80 hover:bg-[#1d0e2e] hover:text-[#f7f4ea]'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <Icon
+                    className={`h-4 w-4 shrink-0 transition-transform group-hover:scale-110 ${
+                      isActive ? 'text-[#00ff9d]' : 'text-muted-foreground'
+                    }`}
+                  />
+                  <span>{item.title}</span>
+                </div>
+                {item.badge && (
+                  <span
+                    className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
                       isActive
-                        ? 'bg-[#00ff9d]/15 text-[#00ff9d] border border-[#00ff9d]/30 shadow-[0_0_15px_rgba(0,255,157,0.1)] font-semibold'
-                        : 'text-muted-foreground hover:bg-[#1d0e2e] hover:text-[#f7f4ea]'
+                        ? 'bg-[#00ff9d] text-[#0a0510] border-[#00ff9d]'
+                        : 'bg-[#251238] text-[#00ff9d] border-[#00ff9d]/30'
                     }`}
                   >
-                    <div className="flex items-center space-x-3">
-                      <Icon className={`h-4 w-4 shrink-0 transition-transform group-hover:scale-110 ${isActive ? 'text-[#00ff9d]' : 'text-muted-foreground'}`} />
-                      <span>{item.title}</span>
-                    </div>
-                    {item.badge && (
-                      <span className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
-                        isActive ? 'bg-[#00ff9d] text-[#0a0510] border-[#00ff9d]' : 'bg-[#251238] text-[#00ff9d] border-[#00ff9d]/40'
-                      }`}>
-                        {item.badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* SECONDARY MODULES (Underneath) */}
+        <div className="pt-2 border-t border-[#251238]/60 space-y-4">
+          <button
+            type="button"
+            onClick={() => setShowSecondary(!showSecondary)}
+            className="w-full flex items-center justify-between px-3 py-1 text-[10px] font-mono uppercase text-muted-foreground tracking-widest hover:text-[#f7f4ea]"
+          >
+            <span>All Deep Modules</span>
+            <ChevronDown
+              className={`h-3 w-3 transition-transform ${showSecondary ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {showSecondary &&
+            secondaryGroups.map((navGroup) => (
+              <div key={navGroup.group} className="space-y-1">
+                <div className="px-3 text-[9px] font-mono uppercase text-muted-foreground/60 tracking-wider">
+                  {navGroup.group}
+                </div>
+                <div className="space-y-0.5">
+                  {navGroup.items.map((item) => {
+                    const isActive = pathname === item.href || pathname.startsWith(item.href);
+                    const Icon = item.icon;
+
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-sans transition-colors min-h-[38px] ${
+                          isActive
+                            ? 'bg-[#1d0e2e] text-[#00ff9d] font-semibold border-l-2 border-[#00ff9d]'
+                            : 'text-muted-foreground hover:bg-[#170b24] hover:text-[#f7f4ea]'
+                        }`}
+                      >
+                        <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-[#00ff9d]' : 'text-muted-foreground'}`} />
+                        <span>{item.title}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+        </div>
       </nav>
 
       {/* Terminal System Footer */}
-      <div className="p-4 border-t border-[#251238] bg-[#050208] text-[11px] font-mono text-muted-foreground">
+      <div className="p-3.5 border-t border-[#251238] bg-[#050208] text-[11px] font-mono text-muted-foreground">
         <div className="flex items-center justify-between">
           <span className="flex items-center">
-            <span className="h-2 w-2 rounded-full bg-[#00ff9d] mr-2" />
-            RLS SYNCED
+            <span className="h-2 w-2 rounded-full bg-[#00ff9d] mr-2 shadow-[0_0_6px_#00ff9d]" />
+            RLS VAULT ACTIVE
           </span>
-          <span className="text-[#00ff9d]/80">99.9% Uptime</span>
+          <span className="text-[#00ff9d]/80 text-[10px]">Zero Overload</span>
         </div>
       </div>
     </aside>

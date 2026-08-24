@@ -9,7 +9,7 @@ export function Breadcrumbs() {
   const pathname = usePathname();
   const segments = pathname.split('/').filter(Boolean);
 
-  if (segments.length <= 0 || segments[0] !== 'dashboard' && segments.length === 1 && segments[0] === 'dashboard') {
+  if (segments.length <= 0 || (segments.length === 1 && segments[0] === 'dashboard')) {
     return null;
   }
 
