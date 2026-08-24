@@ -2,7 +2,7 @@ name: Security & Quality CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, recovery/** ]
   pull_request:
     branches: [ main, develop ]
 
@@ -18,7 +18,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
 
       - name: Install Python Dependencies
@@ -36,6 +36,7 @@ jobs:
 
       - name: Run Pytest Security & Backend Suite
         env:
+          PYTHONPATH: "apps/api"
           SUPABASE_URL: "https://mock.supabase.co"
           SUPABASE_SECRET_KEY: "sb_secret_mock_secret_key_for_testing_only"
           SUPABASE_SERVICE_ROLE_KEY: "mock_service_role_key_for_testing_only"
@@ -43,7 +44,11 @@ jobs:
           TOKEN_ENCRYPTION_KEY: "mock_token_encryption_key_for_local_tests"
           GEMINI_API_KEY: "mock_gemini_key"
         run: |
-          pytest apps/api/tests/ --cov=apps/api/app --cov-report=term-missing
+          pytest apps/api/tests/ --cov=app --cov-report=term-missing
+
+      - name: Run Mypy Typecheck
+        run: |
+          mypy apps/api/app
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -56,7 +61,26 @@ jobs:
           version: 9
 
       - name: Run Frontend Typecheck & Lint
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "https://mock.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "mock-anon-key-for-ci-typecheck-only"
+          NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000/api/v1"
         run: |
           pnpm install --frozen-lockfile
-          pnpm lint
-          pnpm typecheck
+          pnpm --filter @second-brain/web lint
+          pnpm --filter @second-brain/web typecheck
+
+      - name: Run Frontend Build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "https://mock.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "mock-anon-key-for-ci-build-only"
+          NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000/api/v1"
+        run: |
+          pnpm --filter @second-brain/web build
+
+      # Playwright E2E is owned by Prompt 3 (Independent QA).
+      # Do not hard-fail CI here until an authenticated fixture exists.
+      - name: Playwright E2E status
+        run: |
+          echo "BLOCKED: Playwright auth fixture not verified in Prompt 1."
+          echo "Prompt 3 must add real auth fixtures and non-vacuous assertions before enabling pnpm --filter @second-brain/web test:e2e in CI."
