@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Terminal, ArrowRight, CornerDownLeft } from 'lucide-react';
-import { Dialog } from '@radix-ui/react-dialog';
+
 
 interface CommandItem {
   title: string;
