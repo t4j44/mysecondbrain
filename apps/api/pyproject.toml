@@ -27,7 +27,11 @@ dependencies = [
     "python-multipart>=0.0.9",
     "tzdata>=2025.2",
     "google-genai>=0.1.1",
+    "pypdf>=4.0.0",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
 
 [project.optional-dependencies]
 dev = [
