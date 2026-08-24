@@ -1,3 +1,4 @@
+import { createClient } from '@/lib/supabase/client';
 'use client';
 
 import React, { useState } from 'react';
@@ -42,7 +43,8 @@ export default function NewMemoryPage() {
     };
 
     try {
-      const token = localStorage.getItem('supabase_session_token');
+      const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
       const response = await fetch('/api/v1/memories', {
         method: 'POST',
         headers: {
@@ -165,3 +167,4 @@ export default function NewMemoryPage() {
     </div>
   );
 }
+

@@ -1,3 +1,4 @@
+import { createClient } from '@/lib/supabase/client';
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -19,7 +20,8 @@ export default function MeetingDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('supabase_session_token');
+        const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
         const headers = { Authorization: `Bearer ${token || ''}` };
 
         // Fetch Meeting Details
@@ -55,7 +57,8 @@ export default function MeetingDetailPage() {
 
   const handleCreateFollowUpTask = async (actionText: string) => {
     try {
-      const token = localStorage.getItem('supabase_session_token');
+      const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
       const response = await fetch('/api/v1/tasks', {
         method: 'POST',
         headers: {
@@ -81,7 +84,8 @@ export default function MeetingDetailPage() {
 
   const handleCaptureAsMemory = async () => {
     try {
-      const token = localStorage.getItem('supabase_session_token');
+      const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
       const response = await fetch('/api/v1/memories', {
         method: 'POST',
         headers: {

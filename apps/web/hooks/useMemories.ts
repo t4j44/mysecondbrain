@@ -1,3 +1,4 @@
+import { createClient } from '@/lib/supabase/client';
 import { useState, useEffect, useCallback } from 'react';
 
 export interface Memory {
@@ -45,7 +46,8 @@ export function useMemories(params: UseMemoriesParams = {}) {
       if (params.sort_by) queryParams.append('sort_by', params.sort_by);
       if (params.sort_order) queryParams.append('sort_order', params.sort_order);
 
-      const token = localStorage.getItem('supabase_session_token');
+      const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
       const response = await fetch(`/api/v1/memories?${queryParams.toString()}`, {
         headers: {
           Authorization: `Bearer ${token || ''}`,
@@ -83,7 +85,8 @@ export function useMemories(params: UseMemoriesParams = {}) {
   const createMemory = async (data: Partial<Memory>) => {
     setError(null);
     try {
-      const token = localStorage.getItem('supabase_session_token');
+      const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
       const response = await fetch('/api/v1/memories', {
         method: 'POST',
         headers: {
@@ -109,7 +112,8 @@ export function useMemories(params: UseMemoriesParams = {}) {
   const updateMemory = async (id: string, data: Partial<Memory>) => {
     setError(null);
     try {
-      const token = localStorage.getItem('supabase_session_token');
+      const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
       const response = await fetch(`/api/v1/memories/${id}`, {
         method: 'PATCH',
         headers: {
@@ -134,3 +138,4 @@ export function useMemories(params: UseMemoriesParams = {}) {
 
   return { memories, total, loading, error, refetch: fetchMemories, createMemory, updateMemory };
 }
+
