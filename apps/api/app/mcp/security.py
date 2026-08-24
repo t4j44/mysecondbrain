@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.mcp import MCPCredentialService
 
-# Capability Scopes
+# Capability Scopes - Read & Draft
 SCOPE_PEOPLE_READ = "mcp:people:read"
 SCOPE_MEMORY_READ = "mcp:memory:read"
 SCOPE_PROJECTS_READ = "mcp:projects:read"
@@ -19,6 +19,16 @@ SCOPE_TASKS_READ = "mcp:tasks:read"
 SCOPE_RELATIONSHIPS_READ = "mcp:relationships:read"
 SCOPE_CALENDAR_READ = "mcp:calendar:read"
 SCOPE_CONTENT_DRAFT = "mcp:content:draft"
+
+# Capability Scopes - Write & Operations
+SCOPE_MEMORY_WRITE = "mcp:memory:write"
+SCOPE_TASKS_WRITE = "mcp:tasks:write"
+SCOPE_PROJECTS_WRITE = "mcp:projects:write"
+SCOPE_PEOPLE_WRITE = "mcp:people:write"
+SCOPE_DECISIONS_WRITE = "mcp:decisions:write"
+SCOPE_SESSIONS_WRITE = "mcp:sessions:write"
+SCOPE_EVIDENCE_WRITE = "mcp:evidence:write"
+SCOPE_WRITE_ALL = "mcp:write"
 
 ALL_SCOPES = [
     SCOPE_PEOPLE_READ,
@@ -28,6 +38,13 @@ ALL_SCOPES = [
     SCOPE_RELATIONSHIPS_READ,
     SCOPE_CALENDAR_READ,
     SCOPE_CONTENT_DRAFT,
+    SCOPE_MEMORY_WRITE,
+    SCOPE_TASKS_WRITE,
+    SCOPE_PROJECTS_WRITE,
+    SCOPE_PEOPLE_WRITE,
+    SCOPE_DECISIONS_WRITE,
+    SCOPE_SESSIONS_WRITE,
+    SCOPE_EVIDENCE_WRITE,
 ]
 
 
@@ -39,21 +56,51 @@ class MCPRateLimitError(Exception):
     pass
 
 
+def _normalize_scope(scope: str) -> str:
+    """Normalize scope strings e.g. 'tasks:write' -> 'mcp:tasks:write'."""
+    s = scope.strip().lower()
+    if not s.startswith("mcp:") and s not in {"*", "all"}:
+        return f"mcp:{s}"
+    return s
+
+
 def verify_scope(granted_scopes: List[str], required_scope: str) -> bool:
     if not granted_scopes:
         raise MCPScopeError("No scopes granted.")
-    if "*" in granted_scopes or "mcp:all" in granted_scopes:
+
+    norm_granted = {_normalize_scope(s) for s in granted_scopes}
+    norm_required = _normalize_scope(required_scope)
+
+    # Superuser / wildcard grants
+    if "*" in granted_scopes or "mcp:all" in norm_granted or "all" in granted_scopes:
         return True
-    if required_scope in granted_scopes:
+
+    # Exact match (normalized)
+    if norm_required in norm_granted:
         return True
-    if required_scope.endswith(":read") and (
-        "mcp:read" in granted_scopes or "mcp:group:read" in granted_scopes
+
+    # Write group grant
+    if norm_required.endswith(":write") and (
+        "mcp:write" in norm_granted or "write" in granted_scopes
     ):
         return True
-    if required_scope.endswith(":draft") and (
-        "mcp:draft" in granted_scopes or "mcp:group:draft" in granted_scopes
+
+    # Read group grant
+    if norm_required.endswith(":read") and (
+        "mcp:read" in norm_granted
+        or "read" in granted_scopes
+        or "mcp:group:read" in norm_granted
     ):
         return True
+
+    # Draft group grant
+    if norm_required.endswith(":draft") and (
+        "mcp:draft" in norm_granted
+        or "draft" in granted_scopes
+        or "mcp:group:draft" in norm_granted
+    ):
+        return True
+
     raise MCPScopeError(f"Scope '{required_scope}' is not granted.")
 
 

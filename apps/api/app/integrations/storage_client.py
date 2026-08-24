@@ -12,7 +12,15 @@ from app.utils.files import calculate_checksum, validate_upload_file
 class StorageService:
     def __init__(self, bucket_name: str = settings.STORAGE_BUCKET_DOCUMENTS):
         self.bucket_name = bucket_name
-        self.use_supabase = bool(settings.SUPABASE_URL and settings.supabase_secret)
+        supabase_url = (settings.SUPABASE_URL or "").lower()
+        # CI/local often set mock.supabase.co — never treat that as a live Storage host.
+        is_mock_host = any(
+            marker in supabase_url
+            for marker in ("mock.supabase", "example.com", "localhost", "127.0.0.1")
+        )
+        self.use_supabase = bool(
+            settings.SUPABASE_URL and settings.supabase_secret and not is_mock_host
+        )
         if settings.is_production() and not self.use_supabase:
             raise RuntimeError(
                 "Production document storage requires SUPABASE_URL and "
@@ -87,6 +95,24 @@ class StorageService:
 
         expires = (datetime.now(timezone.utc) + timedelta(seconds=expires_seconds)).isoformat()
         return f"{settings.FRONTEND_URL}/api/storage/{self.bucket_name}/{relative_path}?token=sig_{relative_path[:8]}&expires={expires}"
+
+    async def read_file(self, relative_path: str) -> bytes:
+        """Read raw bytes of uploaded file from Supabase storage or local directory fallback."""
+        if self.use_supabase:
+            object_path = quote(relative_path, safe="/")
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(
+                    f"{self._storage_url}/object/{self.bucket_name}/{object_path}",
+                    headers=self._service_headers,
+                )
+            response.raise_for_status()
+            return response.content
+
+        full_path = os.path.join(self.base_path, relative_path)
+        if not os.path.exists(full_path):
+            raise FileNotFoundError(f"Storage file not found at: {full_path}")
+        with open(full_path, "rb") as f:
+            return f.read()
 
     async def delete_file(self, relative_path: str) -> bool:
         if self.use_supabase:
