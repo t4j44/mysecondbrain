@@ -9,12 +9,6 @@
     "lint": "pnpm --filter web lint",
     "typecheck": "pnpm --filter web typecheck"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "unrs-resolver"
-    ]
-  },
   "devDependencies": {
     "typescript": "^5.4.5"
   }
