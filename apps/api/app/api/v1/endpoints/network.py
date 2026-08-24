@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Query, status
 
 from app.core.pagination import PaginationParams
@@ -15,10 +17,13 @@ from app.dependencies.services import (
 from app.schemas import (
     InteractionCreate,
     InteractionResponse,
+    InteractionUpdate,
     MeetingCreate,
     MeetingResponse,
+    MeetingUpdate,
     OrganizationCreate,
     OrganizationResponse,
+    OrganizationUpdate,
     PersonCreate,
     PersonResponse,
     PersonUpdate,
@@ -123,6 +128,46 @@ async def list_organizations(
     return res.model_dump()
 
 
+@router.get(
+    "/organizations/{id}",
+    response_model=OrganizationResponse,
+    summary="Retrieve organization details by ID",
+)
+async def read_organization(
+    id: str,
+    service: OrganizationService = Depends(get_organization_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.get_organization(id)
+
+
+@router.patch(
+    "/organizations/{id}",
+    response_model=OrganizationResponse,
+    summary="Update organization details",
+)
+async def update_organization(
+    id: str,
+    payload: OrganizationUpdate,
+    service: OrganizationService = Depends(get_organization_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.update_organization(id, payload.model_dump(exclude_unset=True))
+
+
+@router.delete(
+    "/organizations/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Archive or delete organization record",
+)
+async def delete_organization(
+    id: str,
+    service: OrganizationService = Depends(get_organization_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    await service.delete_organization(id)
+
+
 # --- INTERACTIONS ENDPOINTS (Task 16) ---
 @router.post(
     "/interactions",
@@ -142,14 +187,56 @@ async def create_interaction(
     "/interactions", response_model=dict, summary="List chronological relationship interaction log"
 )
 async def list_interactions(
+    person_id: Optional[str] = None,
+    venture_id: Optional[str] = None,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     service: InteractionService = Depends(get_interaction_service),
     _user: AuthenticatedUser = Depends(get_current_user),
 ):
     pagination = PaginationParams(limit=limit, offset=offset)
-    res = await service.list_interactions(pagination)
+    res = await service.list_interactions(pagination, person_id=person_id, venture_id=venture_id)
     return res.model_dump()
+
+
+@router.get(
+    "/interactions/{id}",
+    response_model=InteractionResponse,
+    summary="Retrieve interaction details by ID",
+)
+async def read_interaction(
+    id: str,
+    service: InteractionService = Depends(get_interaction_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.get_interaction(id)
+
+
+@router.patch(
+    "/interactions/{id}",
+    response_model=InteractionResponse,
+    summary="Update interaction details",
+)
+async def update_interaction(
+    id: str,
+    payload: InteractionUpdate,
+    service: InteractionService = Depends(get_interaction_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.update_interaction(id, payload.model_dump(exclude_unset=True))
+
+
+@router.delete(
+    "/interactions/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove interaction log entry",
+)
+async def delete_interaction(
+    id: str,
+    service: InteractionService = Depends(get_interaction_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    await service.delete_interaction(id)
 
 
 # --- MEETINGS ENDPOINTS (Task 17) ---
@@ -177,3 +264,43 @@ async def list_meetings(
     pagination = PaginationParams(limit=limit, offset=offset)
     res = await service.list_meetings(pagination)
     return res.model_dump()
+
+
+@router.get(
+    "/meetings/{id}",
+    response_model=MeetingResponse,
+    summary="Retrieve meeting record by ID",
+)
+async def read_meeting(
+    id: str,
+    service: MeetingService = Depends(get_meeting_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.get_meeting(id)
+
+
+@router.patch(
+    "/meetings/{id}",
+    response_model=MeetingResponse,
+    summary="Update meeting details and minutes",
+)
+async def update_meeting(
+    id: str,
+    payload: MeetingUpdate,
+    service: MeetingService = Depends(get_meeting_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.update_meeting(id, payload.model_dump(exclude_unset=True))
+
+
+@router.delete(
+    "/meetings/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove meeting record",
+)
+async def delete_meeting(
+    id: str,
+    service: MeetingService = Depends(get_meeting_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    await service.delete_meeting(id)

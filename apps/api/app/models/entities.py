@@ -59,6 +59,46 @@ class JSONEncodedList(TypeDecorator):
             return []
 
 
+class VectorType(TypeDecorator):
+    """
+    Environment-aware Vector type.
+    Uses pgvector's vector type when running against PostgreSQL,
+    and falls back to JSON-encoded Text for SQLite testing.
+    """
+    impl = TEXT
+    cache_ok = True
+
+    def __init__(self, dim=768, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dim = dim
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            from sqlalchemy.types import UserDefinedType
+            class _PGVectorType(UserDefinedType):
+                def get_col_spec(self, **kw):
+                    return f"vector({self.dim})"
+            return dialect.type_descriptor(_PGVectorType())
+        return dialect.type_descriptor(TEXT())
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return json.dumps(value)
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except Exception:
+                return value
+        return value
+
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -287,6 +327,11 @@ class Meeting(Base):
     def participant_person_ids(self) -> list[Any]:
         return [getattr(item, "person_id", item) for item in (self.participants or [])]
 
+    @participant_person_ids.setter
+    def participant_person_ids(self, value: Optional[list[Any]]) -> None:
+        # Accept constructor/update kwargs; store as JSON list of person ids.
+        self.participants = list(value or [])
+
 
 class Memory(Base):
     __tablename__ = "memories"
@@ -330,7 +375,7 @@ class MemoryEmbedding(Base):
     entity_id: Any = Column(FlexibleUUID, nullable=False, index=True)
     content: Any = Column(Text, nullable=False)
     # Stored as JSON array string in tests / fallback, or mapped to vector in live Postgres
-    embedding: Any = Column(Text, nullable=True)
+    embedding: Any = Column(VectorType(768), nullable=True)
     metadata_payload: Any = Column(JSONEncodedDict, default=dict)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
@@ -627,3 +672,96 @@ class AuditLog(Base):
     details: Any = Column(JSONEncodedDict, default=dict)
     timestamp: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     request_id: Any = Column(String(100), nullable=True)
+
+
+class WorkSession(Base):
+    __tablename__ = "work_sessions"
+
+    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Any = Column(String(36), nullable=False, index=True)
+    venture_id: Any = Column(String(36), nullable=True, index=True)
+    project_id: Any = Column(String(36), nullable=True, index=True)
+    title: Any = Column(String(255), nullable=False)
+    objective: Any = Column(Text, nullable=True)
+    start_time: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    end_time: Any = Column(DateTime(timezone=True), nullable=True)
+    duration_minutes: Any = Column(Integer, default=0, nullable=False)
+    summary: Any = Column(Text, nullable=True)
+    outcomes: Any = Column(Text, nullable=True)
+    artifacts_created: Any = Column(JSONEncodedList, default=list)
+    decisions_made: Any = Column(JSONEncodedList, default=list)
+    skills_exercised: Any = Column(JSONEncodedList, default=list)
+    source: Any = Column(String(100), default="manual_log", nullable=False)
+    metadata_payload: Any = Column(JSONEncodedDict, default=dict)
+    created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Any = Column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+    archived_at: Any = Column(DateTime(timezone=True), nullable=True)
+    deleted_at: Any = Column(DateTime(timezone=True), nullable=True)
+
+
+class EvidenceItem(Base):
+    __tablename__ = "evidence_items"
+
+    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Any = Column(String(36), nullable=False, index=True)
+    source_type: Any = Column(String(100), nullable=False)
+    source_id: Any = Column(String(36), nullable=False, index=True)
+    work_session_id: Any = Column(String(36), nullable=True, index=True)
+    venture_id: Any = Column(String(36), nullable=True, index=True)
+    project_id: Any = Column(String(36), nullable=True, index=True)
+    evidence_type: Any = Column(String(100), nullable=False)
+    title: Any = Column(String(255), nullable=False)
+    content: Any = Column(Text, nullable=False)
+    source_reference: Any = Column(String(1024), nullable=True)
+    timestamp: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    confidence: Any = Column(Float, default=1.0, nullable=False)
+    metadata_payload: Any = Column(JSONEncodedDict, default=dict)
+    created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Any = Column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+    archived_at: Any = Column(DateTime(timezone=True), nullable=True)
+    deleted_at: Any = Column(DateTime(timezone=True), nullable=True)
+
+
+class PortfolioEvidence(Base):
+    __tablename__ = "portfolio_evidence"
+
+    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Any = Column(String(36), nullable=False, index=True)
+    skill: Any = Column(String(100), nullable=False, index=True)
+    project: Any = Column(String(255), nullable=False)
+    project_id: Any = Column(String(36), nullable=True, index=True)
+    venture_id: Any = Column(String(36), nullable=True, index=True)
+    claim: Any = Column(Text, nullable=False)
+    supporting_evidence_ids: Any = Column(JSONEncodedList, default=list)
+    impact: Any = Column(Text, nullable=False)
+    metric: Any = Column(String(255), nullable=True)
+    metric_verified: Any = Column(Boolean, default=False, nullable=False)
+    confidence: Any = Column(Float, default=1.0, nullable=False)
+    review_status: Any = Column(String(50), default="draft", nullable=False)
+    metadata_payload: Any = Column(JSONEncodedDict, default=dict)
+    created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Any = Column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+    archived_at: Any = Column(DateTime(timezone=True), nullable=True)
+    deleted_at: Any = Column(DateTime(timezone=True), nullable=True)
+
+
+class EntityEdge(Base):
+    __tablename__ = "entity_edges"
+
+    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Any = Column(String(36), nullable=False, index=True)
+    source_entity_type: Any = Column(String(100), nullable=False, index=True)
+    source_entity_id: Any = Column(String(36), nullable=False, index=True)
+    target_entity_type: Any = Column(String(100), nullable=False, index=True)
+    target_entity_id: Any = Column(String(36), nullable=False, index=True)
+    relationship_type: Any = Column(String(100), nullable=False, index=True)
+    weight: Any = Column(Float, default=1.0, nullable=False)
+    metadata_payload: Any = Column(JSONEncodedDict, default=dict)
+    created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+
