@@ -1,136 +1,97 @@
-import { createClient } from '@/lib/supabase/client';
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
+import { api } from '@/lib/api/browser-client';
+import { ApiError } from '@/lib/api/errors';
+import { toApiError } from '@/lib/api/format-error';
+import type { ListResponse, Person, PersonCreateInput } from '@/lib/api/domains';
 
-export interface Person {
-  id: string;
-  name: string;
-  organization_id?: string;
-  role?: string;
-  company?: string;
-  industry?: string;
-  location?: string;
-  email?: string;
-  phone?: string;
-  linkedin_url?: string;
-  relationship_type: 'mentor' | 'investor' | 'peer' | 'collaborator' | 'lead' | 'client' | 'contact';
-  last_interaction_at?: string;
-  notes?: string;
-  tags: string[];
-  metadata: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-}
+export type { Person, PersonCreateInput };
 
-export interface UsePeopleParams {
-  q?: string;
-  relationship_type?: string;
-  tag?: string;
-  limit?: number;
-  offset?: number;
-  sort_by?: string;
-  sort_order?: 'asc' | 'desc';
-}
-
-export function usePeople(params: UsePeopleParams = {}) {
+export function usePeople() {
   const [people, setPeople] = useState<Person[]>([]);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<ApiError | null>(null);
 
-  const fetchPeople = useCallback(async () => {
+  const refetch = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const queryParams = new URLSearchParams();
-      if (params.q) queryParams.append('q', params.q);
-      if (params.relationship_type) queryParams.append('relationship_type', params.relationship_type);
-      if (params.tag) queryParams.append('tag', params.tag);
-      if (params.limit) queryParams.append('limit', String(params.limit));
-      if (params.offset) queryParams.append('offset', String(params.offset));
-      if (params.sort_by) queryParams.append('sort_by', params.sort_by);
-      if (params.sort_order) queryParams.append('sort_order', params.sort_order);
-
-      const { data: { session } } = await createClient().auth.getSession();
-      const token = session?.access_token;
-      const response = await fetch(`/api/v1/people?${queryParams.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token || ''}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch people: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      setPeople(result.data);
-      setTotal(result.pagination?.total || result.data.length);
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+      const res = await api.get<ListResponse<Person>>('/people', { params: { limit: 100 } });
+      setPeople(res.items ?? []);
+      setTotal(res.total ?? 0);
+    } catch (err) {
+      setError(toApiError(err));
     } finally {
       setLoading(false);
     }
-  }, [params.q, params.relationship_type, params.tag, params.limit, params.offset, params.sort_by, params.sort_order]);
+  }, []);
 
   useEffect(() => {
-    fetchPeople();
-  }, [fetchPeople]);
+    refetch();
+  }, [refetch]);
 
-  const createPerson = async (data: Partial<Person>) => {
+  const createPerson = async (data: PersonCreateInput) => {
     setError(null);
     try {
-      const { data: { session } } = await createClient().auth.getSession();
-      const token = session?.access_token;
-      const response = await fetch('/api/v1/people', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token || ''}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Creation failed: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      setPeople((prev) => [result.data, ...prev]);
-      return result.data;
-    } catch (err: any) {
-      setError(err.message || 'Failed to create person');
-      throw err;
+      const created = await api.post<Person>('/people', data);
+      setPeople((prev) => [created, ...prev]);
+      setTotal((t) => t + 1);
+      return created;
+    } catch (err) {
+      const apiErr = toApiError(err);
+      setError(apiErr);
+      throw apiErr;
     }
   };
 
   const updatePerson = async (id: string, data: Partial<Person>) => {
     setError(null);
     try {
-      const { data: { session } } = await createClient().auth.getSession();
-      const token = session?.access_token;
-      const response = await fetch(`/api/v1/people/${id}`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token || ''}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Update failed: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      setPeople((prev) => prev.map((p) => (p.id === id ? result.data : p)));
-      return result.data;
-    } catch (err: any) {
-      setError(err.message || 'Failed to update person');
-      throw err;
+      const updated = await api.patch<Person>(`/people/${id}`, data);
+      setPeople((prev) => prev.map((p) => (p.id === id ? updated : p)));
+      return updated;
+    } catch (err) {
+      const apiErr = toApiError(err);
+      setError(apiErr);
+      throw apiErr;
     }
   };
 
-  return { people, total, loading, error, refetch: fetchPeople, createPerson, updatePerson };
-}
+  const deletePerson = async (id: string) => {
+    setError(null);
+    try {
+      await api.delete(`/people/${id}`);
+      setPeople((prev) => prev.filter((p) => p.id !== id));
+      setTotal((t) => Math.max(0, t - 1));
+    } catch (err) {
+      const apiErr = toApiError(err);
+      setError(apiErr);
+      throw apiErr;
+    }
+  };
 
+  const getPerson = async (id: string) => {
+    setError(null);
+    try {
+      return await api.get<Person>(`/people/${id}`);
+    } catch (err) {
+      const apiErr = toApiError(err);
+      setError(apiErr);
+      throw apiErr;
+    }
+  };
+
+  return {
+    people,
+    total,
+    loading,
+    error,
+    refetch,
+    createPerson,
+    updatePerson,
+    deletePerson,
+    getPerson,
+  };
+}

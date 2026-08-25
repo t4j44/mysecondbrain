@@ -3,12 +3,12 @@
 from typing import Any, Optional, cast
 
 from mcp.server import MCPServer
-from pydantic import AnyHttpUrl
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
+from pydantic import AnyHttpUrl
 
 from app.core.config import settings
 from app.dependencies.database import AsyncSessionLocal
