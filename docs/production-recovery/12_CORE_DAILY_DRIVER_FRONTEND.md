@@ -4,7 +4,7 @@
 **Date:** 2026-08-25  
 **Branch:** `recovery/core-daily-driver`  
 **Starting SHA:** `9480d631f6c677a4f518c3ef5b3c35acf1868d0e` (docs commit atop Prompt 1 @ `6d47fdfe268cd85685e5fc178b8d4e3c1139033d`)  
-**Ending SHA:** _(see local commit after this doc)_  
+**Ending SHA:** `f6583b53f6dfae4a2c84913dc39b3a88c71a3ea1`  
 **Plan:** [`MASTER_PRODUCTION_PLAN.md`](./MASTER_PRODUCTION_PLAN.md)
 
 ---
@@ -183,7 +183,7 @@ PROMPT 2 COMPLETE
 
 Branch: recovery/core-daily-driver
 Starting SHA: 9480d631f6c677a4f518c3ef5b3c35acf1868d0e
-Ending local SHA: <committed after doc>
+Ending local SHA: f6583b53f6dfae4a2c84913dc39b3a88c71a3ea1
 
 Ventures: PASS (code) — Manual BLOCKED
 Projects: PASS (code) — Manual BLOCKED
