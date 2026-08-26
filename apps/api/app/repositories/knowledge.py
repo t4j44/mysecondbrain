@@ -50,10 +50,10 @@ class MemoryEmbeddingRepository(BaseRepository[MemoryEmbedding]):
             await db.delete(emb)
         await db.flush()
 
-    async def search_similar(
+    async def search_by_keyword(
         self, db: AsyncSession, user_id: str, query_text: str, limit: int = 10
     ) -> List[MemoryEmbedding]:
-        # Perform fallback ILIKE search across embeddings content when vector extensions are disabled in local testing
+        """Substring/keyword match on embedding content — not vector cosine ranking."""
         stmt = (
             select(MemoryEmbedding)
             .where(
@@ -64,6 +64,12 @@ class MemoryEmbeddingRepository(BaseRepository[MemoryEmbedding]):
         )
         result = await db.execute(stmt)
         return list(result.scalars().all())
+
+    async def search_similar(
+        self, db: AsyncSession, user_id: str, query_text: str, limit: int = 10
+    ) -> List[MemoryEmbedding]:
+        """Deprecated alias for keyword search; does not perform vector similarity."""
+        return await self.search_by_keyword(db, user_id, query_text, limit)
 
 
 class IdeaRepository(BaseRepository[Idea]):

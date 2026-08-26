@@ -6,7 +6,7 @@ from starlette.background import BackgroundTasks
 
 from app.ai.prompts import get_system_prompt
 from app.ai.provider import get_llm_provider
-from app.ai.retrieval import format_rag_context, perform_hybrid_search
+from app.ai.retrieval import format_rag_context, perform_keyword_search
 from app.core.errors import ConflictError, ErrorCode, NotFoundError
 from app.core.pagination import PaginatedResult, PaginationParams
 from app.integrations.storage_client import StorageService
@@ -259,7 +259,7 @@ class AIService:
         self.llm = get_llm_provider("gemini")
 
     async def execute_search(self, query: str, limit: int = 10):
-        results = await perform_hybrid_search(self.db, self.user_id, query, limit)
+        results = await perform_keyword_search(self.db, self.user_id, query, limit)
         return {"query": query, "results": results, "total_matches": len(results)}
 
     async def generate_content_with_rag(
@@ -267,7 +267,7 @@ class AIService:
     ) -> dict:
         if record_ids is None:
             record_ids = []
-        rag_items = await perform_hybrid_search(self.db, self.user_id, prompt, limit=5)
+        rag_items = await perform_keyword_search(self.db, self.user_id, prompt, limit=5)
         context = format_rag_context(rag_items)
         full_prompt = f"{context}\n\nFounder Instruction:\n{prompt}"
         synthesis = await self.llm.generate_content(

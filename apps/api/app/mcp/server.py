@@ -161,6 +161,17 @@ async def generate_weekly_review() -> dict[str, Any]:
         return await domain.generate_weekly_review()
 
 
+# ---------------------------------------------------------------------------
+# G0 MCP exposure truth:
+# REGISTERED (above): search_people, search_memory, get_projects, get_tasks,
+#   get_relationship_history, get_calendar, generate_linkedin_post,
+#   generate_case_study, generate_weekly_review
+# IMPLEMENTED BUT NOT REGISTERED (MCPDomainTools only): save_memory, create_task,
+#   update_task, complete_task, create_person, update_person, create_project,
+#   update_project, save_decision, save_work_session, finalize_work_session
+# Do not register write tools in G0.
+# ---------------------------------------------------------------------------
+
 mcp_asgi_app = mcp_server.streamable_http_app(
     streamable_http_path="/mcp",
     json_response=True,

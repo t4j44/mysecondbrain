@@ -211,7 +211,10 @@ class SearchResultItem(BaseModel):
     entity_type: str
     title: str
     snippet: str
-    score: float
+    # Confidence is unavailable until real vector ranking (G4). Never invent a constant.
+    score: Optional[float] = None
+    confidence_available: bool = False
+    search_mode: str = "keyword"
 
 
 class SearchResultResponse(BaseModel):

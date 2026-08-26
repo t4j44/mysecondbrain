@@ -3,7 +3,20 @@
 Version: 4.0 (Independent QA Gatekeeper Audit Reconciled)  
 Last Updated: 2026-08-24  
 Auditor: Independent Principal QA Engineer & Release Gatekeeper  
-Current Operational Status: **NO-GO FOR PRODUCTION RELEASE (~35-40% INTEGRATED)**  
+Current Operational Status: **NO-GO FOR PRODUCTION RELEASE**  
+
+### G0 Product Truth (2026-08-27)
+
+| Capability | Honest status |
+|---|---|
+| Document extraction | **NOT IMPLEMENTED / BLOCKED** |
+| Embeddings (durable vector success) | **NOT IMPLEMENTED / BLOCKED** |
+| Semantic retrieval | **NOT IMPLEMENTED** (keyword only) |
+| AI confidence | **NOT AVAILABLE** |
+| Google Workspace | **DISABLED / NOT IMPLEMENTED** |
+| MCP write | **IMPLEMENTED IN CODE, NOT EXPOSED** |
+
+See [`docs/production-recovery/G0_TRUTH_GATE.md`](docs/production-recovery/G0_TRUTH_GATE.md).
 
 ---
 
@@ -20,9 +33,9 @@ Current Operational Status: **NO-GO FOR PRODUCTION RELEASE (~35-40% INTEGRATED)*
 | **Life KPIs & Metrics** | `apps/web/app/(dashboard)/kpis` (STUB) | `apps/api/app/api/v1/endpoints/founder.py` | `public.kpi_definitions`, `kpi_entries` | Backend CRUD verified; Frontend is an EmptyState stub. | **PARTIAL** |
 | **Achievement Portfolio** | `apps/web/app/(dashboard)/achievements` (STUB) | `apps/api/app/api/v1/endpoints/ai_portfolio.py` | `public.achievements`, `case_studies` | Backend CRUD verified; Frontend is an EmptyState stub. | **PARTIAL** |
 | **AI Content Engine** | `apps/web/app/(dashboard)/content` (STUB) | `apps/api/app/api/v1/endpoints/ai_portfolio.py` | `public.content_items` | Backend drafting verified; Frontend is an EmptyState stub. | **PARTIAL** |
-| **Semantic Vector RAG** | `apps/web/app/(dashboard)/assistant` | `apps/api/app/api/v1/endpoints/knowledge.py` | `public.memory_embeddings` (`pgvector`) | Hardcoded score `0.89`; SQLite fallback uses `ILIKE` substring search. | **FAIL** |
-| **Offline Export & Google Sync** | `apps/web/app/(dashboard)/settings` (STUB) | `apps/api/app/jobs/handlers/*.py` | `sync_jobs`, `export_jobs`, GDrive OAuth | Live Google credentials unconfigured; handlers return hardcoded mock metrics. | **BLOCKED** |
-| **MCP Streamable HTTP Server** | External LLM Clients (Claude, ChatGPT) | **Mounted at `/mcp`** | `app/repositories/mcp.py` & services | MCP Read & Draft tools verified; MCP Write tools not implemented. | **PARTIAL** |
+| **Semantic Vector RAG** | `apps/web/app/(dashboard)/assistant` | `apps/api/app/api/v1/endpoints/knowledge.py` | `public.memory_embeddings` | Keyword/substring only; `score=null`; semantic retrieval **NOT IMPLEMENTED** | **FAIL (honest)** |
+| **Offline Export & Google Sync** | `apps/web/app/(dashboard)/settings` | Google endpoints / jobs | `integrations`, sync jobs | Google **DISABLED / NOT IMPLEMENTED**; no fake connected/sync counts | **BLOCKED (honest)** |
+| **MCP Streamable HTTP Server** | External LLM Clients | Mounted at `/mcp` | MCP credentials | Read + draft registered; write tools **IMPLEMENTED IN CODE, NOT EXPOSED** | **PARTIAL** |
 | **Finalize Work Session** | None (Missing) | None (Missing) | None (Missing) | Feature unbuilt across frontend, backend, and database layers. | **FAIL** |
 
 ---
@@ -41,8 +54,8 @@ Current Operational Status: **NO-GO FOR PRODUCTION RELEASE (~35-40% INTEGRATED)*
 
 ### 🔴 Gate 2: REST Backend & Shared Services — PARTIAL
 - [x] Pytest test suite collects 74 tests (all pass on SQLite).
-- [ ] RAG retrieval hardcodes confidence score `0.89`.
-- [ ] Google Sync handlers return hardcoded mock numbers.
+- [ ] RAG retrieval is keyword-only; confidence score is **NOT AVAILABLE** (`null`), not a hardcoded constant.
+- [ ] Google Sync is **DISABLED / NOT IMPLEMENTED** (fail-closed; no fake metrics).
 - **Gate Signoff Status: PARTIAL**
 
 ### 🔴 Gate 3: Frontend Foundation & Design Shell — FAIL
@@ -53,7 +66,7 @@ Current Operational Status: **NO-GO FOR PRODUCTION RELEASE (~35-40% INTEGRATED)*
 ### 🔴 Gate 4: Single Render Service MCP Integration (ADR-013) — PARTIAL
 - [x] Streamable HTTP ASGI MCP router mounted at `/mcp`.
 - [x] Verified `X-MCP-API-KEY` authentication and capability scopes for read/draft tools.
-- [ ] No MCP write tools implemented.
+- [ ] MCP write tools are **IMPLEMENTED IN CODE, NOT EXPOSED** (not registered on server/manifest).
 - **Gate Signoff Status: PARTIAL**
 
 ### 🔴 Gate 5: Security, DevOps & QA Signoff — NO-GO (FAIL)
@@ -71,10 +84,10 @@ Current Operational Status: **NO-GO FOR PRODUCTION RELEASE (~35-40% INTEGRATED)*
 | **BLK-REL-001** | Orphan Prototype Endpoints with Hardcoded User IDs | Security Engineer | Delete or quarantine orphan files in `endpoints/`. | **OPEN / BLOCKER** |
 | **BLK-REL-002** | 15 Frontend Dashboard Routes Are Toast Stubs | Frontend Engineer | Implement functional interactive UI and forms for all routes. | **OPEN / BLOCKER** |
 | **BLK-REL-003** | Frontend Hooks Read `localStorage` for Auth Tokens | Frontend Engineer | Replace `localStorage` calls with Supabase SSR session client. | **OPEN / BLOCKER** |
-| **BLK-REL-004** | Hardcoded RAG Confidence Score `0.89` | AI/Backend Engineer | Remove `0.89` constant; implement cosine distance scoring. | **OPEN / BLOCKER** |
-| **BLK-REL-005** | Simulated AI Providers & Synthetic Embeddings | AI Engineer | Integrate real Gemini/OpenAI provider with production key validation. | **OPEN / BLOCKER** |
-| **BLK-REL-006** | Simulated Google OAuth & Hardcoded Sync Metrics | Integrations Engineer | Implement real Google OAuth token exchange upon credential availability. | **BLOCKED** |
+| **BLK-REL-004** | Hardcoded RAG Confidence Score `0.89` | AI/Backend Engineer | Remove `0.89` constant; implement cosine distance scoring. | **MITIGATED (G0)** — score=null / keyword-only; real semantic ranking still **NOT IMPLEMENTED** |
+| **BLK-REL-005** | Simulated AI Providers & Synthetic Embeddings | AI Engineer | Integrate real Gemini/OpenAI provider with production key validation. | **MITIGATED (G0)** — production fail-closed; truncated embedding success forbidden; full vector path still **BLOCKED** |
+| **BLK-REL-006** | Simulated Google OAuth & Hardcoded Sync Metrics | Integrations Engineer | Implement real Google OAuth token exchange upon credential availability. | **MITIGATED (G0)** — returns **NOT_IMPLEMENTED**; no fake connected/sync counts. Real OAuth still deferred |
 | **BLK-REL-007** | Missing Feature: Finalize Work Session | Product / Backend Engineer | Design and build one-click session compilation endpoint & UI. | **OPEN / BLOCKER** |
-| **BLK-REL-008** | Missing MCP Write Operations | Integrations Engineer | Design and implement mutating MCP tools with strict authorization. | **OPEN / BLOCKER** |
+| **BLK-REL-008** | Missing MCP Write Operations | Integrations Engineer | Design and implement mutating MCP tools with strict authorization. | **CLARIFIED (G0)** — implemented in `MCPDomainTools`, **NOT EXPOSED** on server |
 | **BLK-REL-009** | SQLAlchemy Model / Migration Schema Bugs | Backend Engineer | Fix `Meeting.participant_person_ids` setter & `Memory.body` vs `content`. | **OPEN / BLOCKER** |
 | **BLK-REL-010** | Vacuous Playwright E2E Tests (`toBeDefined`) | QA Engineer | Write comprehensive E2E tests asserting real DOM rendering and state. | **OPEN / BLOCKER** |

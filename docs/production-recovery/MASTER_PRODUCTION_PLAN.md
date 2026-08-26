@@ -24,7 +24,9 @@
 | **finalize_work_session** | Not productized | MCP tools expanded in tree; killer feature not end-to-end |
 | **E2E QA** | Blocked | No Playwright auth fixture; Prompt 3 owns gate |
 
-**Honest verdict today:** **NO-GO** for daily personal use and **NO-GO** for public production. **GO** to begin **Prompt 2** (Core Daily Driver frontend) on a trusted recovery branch after Prompt 1 verification.
+**Honest verdict today:** **NO-GO** for daily personal use and **NO-GO** for public production.  
+**G0 Product Truth (2026-08-27):** **PASS** — unfinished capabilities fail closed / report honestly; see [`G0_TRUTH_GATE.md`](./G0_TRUTH_GATE.md). Do **not** begin G1 until instructed.  
+**Next product track after G0:** Core Daily Driver E2E (Prompt 3) remains env-blocked; intelligence layers are Prompts 4–7.
 
 ### Target: “Fully production ready”
 

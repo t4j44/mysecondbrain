@@ -46,7 +46,10 @@ MCP_TOOLS_MANIFEST: List[Dict[str, Any]] = [
     },
     {
         "name": "search_memory",
-        "description": "Semantic RAG search across founder memories, decisions, and meeting notes.",
+        "description": (
+            "Keyword/substring search across founder memories and notes. "
+            "Not semantic vector RAG; confidence scores are unavailable."
+        ),
         "required_scope": SCOPE_MEMORY_READ,
         "input_schema": {
             "type": "object",
@@ -132,6 +135,23 @@ MCP_TOOLS_MANIFEST: List[Dict[str, Any]] = [
 ]
 
 
+# Write / mutate tools exist on MCPDomainTools but are intentionally NOT registered
+# on the MCP server or REST invoke manifest (G0). Prompt 5 owns safe exposure.
+MCP_WRITE_TOOLS_IMPLEMENTED_NOT_EXPOSED: List[str] = [
+    "save_memory",
+    "create_task",
+    "update_task",
+    "complete_task",
+    "create_person",
+    "update_person",
+    "create_project",
+    "update_project",
+    "save_decision",
+    "save_work_session",
+    "finalize_work_session",
+]
+
+
 @router.get("", summary="MCP Server Capabilities & Protocol Info")
 async def mcp_server_info():
     return {
@@ -140,6 +160,9 @@ async def mcp_server_info():
         "server_name": "Taj's Second Brain MCP Streamable HTTP Server",
         "transport": "Streamable HTTP (ASGI mounted at /mcp)",
         "available_tools_count": len(MCP_TOOLS_MANIFEST),
+        "registered_tools": [t["name"] for t in MCP_TOOLS_MANIFEST],
+        "write_tools_status": "IMPLEMENTED_IN_CODE_NOT_EXPOSED",
+        "write_tools_not_exposed": list(MCP_WRITE_TOOLS_IMPLEMENTED_NOT_EXPOSED),
         "docs": "/api/docs#tag/MCP-Streamable-HTTP-Server",
     }
 

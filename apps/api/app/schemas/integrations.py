@@ -25,11 +25,15 @@ class GoogleCallbackRequest(BaseModel):
 
 
 class GoogleCallbackResponse(BaseModel):
-    status: str = "connected"
+    status: str = Field(
+        ...,
+        description="connected | not_implemented | disabled — never invent connected without OAuth",
+    )
     provider: str = "google"
-    account_identifier: str
+    account_identifier: Optional[str] = None
     scopes_granted: List[str] = []
-    message: str = "Google integration connected and credentials encrypted successfully."
+    message: str
+    code: Optional[str] = None
 
 
 class SyncDriveRequest(BaseModel):
