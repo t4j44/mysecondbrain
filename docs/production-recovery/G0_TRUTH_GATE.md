@@ -4,7 +4,7 @@
 **Date:** 2026-08-27  
 **Branch:** `recovery/core-daily-driver`  
 **Starting SHA:** `143eda9ad1cf5042b51058264456436f0d5cb1b7`  
-**Ending local SHA:** `f03d0e5bcc89ce58b6c5787ee0ad194adba758c2`  
+**Ending local SHA:** `9c0b7541c2ac8323e7b483b41ce841ef942aed26` (G0 implementation checkpoint `f03d0e5bcc89ce58b6c5787ee0ad194adba758c2`)  
 **Remote actions:** **NONE** — **NO PUSH, NO PR, NO MERGE, NO DEPLOYMENT**
 
 ---
@@ -153,7 +153,7 @@ G0 PRODUCT TRUTH: PASS
 
 Branch: recovery/core-daily-driver
 Starting SHA: 143eda9ad1cf5042b51058264456436f0d5cb1b7
-Ending local SHA: f03d0e5bcc89ce58b6c5787ee0ad194adba758c2
+Ending local SHA: 9c0b7541c2ac8323e7b483b41ce841ef942aed26
 
 False-success paths discovered: fabricated doc text; truncated embedding strings;
   hardcoded RAG 0.89; simulated Google OAuth/sync metrics; MCP write overclaim;
