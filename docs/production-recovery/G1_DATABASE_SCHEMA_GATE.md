@@ -4,7 +4,7 @@
 **Date:** 2026-08-27
 **Branch:** `recovery/core-daily-driver`
 **Starting SHA:** `42934ec`
-**Ending local SHA:** `<see exit report below>`
+**Ending local SHA:** `d2c4c66f66e2819d546dfccc5ec88a26c6bdeeed` (implementation checkpoint `d2c4c66`)
 **Remote actions:** **NONE** — **NO PUSH, NO PR, NO MERGE, NO DEPLOY**
 
 ---
@@ -248,7 +248,7 @@ G1 ONE SCHEMA: PASS (POSTGRES INTEGRATION BLOCKED)
 
 Branch: recovery/core-daily-driver
 Starting SHA: 42934ec
-Ending local SHA: <commit sha>
+Ending local SHA: d2c4c66f66e2819d546dfccc5ec88a26c6bdeeed
 
 Done: migrations locked as canonical authority; create_all removed from startup and
   regression-tested; SQLite fail-fast guard for integration/e2e/staging/production;
