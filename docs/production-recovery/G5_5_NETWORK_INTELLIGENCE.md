@@ -2,7 +2,7 @@
 
 **Branch:** `recovery/core-daily-driver`
 **Starting SHA:** `4d039ee`
-**Ending local SHA:** _(recorded in the commit that lands this document)_
+**Ending local SHA:** `2bf3db0` (this doc's SHA recorded in the follow-up commit)
 **Date:** 2026-08-28
 **Owner:** Senior CRM / Relationship Graph Data Engineer
 
