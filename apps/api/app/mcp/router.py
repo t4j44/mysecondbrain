@@ -5,11 +5,10 @@ Module Owner: Agent 10 & Agent 3 — ADR-013 Single Render Service Architecture
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.database import get_db_session
+from app.dependencies.database import admin_db_session, rls_db_session
 from app.mcp.security import (
     SCOPE_CALENDAR_READ,
     SCOPE_CONTENT_DRAFT,
@@ -177,7 +176,6 @@ async def invoke_mcp_tool(
     payload: MCPToolInvocation,
     x_mcp_api_key: Optional[str] = Header(None, alias="X-MCP-API-KEY"),
     authorization: Optional[str] = Header(None),
-    db: AsyncSession = Depends(get_db_session),
 ):
     api_key = x_mcp_api_key or authorization
     if not api_key:
@@ -194,54 +192,65 @@ async def invoke_mcp_tool(
             detail=f"MCP Tool '{payload.tool}' is not registered on this server.",
         )
 
-    # Validate security & scopes
-    sec_ctx = await authorize_mcp_request(
-        db=db,
-        api_key=api_key,
-        required_scope=str(tool_spec["required_scope"]),
-        tool_name=payload.tool,
-        arguments=payload.arguments,
-    )
+    # Credential verification scans every profile for a matching key prefix, so it is a
+    # system operation and must run in the privileged admin context, not under RLS claims.
+    async with admin_db_session(reason="mcp_api_key_verification") as admin_db:
+        sec_ctx = await authorize_mcp_request(
+            db=admin_db,
+            api_key=api_key,
+            required_scope=str(tool_spec["required_scope"]),
+            tool_name=payload.tool,
+            arguments=payload.arguments,
+        )
+        await admin_db.commit()
 
-    domain = MCPDomainTools(db=db, user_id=sec_ctx.user_id)
     args = payload.arguments or {}
     result: Any = None
 
-    if payload.tool == "search_people":
-        result = await domain.search_people(query=args.get("query"), limit=args.get("limit", 20))
-    elif payload.tool == "search_memory":
-        result = await domain.search_memory(
-            query=args.get("query"), category=args.get("category"), limit=args.get("limit", 20)
-        )
-    elif payload.tool == "get_projects":
-        result = await domain.get_projects(status=args.get("status"), limit=args.get("limit", 20))
-    elif payload.tool == "get_tasks":
-        result = await domain.get_tasks(status=args.get("status"), limit=args.get("limit", 20))
-    elif payload.tool == "get_relationship_history":
-        person_id = args.get("person_id")
-        if not person_id:
-            raise HTTPException(status_code=400, detail="Missing required argument 'person_id'")
-        result = await domain.get_relationship_history(
-            person_id=person_id, limit=args.get("limit", 20)
-        )
-    elif payload.tool == "get_calendar":
-        result = await domain.get_calendar(limit=args.get("limit", 20))
-    elif payload.tool == "generate_linkedin_post":
-        topic = args.get("topic")
-        if not topic:
-            raise HTTPException(status_code=400, detail="Missing required argument 'topic'")
-        result = await domain.generate_linkedin_post(
-            topic=topic, style_tone=args.get("style_tone", "executive")
-        )
-    elif payload.tool == "generate_case_study":
-        project_name = args.get("project_name")
-        if not project_name:
-            raise HTTPException(status_code=400, detail="Missing required argument 'project_name'")
-        result = await domain.generate_case_study(project_name=project_name)
-    elif payload.tool == "generate_weekly_review":
-        result = await domain.generate_weekly_review()
-    else:
-        raise HTTPException(status_code=404, detail="Tool logic not bound.")
+    # Tool execution runs under the resolved owner's transaction-local claims, so the same
+    # RLS tenant boundary applies to MCP reads as to REST requests.
+    async with rls_db_session(sec_ctx.user_id) as db:
+        domain = MCPDomainTools(db=db, user_id=sec_ctx.user_id)
+
+        if payload.tool == "search_people":
+            result = await domain.search_people(query=args.get("query"), limit=args.get("limit", 20))
+        elif payload.tool == "search_memory":
+            result = await domain.search_memory(
+                query=args.get("query"), category=args.get("category"), limit=args.get("limit", 20)
+            )
+        elif payload.tool == "get_projects":
+            result = await domain.get_projects(
+                status=args.get("status"), limit=args.get("limit", 20)
+            )
+        elif payload.tool == "get_tasks":
+            result = await domain.get_tasks(status=args.get("status"), limit=args.get("limit", 20))
+        elif payload.tool == "get_relationship_history":
+            person_id = args.get("person_id")
+            if not person_id:
+                raise HTTPException(status_code=400, detail="Missing required argument 'person_id'")
+            result = await domain.get_relationship_history(
+                person_id=person_id, limit=args.get("limit", 20)
+            )
+        elif payload.tool == "get_calendar":
+            result = await domain.get_calendar(limit=args.get("limit", 20))
+        elif payload.tool == "generate_linkedin_post":
+            topic = args.get("topic")
+            if not topic:
+                raise HTTPException(status_code=400, detail="Missing required argument 'topic'")
+            result = await domain.generate_linkedin_post(
+                topic=topic, style_tone=args.get("style_tone", "executive")
+            )
+        elif payload.tool == "generate_case_study":
+            project_name = args.get("project_name")
+            if not project_name:
+                raise HTTPException(
+                    status_code=400, detail="Missing required argument 'project_name'"
+                )
+            result = await domain.generate_case_study(project_name=project_name)
+        elif payload.tool == "generate_weekly_review":
+            result = await domain.generate_weekly_review()
+        else:
+            raise HTTPException(status_code=404, detail="Tool logic not bound.")
 
     return {
         "status": "success",

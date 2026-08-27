@@ -9,7 +9,7 @@ from sqlalchemy import text
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import logger, setup_logging
-from app.dependencies.database import AsyncSessionLocal, verify_database_ready
+from app.dependencies.database import admin_db_session, verify_database_ready
 from app.mcp.router import router as mcp_http_router
 from app.mcp.server import mcp_asgi_app, mcp_server
 from app.middleware import (
@@ -92,7 +92,7 @@ async def liveness_probe():
 )
 async def readiness_probe():
     try:
-        async with AsyncSessionLocal() as session:
+        async with admin_db_session(reason="readiness_probe") as session:
             await session.execute(text("SELECT 1"))
         db_status = "connected"
         http_code = status.HTTP_200_OK

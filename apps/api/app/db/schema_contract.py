@@ -214,7 +214,11 @@ MIGRATION_FILES: List[str] = [
     "20260811000017_create_evidence_and_portfolio_graph_tables.sql",
     "20260827000018_align_documents_with_application_contract.sql",
     "20260827000019_create_jobs_and_exports_tables.sql",
+    "20260828000020_harden_rls_authorization_boundary.sql",
 ]
+
+# Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).
+RLS_POLICY_EXEMPT_TABLES: FrozenSet[str] = frozenset({"integration_tokens"})
 
 
 def type_matches(actual: str, expected_pattern: str) -> bool:

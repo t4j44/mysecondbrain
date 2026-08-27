@@ -4,14 +4,16 @@ from typing import Any, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import logger
-from app.dependencies.database import AsyncSessionLocal
+from app.dependencies.database import admin_db_session
 from app.repositories.integrations import JobRepository
 
 
 class JobRunner:
     @classmethod
     async def run_job_by_id(cls, job_id: str) -> None:
-        async with AsyncSessionLocal() as db:
+        # System context: the runner resolves a job by id across all owners, so it cannot
+        # run under a single caller's RLS claims.
+        async with admin_db_session(reason=f"job_execution:{job_id}") as db:
             repo = JobRepository()
             job = await repo.get_by_id_unscoped(db, id=job_id)
             if not job or job.status in {"completed"}:

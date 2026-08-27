@@ -1,6 +1,7 @@
 """Official MCP SDK server mounted into the unified FastAPI process."""
 
-from typing import Any, Optional, cast
+from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator, Optional, cast
 
 from mcp.server import MCPServer
 from mcp.server.auth.middleware.auth_context import get_access_token
@@ -11,7 +12,7 @@ from mcp.types import ToolAnnotations
 from pydantic import AnyHttpUrl
 
 from app.core.config import settings
-from app.dependencies.database import AsyncSessionLocal
+from app.dependencies.database import admin_db_session, rls_db_session
 from app.mcp.security import (
     SCOPE_CALENDAR_READ,
     SCOPE_CONTENT_DRAFT,
@@ -33,8 +34,10 @@ class DatabaseTokenVerifier(TokenVerifier):
         self.repo = MCPCredentialRepository()
 
     async def verify_token(self, token: str) -> AccessToken | None:
-        async with AsyncSessionLocal() as db:
+        # System operation: matching a key requires scanning credentials across profiles.
+        async with admin_db_session(reason="mcp_token_verification") as db:
             verified = await self.repo.verify_api_key(db, token)
+            await db.commit()
         if not verified or verified.get("status") != "active":
             return None
         return AccessToken(
@@ -75,17 +78,18 @@ def _authenticated_user_id(required_scope: str) -> str:
     return access_token.subject
 
 
-async def _domain(required_scope: str) -> tuple[Any, MCPDomainTools]:
+@asynccontextmanager
+async def _domain(required_scope: str) -> AsyncGenerator[MCPDomainTools, None]:
+    """Scope-check the MCP credential, then read under the owner's RLS claims."""
     user_id = _authenticated_user_id(required_scope)
-    db = AsyncSessionLocal()
-    return db, MCPDomainTools(db=db, user_id=user_id)
+    async with rls_db_session(user_id) as db:
+        yield MCPDomainTools(db=db, user_id=user_id)
 
 
 @mcp_server.tool(annotations=READ_ONLY)
 async def search_people(query: Optional[str] = None, limit: int = 20) -> list[dict[str, Any]]:
     """Search the authenticated user's CRM contacts."""
-    db, domain = await _domain(SCOPE_PEOPLE_READ)
-    async with db:
+    async with _domain(SCOPE_PEOPLE_READ) as domain:
         return await domain.search_people(query=query, limit=limit)
 
 
@@ -94,8 +98,7 @@ async def search_memory(
     query: Optional[str] = None, category: Optional[str] = None, limit: int = 20
 ) -> list[dict[str, Any]]:
     """Search the authenticated user's memories and notes."""
-    db, domain = await _domain(SCOPE_MEMORY_READ)
-    async with db:
+    async with _domain(SCOPE_MEMORY_READ) as domain:
         return await domain.search_memory(query=query, category=category, limit=limit)
 
 
@@ -104,16 +107,14 @@ async def get_projects(
     status: Optional[str] = None, limit: int = 20
 ) -> list[dict[str, Any]]:
     """List the authenticated user's projects."""
-    db, domain = await _domain(SCOPE_PROJECTS_READ)
-    async with db:
+    async with _domain(SCOPE_PROJECTS_READ) as domain:
         return await domain.get_projects(status=status, limit=limit)
 
 
 @mcp_server.tool(annotations=READ_ONLY)
 async def get_tasks(status: Optional[str] = None, limit: int = 20) -> list[dict[str, Any]]:
     """List the authenticated user's tasks."""
-    db, domain = await _domain(SCOPE_TASKS_READ)
-    async with db:
+    async with _domain(SCOPE_TASKS_READ) as domain:
         return await domain.get_tasks(status=status, limit=limit)
 
 
@@ -122,16 +123,14 @@ async def get_relationship_history(
     person_id: str, limit: int = 20
 ) -> list[dict[str, Any]]:
     """Return the authenticated user's interaction history for a contact."""
-    db, domain = await _domain(SCOPE_RELATIONSHIPS_READ)
-    async with db:
+    async with _domain(SCOPE_RELATIONSHIPS_READ) as domain:
         return await domain.get_relationship_history(person_id=person_id, limit=limit)
 
 
 @mcp_server.tool(annotations=READ_ONLY)
 async def get_calendar(limit: int = 20) -> list[dict[str, Any]]:
     """List the authenticated user's upcoming meetings."""
-    db, domain = await _domain(SCOPE_CALENDAR_READ)
-    async with db:
+    async with _domain(SCOPE_CALENDAR_READ) as domain:
         return await domain.get_calendar(limit=limit)
 
 
@@ -140,24 +139,21 @@ async def generate_linkedin_post(
     topic: str, style_tone: Optional[str] = "executive"
 ) -> dict[str, Any]:
     """Generate a review-required LinkedIn draft without publishing it."""
-    db, domain = await _domain(SCOPE_CONTENT_DRAFT)
-    async with db:
+    async with _domain(SCOPE_CONTENT_DRAFT) as domain:
         return await domain.generate_linkedin_post(topic=topic, style_tone=style_tone)
 
 
 @mcp_server.tool(annotations=DRAFT_ONLY)
 async def generate_case_study(project_name: str) -> dict[str, Any]:
     """Generate a review-required case-study draft without publishing it."""
-    db, domain = await _domain(SCOPE_CONTENT_DRAFT)
-    async with db:
+    async with _domain(SCOPE_CONTENT_DRAFT) as domain:
         return await domain.generate_case_study(project_name=project_name)
 
 
 @mcp_server.tool(annotations=DRAFT_ONLY)
 async def generate_weekly_review() -> dict[str, Any]:
     """Generate a private weekly review for the authenticated user."""
-    db, domain = await _domain(SCOPE_CONTENT_DRAFT)
-    async with db:
+    async with _domain(SCOPE_CONTENT_DRAFT) as domain:
         return await domain.generate_weekly_review()
 
 

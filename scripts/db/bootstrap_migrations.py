@@ -24,8 +24,10 @@ sys.path.insert(0, str(REPO_ROOT / "apps" / "api"))
 
 PRODUCTION_MARKERS = ("prod", "production", "live")
 
-# Supabase provides auth.users natively; plain Postgres containers do not. The migrations
-# reference auth.users(id), so local bootstrap creates a minimal stand-in.
+# Supabase provides auth.users, auth.uid() and the anon/authenticated roles natively; plain
+# Postgres containers do not. The migrations reference auth.users(id) and the RLS policies call
+# auth.uid(), so local bootstrap creates minimal stand-ins. Everything here is guarded so it is
+# a no-op on Supabase and never overwrites the platform's own definitions.
 AUTH_SHIM_SQL = """
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE TABLE IF NOT EXISTS auth.users (
@@ -34,6 +36,77 @@ CREATE TABLE IF NOT EXISTS auth.users (
     raw_user_meta_data JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+        CREATE ROLE anon NOLOGIN NOINHERIT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+        CREATE ROLE authenticated NOLOGIN NOINHERIT;
+    END IF;
+END $$;
+
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT USAGE ON SCHEMA auth TO anon, authenticated;
+
+-- Only define the Supabase auth helpers when the platform has not already provided them.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'auth' AND p.proname = 'jwt'
+    ) THEN
+        CREATE FUNCTION auth.jwt() RETURNS JSONB
+        LANGUAGE sql STABLE AS $fn$
+            SELECT COALESCE(
+                NULLIF(current_setting('request.jwt.claims', true), '')::jsonb,
+                '{}'::jsonb
+            )
+        $fn$;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'auth' AND p.proname = 'uid'
+    ) THEN
+        CREATE FUNCTION auth.uid() RETURNS UUID
+        LANGUAGE sql STABLE AS $fn$
+            SELECT NULLIF(
+                COALESCE(
+                    auth.jwt() ->> 'sub',
+                    NULLIF(current_setting('request.jwt.claim.sub', true), '')
+                ),
+                ''
+            )::uuid
+        $fn$;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'auth' AND p.proname = 'role'
+    ) THEN
+        CREATE FUNCTION auth.role() RETURNS TEXT
+        LANGUAGE sql STABLE AS $fn$
+            SELECT COALESCE(auth.jwt() ->> 'role', 'anon')
+        $fn$;
+    END IF;
+END $$;
+
+GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION auth.jwt() TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION auth.role() TO anon, authenticated;
+"""
+
+# Applied after the migrations so the `authenticated` role can reach the RLS policies on a
+# plain container. Migration 0020 grants per table; this covers sequences and functions.
+POST_MIGRATION_GRANT_SQL = """
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
+REVOKE ALL ON public.integration_tokens FROM authenticated;
 """
 
 
@@ -82,6 +155,8 @@ async def apply_migrations(url: str) -> None:
         for path in migration_paths():
             print(f"applying {path.name} ...")
             await conn.execute(path.read_text(encoding="utf-8"))
+        await conn.execute(POST_MIGRATION_GRANT_SQL)
+        print("authenticated role privileges granted (RLS reachable).")
     finally:
         await conn.close()
 

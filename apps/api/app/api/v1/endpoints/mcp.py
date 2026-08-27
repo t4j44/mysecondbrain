@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import AuthenticatedUser, get_current_user
-from app.dependencies.database import get_db_session
+from app.dependencies.database import get_rls_db_session
 from app.schemas.mcp import (
     MCPCredentialCreateRequest,
     MCPCredentialCreateResponse,
@@ -39,7 +39,7 @@ def build_meta(request_id: str = "N/A") -> Dict[str, Any]:
 async def list_credentials(
     request: Request,
     current_user: AuthenticatedUser = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncSession = Depends(get_rls_db_session),
 ) -> MCPCredentialListResponse:
     creds = await service.list_credentials(db, user_id=current_user.id)
     req_id = getattr(request.state, "request_id", "N/A")
@@ -59,7 +59,7 @@ async def create_credential(
     body: MCPCredentialCreateRequest,
     request: Request,
     current_user: AuthenticatedUser = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncSession = Depends(get_rls_db_session),
 ) -> MCPCredentialSecretResponse:
     req_id = getattr(request.state, "request_id", "N/A")
     cred = await service.create_credential(db, user_id=current_user.id, req=body, request_id=req_id)
@@ -77,7 +77,7 @@ async def get_credential(
     credential_id: str,
     request: Request,
     current_user: AuthenticatedUser = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncSession = Depends(get_rls_db_session),
 ) -> MCPCredentialSingleResponse:
     cred = await service.get_credential(db, user_id=current_user.id, credential_id=credential_id)
     if not cred:
@@ -101,7 +101,7 @@ async def rotate_credential(
     credential_id: str,
     request: Request,
     current_user: AuthenticatedUser = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncSession = Depends(get_rls_db_session),
 ) -> MCPCredentialSecretResponse:
     req_id = getattr(request.state, "request_id", "N/A")
     cred = await service.rotate_credential(
@@ -128,7 +128,7 @@ async def revoke_credential(
     credential_id: str,
     request: Request,
     current_user: AuthenticatedUser = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncSession = Depends(get_rls_db_session),
 ) -> MCPCredentialSingleResponse:
     req_id = getattr(request.state, "request_id", "N/A")
     cred = await service.revoke_credential(
@@ -155,7 +155,7 @@ async def delete_credential(
     credential_id: str,
     request: Request,
     current_user: AuthenticatedUser = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncSession = Depends(get_rls_db_session),
 ) -> None:
     req_id = getattr(request.state, "request_id", "N/A")
     success = await service.delete_credential(

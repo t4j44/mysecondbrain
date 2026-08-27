@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
-from app.dependencies.database import get_db_session
+from app.dependencies import database as database_module
+from app.dependencies.database import get_rls_db_session
 from app.main import app
 from app.models.entities import Base
 
@@ -24,13 +25,19 @@ test_engine = create_async_engine(
 TestingSessionLocal = async_sessionmaker(test_engine, expire_on_commit=False, class_=AsyncSession)
 
 
-# Override database dependency for tests
+# Override the database dependency for unit tests. SQLite has no roles, GUCs or RLS, so the
+# isolated in-memory database is the tenant boundary here; real RLS is proven only by the
+# postgres integration suite in tests/integration/.
 async def override_get_db_session() -> AsyncGenerator[AsyncSession, None]:
     async with TestingSessionLocal() as session:
         yield session
 
 
-app.dependency_overrides[get_db_session] = override_get_db_session
+app.dependency_overrides[get_rls_db_session] = override_get_db_session
+
+# Paths that open their own session (MCP tool invocation, job runner, probes) go through the
+# canonical factory, so the unit suite redirects the factory itself at the SQLite fixture.
+database_module.AsyncSessionLocal = TestingSessionLocal
 
 
 @pytest_asyncio.fixture(autouse=True)
