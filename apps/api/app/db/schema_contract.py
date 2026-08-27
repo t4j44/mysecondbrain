@@ -19,6 +19,8 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
         "tasks",
         "organizations",
         "people",
+        "person_organization_roles",
+        "commitments",
         "relationships",
         "interactions",
         "meetings",
@@ -146,6 +148,42 @@ APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
         "name": "text|character varying|varchar",
         "created_at": "timestamp|timestamptz",
     },
+    "person_organization_roles": {
+        "id": "uuid",
+        "user_id": "uuid",
+        "person_id": "uuid",
+        "organization_id": "uuid",
+        "role": "text",
+        "relationship_type": "text",
+        "is_primary": "boolean|bool",
+        "started_at": "timestamp|timestamptz",
+        "ended_at": "timestamp|timestamptz",
+        "source": "text",
+        "confidence": "numeric|double precision|float",
+        "deleted_at": "timestamp|timestamptz",
+        "created_at": "timestamp|timestamptz",
+        "updated_at": "timestamp|timestamptz",
+    },
+    "commitments": {
+        "id": "uuid",
+        "user_id": "uuid",
+        "from_person_id": "uuid",
+        "to_person_id": "uuid",
+        "organization_id": "uuid",
+        "venture_id": "uuid",
+        "project_id": "uuid",
+        "interaction_id": "uuid",
+        "meeting_id": "uuid",
+        "direction": "text",
+        "description": "text",
+        "status": "text",
+        "due_at": "timestamp|timestamptz",
+        "completed_at": "timestamp|timestamptz",
+        "source": "text",
+        "deleted_at": "timestamp|timestamptz",
+        "created_at": "timestamp|timestamptz",
+        "updated_at": "timestamp|timestamptz",
+    },
     "jobs": {
         "id": "uuid",
         "user_id": "uuid",
@@ -164,8 +202,26 @@ APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
     },
 }
 
-# Foreign keys the application relies on for RAG integrity.
+# Foreign keys the application relies on for RAG and relationship-graph integrity.
 APPLICATION_REQUIRED_FOREIGN_KEYS: Sequence[Mapping[str, str]] = (
+    {
+        "table": "person_organization_roles",
+        "column": "person_id",
+        "ref_table": "people",
+        "ref_column": "id",
+    },
+    {
+        "table": "person_organization_roles",
+        "column": "organization_id",
+        "ref_table": "organizations",
+        "ref_column": "id",
+    },
+    {
+        "table": "commitments",
+        "column": "interaction_id",
+        "ref_table": "interactions",
+        "ref_column": "id",
+    },
     {
         "table": "document_chunks",
         "column": "document_id",
@@ -216,6 +272,7 @@ MIGRATION_FILES: List[str] = [
     "20260827000019_create_jobs_and_exports_tables.sql",
     "20260828000020_harden_rls_authorization_boundary.sql",
     "20260828000021_mcp_work_session_finalization.sql",
+    "20260828000022_network_relationship_intelligence.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).

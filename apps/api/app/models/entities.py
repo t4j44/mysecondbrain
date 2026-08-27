@@ -214,6 +214,67 @@ class Organization(Base):
     archived_at: Any = Column(DateTime(timezone=True), nullable=True)
     deleted_at: Any = Column(DateTime(timezone=True), nullable=True)
 
+class PersonOrganizationRole(Base):
+    """
+    Authoritative person-to-organization affiliation (migration 0022).
+
+    Supersedes the single-valued `people.organization_id`: a person may hold several roles
+    across several organizations, and `ended_at` retains historical affiliations.
+    """
+
+    __tablename__ = "person_organization_roles"
+
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    person_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    organization_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    role: Any = Column(String(255), nullable=True)
+    relationship_type: Any = Column(String(100), default="contact", nullable=False)
+    is_primary: Any = Column(Boolean, default=False, nullable=False)
+    started_at: Any = Column(DateTime(timezone=True), nullable=True)
+    ended_at: Any = Column(DateTime(timezone=True), nullable=True)
+    source: Any = Column(String(255), default="manual", nullable=False)
+    confidence: Any = Column(Float, default=1.0, nullable=False)
+    created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Any = Column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+    deleted_at: Any = Column(DateTime(timezone=True), nullable=True)
+
+
+class Commitment(Base):
+    """
+    First-class commitment (migration 0022).
+
+    Supersedes the free-text `interactions.commitments` array. `direction` is explicit:
+    `owed_to_me` (they promised me), `owed_by_me` (I owe them), or `unspecified` for legacy
+    imports whose direction was never recorded and is deliberately not guessed.
+    """
+
+    __tablename__ = "commitments"
+
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    from_person_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    to_person_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    organization_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    venture_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    project_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    interaction_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    meeting_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    direction: Any = Column(String(50), default="unspecified", nullable=False)
+    description: Any = Column(Text, nullable=False)
+    status: Any = Column(String(50), default="open", nullable=False)
+    due_at: Any = Column(DateTime(timezone=True), nullable=True, index=True)
+    completed_at: Any = Column(DateTime(timezone=True), nullable=True)
+    source: Any = Column(String(255), default="manual", nullable=False)
+    created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Any = Column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+    deleted_at: Any = Column(DateTime(timezone=True), nullable=True)
+
+
 class Interaction(Base):
     __tablename__ = "interactions"
 

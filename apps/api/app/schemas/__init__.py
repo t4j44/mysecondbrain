@@ -131,12 +131,23 @@ from app.schemas.memories import (
     MemoryUpdate as DirectMemoryUpdate,
 )
 from app.schemas.network import (
+    CommitmentCreate,
+    CommitmentResponse,
+    CommitmentUpdate,
+    NetworkOverviewResponse,
     OrganizationCreate,
+    OrganizationNetworkEntry,
     OrganizationResponse,
+    OrganizationSummaryResponse,
     OrganizationUpdate,
     PersonCreate,
+    PersonOrganizationRoleCreate,
+    PersonOrganizationRoleResponse,
+    PersonOrganizationRoleUpdate,
     PersonResponse,
     PersonUpdate,
+    StaleContactResponse,
+    VentureNetworkEntry,
 )
 from app.schemas.portfolio import (
     SKILL_TAXONOMY,
@@ -206,6 +217,18 @@ __all__ = [
     "CRMPersonCreate",
     "CRMPersonResponse",
     "CRMPersonUpdate",
+    # Relationship intelligence (G5.5)
+    "PersonOrganizationRoleCreate",
+    "PersonOrganizationRoleResponse",
+    "PersonOrganizationRoleUpdate",
+    "CommitmentCreate",
+    "CommitmentResponse",
+    "CommitmentUpdate",
+    "NetworkOverviewResponse",
+    "OrganizationNetworkEntry",
+    "OrganizationSummaryResponse",
+    "StaleContactResponse",
+    "VentureNetworkEntry",
     # Integrations
     "AuditLogResponse",
     "ExportRequest",

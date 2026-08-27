@@ -24,9 +24,12 @@ from app.services.knowledge import (
     PortfolioService,
 )
 from app.services.network import (
+    CommitmentService,
     InteractionService,
     MeetingService,
+    NetworkIntelligenceService,
     OrganizationService,
+    PersonOrganizationRoleService,
     PersonService,
 )
 
@@ -95,6 +98,24 @@ def get_meeting_service(
     db: AsyncSession = Depends(get_rls_db_session), user: AuthenticatedUser = Depends(get_current_user)
 ) -> MeetingService:
     return MeetingService(db, user.id)
+
+
+def get_person_organization_role_service(
+    db: AsyncSession = Depends(get_rls_db_session), user: AuthenticatedUser = Depends(get_current_user)
+) -> PersonOrganizationRoleService:
+    return PersonOrganizationRoleService(db, user.id)
+
+
+def get_commitment_service(
+    db: AsyncSession = Depends(get_rls_db_session), user: AuthenticatedUser = Depends(get_current_user)
+) -> CommitmentService:
+    return CommitmentService(db, user.id)
+
+
+def get_network_intelligence_service(
+    db: AsyncSession = Depends(get_rls_db_session), user: AuthenticatedUser = Depends(get_current_user)
+) -> NetworkIntelligenceService:
+    return NetworkIntelligenceService(db, user.id)
 
 
 def get_memory_service(

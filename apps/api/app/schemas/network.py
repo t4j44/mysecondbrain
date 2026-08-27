@@ -156,6 +156,149 @@ class InteractionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# --- PERSON ↔ ORGANIZATION ROLE SCHEMAS (G5.5) ---
+class PersonOrganizationRoleCreate(BaseModel):
+    organization_id: str
+    role: Optional[str] = Field(default=None, max_length=255)
+    relationship_type: str = Field(default="contact", max_length=100)
+    is_primary: bool = False
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    source: str = Field(default="manual", max_length=255)
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
+class PersonOrganizationRoleUpdate(BaseModel):
+    role: Optional[str] = None
+    relationship_type: Optional[str] = None
+    is_primary: Optional[bool] = None
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    source: Optional[str] = None
+    confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+
+
+class PersonOrganizationRoleResponse(BaseModel):
+    id: str
+    user_id: str
+    person_id: str
+    organization_id: str
+    role: Optional[str] = None
+    relationship_type: str
+    is_primary: bool
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    source: str
+    confidence: float
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- COMMITMENT SCHEMAS (G5.5) ---
+# owed_to_me: they promised me. owed_by_me: I owe them. unspecified: legacy import.
+COMMITMENT_DIRECTION_PATTERN = "^(owed_to_me|owed_by_me|unspecified)$"
+COMMITMENT_STATUS_PATTERN = "^(open|completed|cancelled)$"
+
+
+class CommitmentCreate(BaseModel):
+    from_person_id: Optional[str] = None
+    to_person_id: Optional[str] = None
+    organization_id: Optional[str] = None
+    venture_id: Optional[str] = None
+    project_id: Optional[str] = None
+    interaction_id: Optional[str] = None
+    meeting_id: Optional[str] = None
+    direction: str = Field(default="unspecified", pattern=COMMITMENT_DIRECTION_PATTERN)
+    description: str = Field(..., min_length=1)
+    status: str = Field(default="open", pattern=COMMITMENT_STATUS_PATTERN)
+    due_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    source: str = Field(default="manual", max_length=255)
+
+
+class CommitmentUpdate(BaseModel):
+    from_person_id: Optional[str] = None
+    to_person_id: Optional[str] = None
+    organization_id: Optional[str] = None
+    venture_id: Optional[str] = None
+    project_id: Optional[str] = None
+    interaction_id: Optional[str] = None
+    meeting_id: Optional[str] = None
+    direction: Optional[str] = Field(default=None, pattern=COMMITMENT_DIRECTION_PATTERN)
+    description: Optional[str] = None
+    status: Optional[str] = Field(default=None, pattern=COMMITMENT_STATUS_PATTERN)
+    due_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
+class CommitmentResponse(BaseModel):
+    id: str
+    user_id: str
+    from_person_id: Optional[str] = None
+    to_person_id: Optional[str] = None
+    organization_id: Optional[str] = None
+    venture_id: Optional[str] = None
+    project_id: Optional[str] = None
+    interaction_id: Optional[str] = None
+    meeting_id: Optional[str] = None
+    direction: str
+    description: str
+    status: str
+    due_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    source: str
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- NETWORK INTELLIGENCE SCHEMAS (G5.5) ---
+class OrganizationNetworkEntry(BaseModel):
+    organization_id: str
+    name: str
+    industry: Optional[str] = None
+    connected_people_count: int
+
+
+class NetworkOverviewResponse(BaseModel):
+    industry_filter: Optional[str] = None
+    organizations_count: int
+    connected_people_count: int
+    organizations_by_industry: Dict[str, int] = {}
+    organizations: List[OrganizationNetworkEntry] = []
+
+
+class OrganizationSummaryResponse(BaseModel):
+    """Directly-counted metrics. No inferred relationship score is produced."""
+
+    organization_id: str
+    name: str
+    industry: Optional[str] = None
+    connected_people_count: int
+    founders_known: int
+    last_interaction_at: Optional[datetime] = None
+    open_commitments: int
+    overdue_commitments: int
+
+
+class StaleContactResponse(BaseModel):
+    person_id: str
+    name: str
+    role: Optional[str] = None
+    relationship_type: Optional[str] = None
+    last_interaction_at: Optional[datetime] = None
+    days_since_last_interaction: Optional[int] = None
+
+
+class VentureNetworkEntry(BaseModel):
+    person_id: str
+    name: str
+    role: Optional[str] = None
+    interaction_count: int
+    commitment_count: int
+
+
 # --- MEETINGS SCHEMAS (Task 17) ---
 class MeetingCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)

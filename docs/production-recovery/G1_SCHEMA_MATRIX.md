@@ -31,6 +31,7 @@ Runtime/CI verification: `apps/api/app/db/schema_verify.py`, `apps/api/tests/int
 | 0017 evidence & graph | `work_sessions`, `evidence_items`, `portfolio_evidence`, `entity_edges` |
 | **0018 (new, G1)** | *(no new tables — additive columns on `documents`)* |
 | **0019 (new, G1)** | `jobs`, `exports` |
+| **0022 (new, G5.5)** | `person_organization_roles`, `commitments` |
 
 Non-table migrations: 0001 extensions, 0002 enums, 0013 validation functions, 0014 indexes, 0015 RLS, 0016 search functions.
 
