@@ -3,6 +3,16 @@ from typing import List
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Environments that must never use SQLite (G1 ONE SCHEMA).
+_POSTGRES_REQUIRED_ENVIRONMENTS = frozenset(
+    {"integration", "e2e", "staging", "production"}
+)
+
+
+def _is_sqlite_url(url: str) -> bool:
+    normalized = (url or "").strip().lower()
+    return normalized.startswith("sqlite:") or "+aiosqlite" in normalized
+
 
 class Settings(BaseSettings):
     APP_NAME: str = "Taj's Second Brain API"
@@ -12,8 +22,17 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
 
-    # Database Configuration (Async SQLite default for effortless testing & self-contained development)
-    DATABASE_URL: str = "sqlite+aiosqlite:///./brain_dev.db"
+    # Prefer PostgreSQL (supabase/migrations). SQLite is allowed only for isolated unit tests
+    # (ENVIRONMENT/APP_ENV = test|development with explicit sqlite URL). Never for
+    # integration/e2e/staging/production.
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@127.0.0.1:54322/postgres"
+
+    # When true (default), startup verifies the migrated schema and never creates tables.
+    DATABASE_SCHEMA_VERIFY: bool = True
+
+    # Separate development/staging PostgreSQL (never production) used by the migration
+    # bootstrap and the postgres integration suite. Empty = postgres integration BLOCKED.
+    POSTGRES_TEST_DATABASE_URL: str = ""
 
     # Security & Encryption Credentials
     JWT_SECRET: str = "placeholder_jwt_secret_key_at_least_32_chars_long_for_testing"
@@ -71,6 +90,14 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() == "production" or self.APP_ENV.lower() == "production"
 
+    def uses_sqlite(self) -> bool:
+        return _is_sqlite_url(self.DATABASE_URL)
+
+    def requires_postgres(self) -> bool:
+        """True when the active environment forbids SQLite (integration/e2e/staging/production)."""
+        names = {self.ENVIRONMENT.lower().strip(), self.APP_ENV.lower().strip()}
+        return bool(names & _POSTGRES_REQUIRED_ENVIRONMENTS)
+
     @model_validator(mode="after")
     def validate_production_configuration(self) -> "Settings":
         if not self.is_production():
@@ -98,6 +125,18 @@ class Settings(BaseSettings):
         mcp_urls = (self.MCP_ISSUER_URL, self.MCP_RESOURCE_SERVER_URL)
         if any("localhost" in url or "127.0.0.1" in url for url in mcp_urls):
             raise ValueError("Production MCP URLs must use the public Render URL.")
+        return self
+
+    @model_validator(mode="after")
+    def validate_database_dialect(self) -> "Settings":
+        """Fail fast when a non-unit-test environment is pointed at SQLite (G1 ONE SCHEMA)."""
+        if self.requires_postgres() and self.uses_sqlite():
+            raise ValueError(
+                "SQLite is forbidden for "
+                + "/".join(sorted(_POSTGRES_REQUIRED_ENVIRONMENTS))
+                + " environments. supabase/migrations is the canonical schema; set DATABASE_URL "
+                "to a migrated PostgreSQL database (postgresql+asyncpg://...)."
+            )
         return self
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")

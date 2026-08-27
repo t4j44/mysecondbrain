@@ -2,7 +2,9 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
+from pgvector.sqlalchemy import Vector as PGVector
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     DateTime,
@@ -12,6 +14,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import synonym
 from sqlalchemy.types import TEXT, TypeDecorator
 
@@ -20,19 +23,26 @@ from app.utils.identifiers import generate_uuid
 
 
 class JSONEncodedDict(TypeDecorator):
-    """Represents an immutable structure as a json-encoded string in DB (works across PostgreSQL & SQLite tests)."""
+    """JSONB on PostgreSQL (canonical migration type); json-encoded TEXT on SQLite unit tests."""
 
     impl = TEXT
     cache_ok = True
 
-    def process_bind_param(self, value: Any, dialect: Any) -> Optional[str]:
+    def load_dialect_impl(self, dialect: Any) -> Any:
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(JSONB())
+        return dialect.type_descriptor(TEXT())
+
+    def process_bind_param(self, value: Any, dialect: Any) -> Any:
+        if dialect.name == "postgresql":
+            return value
         if value is None:
             return None
         return json.dumps(value)
 
-    def process_result_value(self, value: Optional[str], dialect: Any) -> Any:
-        if value is None:
-            return None
+    def process_result_value(self, value: Any, dialect: Any) -> Any:
+        if value is None or not isinstance(value, str):
+            return value
         try:
             return json.loads(value)
         except Exception:
@@ -40,19 +50,28 @@ class JSONEncodedDict(TypeDecorator):
 
 
 class JSONEncodedList(TypeDecorator):
-    """Represents a list of items or tags as a json-encoded text column."""
+    """JSONB list on PostgreSQL; json-encoded TEXT on SQLite unit tests."""
 
     impl = TEXT
     cache_ok = True
 
-    def process_bind_param(self, value: Any, dialect: Any) -> Optional[str]:
+    def load_dialect_impl(self, dialect: Any) -> Any:
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(JSONB())
+        return dialect.type_descriptor(TEXT())
+
+    def process_bind_param(self, value: Any, dialect: Any) -> Any:
+        if dialect.name == "postgresql":
+            return value if value is not None else []
         if value is None:
             return "[]"
         return json.dumps(value)
 
-    def process_result_value(self, value: Optional[str], dialect: Any) -> Any:
-        if not value:
+    def process_result_value(self, value: Any, dialect: Any) -> Any:
+        if value is None:
             return []
+        if not isinstance(value, str):
+            return value
         try:
             return json.loads(value)
         except Exception:
@@ -62,8 +81,8 @@ class JSONEncodedList(TypeDecorator):
 class VectorType(TypeDecorator):
     """
     Environment-aware Vector type.
-    Uses pgvector's vector type when running against PostgreSQL,
-    and falls back to JSON-encoded Text for SQLite testing.
+    Uses the official pgvector SQLAlchemy `Vector` type on PostgreSQL,
+    and falls back to JSON-encoded Text for isolated SQLite unit tests.
     """
     impl = TEXT
     cache_ok = True
@@ -74,14 +93,12 @@ class VectorType(TypeDecorator):
 
     def load_dialect_impl(self, dialect):
         if dialect.name == "postgresql":
-            from sqlalchemy.types import UserDefinedType
-            class _PGVectorType(UserDefinedType):
-                def get_col_spec(self, **kw):
-                    return f"vector({self.dim})"
-            return dialect.type_descriptor(_PGVectorType())
+            return dialect.type_descriptor(PGVector(self.dim))
         return dialect.type_descriptor(TEXT())
 
     def process_bind_param(self, value, dialect):
+        if dialect.name == "postgresql":
+            return value
         if value is None:
             return None
         if isinstance(value, list):
@@ -431,27 +448,42 @@ class Decision(Base):
     deleted_at: Any = Column(DateTime(timezone=True), nullable=True)
 
 
+def _title_from_filename(context: Any) -> str:
+    """Canonical `documents.title` is NOT NULL; derive it from the uploaded filename."""
+    params = context.get_current_parameters()
+    return params.get("original_filename") or params.get("sanitized_filename") or "Untitled document"
+
+
 class Document(Base):
+    """Maps to canonical public.documents (supabase/migrations 0008 + 0018).
+
+    Application attribute names are preserved; physical column names follow the migrations.
+    """
+
     __tablename__ = "documents"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    filename: Any = Column(String(255), nullable=False)
-    sanitized_filename: Any = Column(String(255), nullable=False)
-    mime_type: Any = Column(String(100), nullable=False)
-    extension: Any = Column(String(20), nullable=False)
-    size_bytes: Any = Column(Integer, nullable=False)
-    checksum: Any = Column(String(128), nullable=False, index=True)
-    storage_bucket: Any = Column(String(100), nullable=False)
-    storage_path: Any = Column(String(1024), nullable=False)
-    processing_status: Any = Column(String(50), default="pending")
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    title: Any = Column(Text, nullable=False, default=_title_from_filename)
+    filename: Any = Column("original_filename", Text, nullable=False)
+    sanitized_filename: Any = Column(Text, nullable=False)
+    mime_type: Any = Column(Text, nullable=False)
+    extension: Any = Column(Text, nullable=False)
+    size_bytes: Any = Column("file_size", BigInteger, nullable=False)
+    checksum: Any = Column(Text, nullable=False, index=True)
+    storage_bucket: Any = Column(Text, nullable=False)
+    storage_path: Any = Column(Text, nullable=False)
+    processing_status: Any = Column(Text, default="pending")
     extracted_text: Any = Column(Text, nullable=True)
-    chunking_state: Any = Column(String(50), default="unprocessed")
-    error_state: Any = Column(String(500), nullable=True)
+    chunking_state: Any = Column(Text, default="unprocessed")
+    error_state: Any = Column(Text, nullable=True)
+    extracted_text_status: Any = Column(Text, default="pending")
+    embedding_status: Any = Column(Text, default="pending")
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
     )
+    archived_at: Any = Column(DateTime(timezone=True), nullable=True)
     deleted_at: Any = Column(DateTime(timezone=True), nullable=True)
 
 

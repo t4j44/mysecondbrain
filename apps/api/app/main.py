@@ -9,7 +9,7 @@ from sqlalchemy import text
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import logger, setup_logging
-from app.dependencies.database import AsyncSessionLocal, init_db
+from app.dependencies.database import AsyncSessionLocal, verify_database_ready
 from app.mcp.router import router as mcp_http_router
 from app.mcp.server import mcp_asgi_app, mcp_server
 from app.middleware import (
@@ -28,7 +28,7 @@ setup_logging()
 async def lifespan(app: FastAPI):
     logger.info("Initializing Taj's Second Brain FastAPI Backend Architecture...")
     async with mcp_server.session_manager.run():
-        await init_db()
+        await verify_database_ready()
         yield
     logger.info("Shutting down FastAPI Backend Gracefully...")
 
