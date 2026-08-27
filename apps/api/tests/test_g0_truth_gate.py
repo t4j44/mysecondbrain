@@ -26,7 +26,7 @@ from app.integrations.google_client import GoogleIntegrationService
 from app.jobs.handlers.document_processing import process_document_handler
 from app.jobs.handlers.sync_google import execute_google_sync_handler
 from app.mcp import server as mcp_server_module
-from app.mcp.router import MCP_TOOLS_MANIFEST, MCP_WRITE_TOOLS_IMPLEMENTED_NOT_EXPOSED
+from app.mcp.router import MCP_ALL_TOOLS, MCP_WRITE_TOOLS_MANIFEST
 from app.mcp.tools import MCPDomainTools
 from app.models.entities import Document, MemoryEmbedding, Profile
 
@@ -193,38 +193,40 @@ async def test_google_cannot_report_connected_without_real_integration(
 
 
 @pytest.mark.asyncio
-async def test_unregistered_mcp_writes_remain_unavailable(async_client: AsyncClient):
-    registered = {t["name"] for t in MCP_TOOLS_MANIFEST}
-    for write_tool in MCP_WRITE_TOOLS_IMPLEMENTED_NOT_EXPOSED:
-        assert write_tool not in registered
+async def test_mcp_writes_are_exposed_truthfully_and_still_fail_closed(
+    async_client: AsyncClient,
+):
+    """
+    G5 replaced the G0 'writes exist but are hidden' posture with real exposure. The truth
+    rule is unchanged: what the server advertises must match what it actually registers,
+    and an unauthenticated caller must still be refused.
+    """
+    write_tools = [t["name"] for t in MCP_WRITE_TOOLS_MANIFEST]
+    for write_tool in write_tools:
         assert hasattr(MCPDomainTools, write_tool)
 
     info = await async_client.get("/mcp")
     assert info.status_code == 200
     body = info.json()
-    assert body["write_tools_status"] == "IMPLEMENTED_IN_CODE_NOT_EXPOSED"
-    assert set(MCP_WRITE_TOOLS_IMPLEMENTED_NOT_EXPOSED).issubset(
-        set(body["write_tools_not_exposed"])
-    )
+    assert body["write_tools_status"] == "EXPOSED_SCOPE_ENFORCED"
+    assert set(write_tools) == set(body["write_tools"])
+    assert set(body["registered_tools"]) == {t["name"] for t in MCP_ALL_TOOLS}
 
     tools_res = await async_client.get("/mcp/tools")
     assert tools_res.status_code == 200
-    tool_names = {t["name"] for t in tools_res.json()["tools"]}
-    for write_tool in MCP_WRITE_TOOLS_IMPLEMENTED_NOT_EXPOSED:
-        assert write_tool not in tool_names
+    advertised = {t["name"] for t in tools_res.json()["tools"]}
+    assert set(write_tools).issubset(advertised)
 
     invoke = await async_client.post(
         "/mcp/tools/invoke",
         json={"tool": "create_task", "arguments": {"title": "should fail"}},
         headers={"X-MCP-API-KEY": "not-a-real-key"},
     )
-    assert invoke.status_code in {401, 404}
-    if invoke.status_code == 404:
-        assert "not registered" in invoke.json()["detail"].lower()
+    assert invoke.status_code == 401
 
     server_src = inspect.getsource(mcp_server_module)
-    for write_tool in ("save_memory", "create_task", "finalize_work_session"):
-        assert f"async def {write_tool}" not in server_src
+    for write_tool in write_tools:
+        assert f"async def {write_tool}" in server_src
 
 
 @pytest.mark.asyncio

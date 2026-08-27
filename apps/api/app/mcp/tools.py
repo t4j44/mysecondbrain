@@ -139,6 +139,11 @@ def _parse_markdown_sections(text: str) -> Dict[str, List[str]]:
     return sections
 
 
+# Public alias: app/mcp/extraction.py reuses this deterministic parser as its offline mode
+# and as the fallback when Gemini inference fails.
+parse_markdown_sections = _parse_markdown_sections
+
+
 class MCPDomainTools:
     def __init__(self, db: AsyncSession, user_id: str):
         self.db = db
@@ -808,6 +813,8 @@ class MCPDomainTools:
         skills_demonstrated: Optional[List[str]] = None,
         portfolio_candidates: Optional[List[Any]] = None,
         unresolved_questions: Optional[List[str]] = None,
+        commitments: Optional[List[str]] = None,
+        extraction: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Low-friction, comprehensive Work Intelligence session finalizer.
@@ -846,6 +853,7 @@ class MCPDomainTools:
                                 "provider": s_meta.get("provider", provider),
                                 "client_request_id": idempotency_key,
                                 "timestamp": s.created_at.isoformat() if s.created_at else None,
+                                "extraction": s_meta.get("extraction", {}),
                             },
                         }
 
@@ -907,6 +915,14 @@ class MCPDomainTools:
                 or payload.get("portfolio_candidates")
                 or parsed_sections.get("portfolio")
                 or []
+            )
+            # Commitments made during the session
+            resolved_commitments = (
+                commitments or payload.get("commitments") or []
+            )
+            # Organizations referenced (stored as session provenance, not created as records)
+            resolved_organizations = (
+                organizations_mentioned or payload.get("organizations_mentioned") or []
             )
             # Unresolved questions
             resolved_questions = (
@@ -1009,7 +1025,12 @@ class MCPDomainTools:
                 "skills_demonstrated": resolved_skills,
                 "portfolio_candidates": resolved_portfolio,
                 "unresolved_questions": resolved_questions,
+                "commitments": resolved_commitments,
+                "organizations_mentioned": resolved_organizations,
                 "unresolved_links": unresolved_links,
+                # How the buckets above were produced (AI vs deterministic parse). Written by
+                # the MCP tool layer, which extracts before this transaction is opened.
+                "extraction": dict(extraction or {}),
             }
 
             session_record = Interaction(
@@ -1023,6 +1044,9 @@ class MCPDomainTools:
                 detailed_notes=raw_summary,
                 date=datetime.now(timezone.utc),
                 key_takeaways=resolved_findings,
+                commitments=[
+                    c if isinstance(c, str) else str(c) for c in resolved_commitments
+                ],
                 next_actions=[
                     t if isinstance(t, str) else t.get("title", "") for t in raw_tasks
                 ][:10],
@@ -1157,7 +1181,7 @@ class MCPDomainTools:
                     title=f"Finding: {finding_text[:60]}",
                     body=finding_text,
                     type="lesson",
-                    linked_project_id=_to_uuid(resolved_project_id),
+                    related_projects=[resolved_project_id] if resolved_project_id else [],
                     linked_venture_id=_to_uuid(resolved_venture_id),
                     source=f"work_session:{session_id}",
                     meta={"origin_session_id": str(session_id), "session_uri": session_uri},
@@ -1218,6 +1242,8 @@ class MCPDomainTools:
                 "artifacts": resolved_artifacts,
                 "skills_demonstrated": resolved_skills,
                 "unresolved_questions": resolved_questions,
+                "commitments": resolved_commitments,
+                "organizations_mentioned": resolved_organizations,
             }
 
             resolved_ctx = {
@@ -1266,6 +1292,7 @@ class MCPDomainTools:
                     "provider": provider or "mcp_client",
                     "client_request_id": idempotency_key,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "extraction": dict(extraction or {}),
                 },
             }
         except Exception as e:

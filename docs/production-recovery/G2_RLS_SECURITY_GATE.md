@@ -172,8 +172,10 @@ MCP user-scoped reads now cross exactly the same tenant boundary as REST:
 * Credential verification is separated into the admin context, because matching a key prefix
   requires scanning profiles before any owner is known. This also fixes a latent break: under RLS
   that scan would have returned nothing from a user-scoped session.
-* **No write tools were registered.** The registered set is unchanged (9 read/draft tools); the 11
-  implemented-but-unexposed write tools stay unexposed. Write exposure remains **G5**.
+* **No write tools were registered at G2.** The registered set was unchanged (9 read/draft tools).
+  **G5 has since registered all 11 write tools**, each behind a granular `mcp:*:write` scope and
+  the same `rls_db_session(user_id)` boundary described above, with an explicit commit per call.
+  See [G5_MCP_FINALIZE_GATE.md](G5_MCP_FINALIZE_GATE.md).
 
 ---
 
@@ -240,7 +242,7 @@ python -m pytest apps/api/tests/integration/ -v
 | Indirect-ownership child tables checked against their parent | **YES** |
 | RLS never deleted or weakened to ease testing | **YES** |
 | MCP user-scoped reads use the same tenant boundary | **YES** |
-| MCP write tools still unregistered (G5) | **YES** |
+| MCP write tools still unregistered (accurate at G2; registered by G5) | **YES (at G2)** |
 | Two-user cross-tenant denial proven against PostgreSQL | **NO — BLOCKED** |
 | Pool claim isolation proven against PostgreSQL | **NO — BLOCKED** |
 | G0 fail-closed truth behaviour and G1 one-schema authority preserved | **YES** |

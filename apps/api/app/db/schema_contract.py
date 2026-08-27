@@ -215,6 +215,7 @@ MIGRATION_FILES: List[str] = [
     "20260827000018_align_documents_with_application_contract.sql",
     "20260827000019_create_jobs_and_exports_tables.sql",
     "20260828000020_harden_rls_authorization_boundary.sql",
+    "20260828000021_mcp_work_session_finalization.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).

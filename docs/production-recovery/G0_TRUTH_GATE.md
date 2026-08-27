@@ -37,7 +37,7 @@ The application can no longer report success for document extraction, truncated 
 | Semantic retrieval | **NOT IMPLEMENTED** (keyword/substring only) |
 | AI confidence score | **NOT AVAILABLE** (`score=null`) |
 | Google Workspace | **DISABLED / NOT IMPLEMENTED** |
-| MCP write tools | **IMPLEMENTED IN CODE, NOT EXPOSED** |
+| MCP write tools | ~~**IMPLEMENTED IN CODE, NOT EXPOSED**~~ → **EXPOSED, SCOPE ENFORCED (G5)** |
 
 No completion percentages are claimed for unfinished capabilities.
 
@@ -57,7 +57,7 @@ No completion percentages are claimed for unfinished capabilities.
 | Vitest / pytest mocks, UI `placeholder=` attrs, task status `todo` | **SAFE TEST FIXTURE** / **UNRELATED** | Preserved |
 | Frontend toast stubs (ideas/kpis/etc.) | **MISLEADING** but out of G0 product-truth core (honest stub labels) | Left for later gates; Google settings UI made honest |
 | `DocumentExtractor` real txt/md/pdf parser | Present but **not wired** into job in G0 (G4 owns wiring) | Left intact; job does not invent text |
-| MCP write methods on `MCPDomainTools` | Implemented, unregistered | Documented; **not registered** in G0 |
+| MCP write methods on `MCPDomainTools` | Implemented, unregistered | Documented; not registered in G0. **Superseded by G5**, which registers all 11 behind granular write scopes. |
 
 ---
 
@@ -81,9 +81,15 @@ No completion percentages are claimed for unfinished capabilities.
 - Settings integrations UI labels Google as DISABLED / NOT IMPLEMENTED.
 
 ### MCP
-- Registered: read + draft tools only (9).
+- Registered at G0: read + draft tools only (9).
 - Write tools listed as `IMPLEMENTED_IN_CODE_NOT_EXPOSED` on `/mcp` info.
 - Manifest `search_memory` no longer claims “Semantic RAG”.
+
+> **Superseded by G5 (2026-08-28).** All 11 write tools are now registered behind granular
+> `mcp:*:write` scopes and `/mcp` reports `write_tools_status: EXPOSED_SCOPE_ENFORCED`. The G0
+> truth rule is unchanged and still enforced: what the server advertises must equal what it
+> registers, and unauthenticated or read-only callers are refused. See
+> [G5_MCP_FINALIZE_GATE.md](G5_MCP_FINALIZE_GATE.md).
 
 ---
 
@@ -95,7 +101,8 @@ No completion percentages are claimed for unfinished capabilities.
 2. Truncated/fake embeddings cannot be reported as success  
 3. Retrieval never emits constant `0.89`  
 4. Google cannot report connected without real integration  
-5. Unregistered MCP writes remain unavailable  
+5. MCP write exposure is advertised truthfully and still fails closed without a credential
+   (rewritten at G5; previously "unregistered MCP writes remain unavailable")  
 6. Production environment cannot silently select simulation  
 
 ---

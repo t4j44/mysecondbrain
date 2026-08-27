@@ -47,6 +47,39 @@ ALL_SCOPES = [
     SCOPE_EVIDENCE_WRITE,
 ]
 
+READ_SCOPES = frozenset(
+    {
+        SCOPE_PEOPLE_READ,
+        SCOPE_MEMORY_READ,
+        SCOPE_PROJECTS_READ,
+        SCOPE_TASKS_READ,
+        SCOPE_RELATIONSHIPS_READ,
+        SCOPE_CALENDAR_READ,
+    }
+)
+
+WRITE_SCOPES = frozenset(
+    {
+        SCOPE_MEMORY_WRITE,
+        SCOPE_TASKS_WRITE,
+        SCOPE_PROJECTS_WRITE,
+        SCOPE_PEOPLE_WRITE,
+        SCOPE_DECISIONS_WRITE,
+        SCOPE_SESSIONS_WRITE,
+        SCOPE_EVIDENCE_WRITE,
+    }
+)
+
+# finalize_work_session writes across five domains in one transaction, so it requires the
+# write scope of every domain it can touch. A single `mcp:write` group grant covers them all.
+FINALIZE_REQUIRED_SCOPES = (
+    SCOPE_SESSIONS_WRITE,
+    SCOPE_TASKS_WRITE,
+    SCOPE_DECISIONS_WRITE,
+    SCOPE_MEMORY_WRITE,
+    SCOPE_PEOPLE_WRITE,
+)
+
 
 class MCPScopeError(Exception):
     pass
