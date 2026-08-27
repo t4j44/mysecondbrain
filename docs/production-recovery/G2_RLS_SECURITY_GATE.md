@@ -4,7 +4,7 @@
 **Date:** 2026-08-28
 **Branch:** `recovery/core-daily-driver`
 **Starting SHA:** `0e26cc5`
-**Ending local SHA:** see the exit report at the bottom of this document
+**Ending local SHA:** `3ea55e9` (implementation commit; this line added in the follow-up docs commit)
 **Remote actions:** **NONE** — **NO PUSH, NO PR, NO MERGE, NO DEPLOYMENT**
 
 ---
@@ -268,6 +268,7 @@ ADMIN SEPARATION:      PASS
 
 Branch: recovery/core-daily-driver
 Starting SHA: 0e26cc5
+Ending local SHA: 3ea55e9 (+ this docs commit)
 
 Done: new app/db/rls.py builds transaction-local, parameter-bound Supabase claims from the
   verified JWT; dependencies/database.py became the single RLS-aware session layer
