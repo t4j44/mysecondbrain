@@ -712,6 +712,7 @@ class MCPDomainTools:
             dec = Decision(
                 id=str(uuid.uuid4()),
                 user_id=self.user_id,
+                title=(decision or "").strip()[:255] or "Untitled decision",
                 decision=decision,
                 context=context or decision,
                 rationale=rationale,
@@ -1074,6 +1075,7 @@ class MCPDomainTools:
                 decision_obj = Decision(
                     id=str(uuid.uuid4()),
                     user_id=self.user_id,
+                    title=(d_text or "").strip()[:255] or "Untitled decision",
                     project_id=resolved_project_id,
                     venture_id=resolved_venture_id,
                     context=d_context,

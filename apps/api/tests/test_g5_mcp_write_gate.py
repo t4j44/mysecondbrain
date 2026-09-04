@@ -483,9 +483,20 @@ def test_idempotency_is_enforced_in_the_canonical_schema():
     assert "20260828000021_mcp_work_session_finalization.sql" in MIGRATION_FILES
     assert sorted(p.name for p in migrations.glob("*.sql")) == sorted(MIGRATION_FILES)
 
-    source = (migrations / "20260828000021_mcp_work_session_finalization.sql").read_text(
+    # 0021 adds the enum value alone; a new enum value cannot be USED until the
+    # transaction that added it commits, so the objects that reference it live in 0021b.
+    enum_source = (migrations / "20260828000021_mcp_work_session_finalization.sql").read_text(
         encoding="utf-8"
     )
-    assert "CREATE UNIQUE INDEX IF NOT EXISTS uq_interactions_work_session_client_request" in source
-    assert "meta ->> 'client_request_id'" in source
-    assert "ADD VALUE IF NOT EXISTS 'work_session'" in source
+    object_source = (
+        migrations / "20260828000021b_mcp_work_session_finalization_objects.sql"
+    ).read_text(encoding="utf-8")
+    assert "ADD VALUE IF NOT EXISTS 'work_session'" in enum_source
+    assert (
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_interactions_work_session_client_request"
+        in object_source
+    )
+    assert "meta ->> 'client_request_id'" in object_source
+    # Enum equality is IMMUTABLE; the text cast is not, and PostgreSQL rejects it
+    # in an index predicate.
+    assert "WHERE interaction_type = 'work_session'" in object_source

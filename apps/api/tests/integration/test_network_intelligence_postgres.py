@@ -119,9 +119,9 @@ async def test_legacy_fields_carry_a_deprecation_comment(pg_engine):
             comment = (
                 await conn.execute(
                     text(
-                        "SELECT col_description(:relname::regclass, a.attnum) "
+                        "SELECT col_description(CAST(:relname AS regclass), a.attnum) "
                         "FROM pg_attribute a "
-                        "WHERE a.attrelid = :relname::regclass AND a.attname = :column"
+                        "WHERE a.attrelid = CAST(:relname AS regclass) AND a.attname = :column"
                     ),
                     {"relname": f"public.{table}", "column": column},
                 )

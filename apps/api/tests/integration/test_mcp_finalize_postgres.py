@@ -81,7 +81,7 @@ async def _insert_work_session(session, user_id: uuid.UUID, client_request_id: s
         text(
             "INSERT INTO public.interactions "
             "(id, user_id, interaction_type, title, meta) "
-            "VALUES (:id, :user_id, 'work_session', :title, :meta::jsonb)"
+            "VALUES (:id, :user_id, 'work_session', :title, CAST(:meta AS jsonb))"
         ),
         {
             "id": session_id,

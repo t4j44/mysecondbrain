@@ -6,7 +6,7 @@ here because it has no competing canonical definition.
 
 from typing import Any
 
-from sqlalchemy import Column, DateTime, ForeignKey, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Text
 
 from app.models.base import Base, FlexibleUUID
 from app.models.entities import Organization, Person, utc_now
@@ -19,12 +19,12 @@ class Relationship(Base):
     id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
     user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
     source_person_id: Any = Column(
-        FlexibleUUID, ForeignKey("people.id", ondelete="CASCADE"), nullable=False
+        "person_id", FlexibleUUID, ForeignKey("people.id", ondelete="CASCADE"), nullable=False
     )
     target_person_id: Any = Column(
         FlexibleUUID, ForeignKey("people.id", ondelete="CASCADE"), nullable=False
     )
-    relationship_nature: Any = Column(String(255), nullable=False)
+    relationship_nature: Any = Column("relationship_label", Text, nullable=False)
     notes: Any = Column(Text, nullable=True)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 

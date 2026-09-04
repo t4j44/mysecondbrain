@@ -25,6 +25,7 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
         "interactions",
         "meetings",
         "meeting_participants",
+        "interaction_participants",
         "memories",
         "memory_embeddings",
         "ideas",
@@ -34,6 +35,7 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
         "embeddings",
         "embedding_jobs",
         "kpis",
+        "kpi_definitions",
         "kpi_entries",
         "achievements",
         "portfolio_case_studies",
@@ -134,12 +136,14 @@ APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
         "id": "uuid",
         "user_id": "uuid",
         "name": "text|character varying|varchar",
+        "member_links": "jsonb|json",
         "created_at": "timestamp|timestamptz",
     },
     "tasks": {
         "id": "uuid",
         "user_id": "uuid",
         "title": "text|character varying|varchar",
+        "tags": "ARRAY|text[]",
         "created_at": "timestamp|timestamptz",
     },
     "people": {
@@ -199,6 +203,24 @@ APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
         "export_type": "text",
         "status": "text",
         "created_at": "timestamp|timestamptz",
+    },
+    "content_items": {
+        "source_records": "jsonb|json",
+    },
+    "decisions": {
+        "supporting_people": "jsonb|json",
+        "supporting_documents": "jsonb|json",
+    },
+    "memories": {
+        "related_people": "ARRAY|uuid[]",
+        "related_projects": "ARRAY|uuid[]",
+        "related_ventures": "ARRAY|uuid[]",
+        "tags": "ARRAY|text[]",
+        "linked_venture_id": "uuid",
+        "linked_person_id": "uuid",
+    },
+    "portfolio_case_studies": {
+        "achievement_id": "uuid",
     },
 }
 
@@ -272,7 +294,9 @@ MIGRATION_FILES: List[str] = [
     "20260827000019_create_jobs_and_exports_tables.sql",
     "20260828000020_harden_rls_authorization_boundary.sql",
     "20260828000021_mcp_work_session_finalization.sql",
+    "20260828000021b_mcp_work_session_finalization_objects.sql",
     "20260828000022_network_relationship_intelligence.sql",
+    "20260828000023_align_canonical_columns_with_application_contract.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).
@@ -284,6 +308,30 @@ def type_matches(actual: str, expected_pattern: str) -> bool:
     actual_norm = (actual or "").lower().replace(" ", "")
     for part in expected_pattern.lower().split("|"):
         part_norm = part.replace(" ", "")
+        if part_norm == "array" and actual_norm.endswith("[]"):
+            return True
+        if part_norm == "user-defined" and actual_norm not in {
+            "uuid",
+            "text",
+            "varchar",
+            "charactervarying",
+            "bigint",
+            "int8",
+            "integer",
+            "int4",
+            "boolean",
+            "bool",
+            "date",
+            "timestamp",
+            "timestamptz",
+            "jsonb",
+            "json",
+            "numeric",
+            "doubleprecision",
+            "float",
+            "float8",
+        } and not actual_norm.endswith("[]"):
+            return True
         if part_norm and part_norm in actual_norm:
             return True
     return False

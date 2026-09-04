@@ -2,8 +2,12 @@
 Bootstrap an empty PostgreSQL database from the canonical supabase/migrations.
 
 Usage (PowerShell):
-    $env:POSTGRES_TEST_DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+    $env:POSTGRES_TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@127.0.0.1:54322/postgres"
     python scripts/db/bootstrap_migrations.py
+
+The application's backend contract is asyncpg (see app/db/dsn.py); psycopg2 is not
+installed. A bare `postgresql://` URL is accepted here and normalized, but the
+integration suite is documented with the explicit `postgresql+asyncpg://` form.
 
 Steps: safety check -> auth shim (local containers only) -> migrations 1..N in order ->
 schema validation against app/db/schema_contract.py.
@@ -124,13 +128,15 @@ def resolve_target_url() -> str:
 
 
 def asyncpg_url(url: str) -> str:
-    return url.replace("postgresql+asyncpg://", "postgresql://")
+    from app.db.dsn import to_libpq_dsn
+
+    return to_libpq_dsn(url)
 
 
 def sqlalchemy_url(url: str) -> str:
-    if url.startswith("postgresql+asyncpg://"):
-        return url
-    return url.replace("postgresql://", "postgresql+asyncpg://")
+    from app.db.dsn import to_async_dsn
+
+    return to_async_dsn(url)
 
 
 def migration_paths() -> list[Path]:

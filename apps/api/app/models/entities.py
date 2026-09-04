@@ -8,17 +8,25 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
-    Float,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION, JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import synonym
 from sqlalchemy.types import TEXT, TypeDecorator
 
-from app.models.base import Base, FlexibleUUID
+from app.models.base import (
+    Base,
+    DateOnly,
+    FlexibleUUID,
+    PGEnum,
+    PriorityInteger,
+    SafeArray,
+)
 from app.utils.identifiers import generate_uuid
 
 
@@ -78,6 +86,26 @@ class JSONEncodedList(TypeDecorator):
             return []
 
 
+class JSONEncodedText(TypeDecorator):
+    """JSON-compatible Python values stored in a canonical PostgreSQL TEXT column."""
+
+    impl = TEXT
+    cache_ok = True
+
+    def process_bind_param(self, value: Any, dialect: Any) -> Any:
+        if value is None or isinstance(value, str):
+            return value
+        return json.dumps(value)
+
+    def process_result_value(self, value: Any, dialect: Any) -> Any:
+        if value is None or not isinstance(value, str):
+            return value
+        try:
+            return json.loads(value)
+        except Exception:
+            return value
+
+
 class VectorType(TypeDecorator):
     """
     Environment-aware Vector type.
@@ -123,7 +151,7 @@ def utc_now() -> datetime:
 class Profile(Base):
     __tablename__ = "profiles"
 
-    id: Any = Column(String(36), primary_key=True)  # Supabase user_id matches id here
+    id: Any = Column(FlexibleUUID, primary_key=True)  # Supabase user_id matches id here
     email: Any = Column(String(255), nullable=False)
     full_name: Any = Column(String(255), nullable=True)
     display_name: Any = Column(String(255), nullable=True)
@@ -133,30 +161,43 @@ class Profile(Base):
     locale: Any = Column(String(20), default="en-US")
     current_mission: Any = Column(String(500), nullable=True)
     avatar_url: Any = Column(String(1024), nullable=True)
-    onboarding_status: Any = Column(String(50), default="in_progress")
+    onboarding_completed: Any = Column(Boolean, default=False, nullable=False)
     settings: Any = Column(JSONEncodedDict, default=dict)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
     )
 
+    @property
+    def onboarding_status(self) -> str:
+        return "completed" if self.onboarding_completed else "in_progress"
+
+    @onboarding_status.setter
+    def onboarding_status(self, value: Optional[str]) -> None:
+        self.onboarding_completed = value == "completed"
+
 
 class Venture(Base):
     __tablename__ = "ventures"
     __table_args__ = (UniqueConstraint("user_id", "slug", name="uq_user_venture_slug"),)
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
     name: Any = Column(String(255), nullable=False)
     slug: Any = Column(String(255), nullable=False)
     vision: Any = Column(Text, nullable=True)
     mission: Any = Column(Text, nullable=True)
     description: Any = Column(Text, nullable=True)
-    status: Any = Column(String(50), default="active", nullable=False)
-    priority: Any = Column(String(50), default="medium", nullable=False)
-    start_date: Any = Column(DateTime(timezone=True), nullable=True)
-    target_date: Any = Column(DateTime(timezone=True), nullable=True)
-    metadata_payload: Any = Column(JSONEncodedDict, default=dict)
+    status: Any = Column(PGEnum("venture_status"), default="active", nullable=False)
+    priority: Any = Column(
+        "current_priority",
+        PriorityInteger({"low": 2, "medium": 5, "high": 8, "urgent": 10}),
+        default="medium",
+        nullable=False,
+    )
+    start_date: Any = Column(DateOnly, nullable=True)
+    target_date: Any = Column(DateOnly, nullable=True)
+    metadata_payload: Any = Column("metadata", JSONEncodedDict, default=dict)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
@@ -179,12 +220,12 @@ class Person(Base):
     email: Any = Column(String(255), nullable=True)
     phone: Any = Column(String(50), nullable=True)
     linkedin_url: Any = Column(String(1024), nullable=True)
-    relationship_type: Any = Column(String(100), default="contact", nullable=False)
+    relationship_type: Any = Column(PGEnum("relationship_type"), default="contact", nullable=False)
     last_interaction_at: Any = Column(DateTime(timezone=True), nullable=True)
     notes: Any = Column(Text, nullable=True)
-    tags: Any = Column(JSONEncodedList, default=list)
+    tags: Any = Column(SafeArray(Text), default=list)
     follow_up_date: Any = Column(DateTime(timezone=True), nullable=True)
-    metadata_payload: Any = Column(JSONEncodedDict, default=dict)
+    metadata_payload: Any = Column("metadata", JSONEncodedDict, default=dict)
     meta = synonym("metadata_payload")
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
@@ -202,11 +243,11 @@ class Organization(Base):
     domain: Any = Column(String(255), nullable=True)
     industry: Any = Column(String(255), nullable=True)
     location: Any = Column(String(255), nullable=True)
-    website_url: Any = Column(String(1024), nullable=True)
+    website_url: Any = Column("website", String(1024), nullable=True)
     description: Any = Column(Text, nullable=True)
     notes: Any = Column(Text, nullable=True)
     tags: Any = Column(JSONEncodedList, default=list)
-    meta: Any = Column(JSONEncodedDict, default=dict)
+    meta: Any = Column("metadata", JSONEncodedDict, default=dict)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
@@ -234,7 +275,7 @@ class PersonOrganizationRole(Base):
     started_at: Any = Column(DateTime(timezone=True), nullable=True)
     ended_at: Any = Column(DateTime(timezone=True), nullable=True)
     source: Any = Column(String(255), default="manual", nullable=False)
-    confidence: Any = Column(Float, default=1.0, nullable=False)
+    confidence: Any = Column(Numeric, default=1.0, nullable=False)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
@@ -284,18 +325,18 @@ class Interaction(Base):
     venture_id: Any = Column(FlexibleUUID, nullable=True, index=True)
     project_id: Any = Column(FlexibleUUID, nullable=True, index=True)
     meeting_id: Any = Column(FlexibleUUID, nullable=True, index=True)
-    interaction_type: Any = Column(String(50), default="meeting", nullable=False)
+    interaction_type: Any = Column(PGEnum("interaction_type"), default="meeting", nullable=False)
     title: Any = Column(String(255), nullable=False)
     summary: Any = Column(Text, nullable=True)
     detailed_notes: Any = Column(Text, nullable=True)
-    participants: Any = Column(JSONEncodedList, default=list)
     date: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     location: Any = Column(String(255), nullable=True)
-    insights: Any = Column(JSONEncodedList, default=list)
-    key_takeaways: Any = Column(JSONEncodedList, default=list)
-    commitments: Any = Column(JSONEncodedList, default=list)
-    next_action: Any = Column(String(500), nullable=True)
-    next_actions: Any = Column(JSONEncodedList, default=list)
+    insights: Any = Column("important_insights", SafeArray(Text), default=list)
+    key_takeaways: Any = Column(SafeArray(Text), default=list)
+    # Legacy free-text array. The first-class ledger is public.commitments; rewriting the
+    # finalizer to use it is tracked as a downstream G5 repair, not part of this gate.
+    commitments: Any = Column(SafeArray(Text), default=list)
+    next_actions: Any = Column(SafeArray(Text), default=list)
     follow_up_date: Any = Column(DateTime(timezone=True), nullable=True)
     markdown_path: Any = Column(String(1024), nullable=True)
     meta: Any = Column(JSONEncodedDict, default=dict)
@@ -309,17 +350,21 @@ class Interaction(Base):
 class Project(Base):
     __tablename__ = "projects"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    venture_id: Any = Column(String(36), nullable=True, index=True)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    venture_id: Any = Column(FlexibleUUID, nullable=True, index=True)
     name: Any = Column(String(255), nullable=False)
     description: Any = Column(Text, nullable=True)
-    status: Any = Column(String(50), default="in_progress", nullable=False)
-    priority: Any = Column(String(50), default="medium", nullable=False)
+    status: Any = Column(
+        PGEnum("project_status", aliases={"in_progress": "active"}),
+        default="in_progress",
+        nullable=False,
+    )
+    priority: Any = Column(PriorityInteger(), default="medium", nullable=False)
     progress: Any = Column(Integer, default=0, nullable=False)
-    start_date: Any = Column(DateTime(timezone=True), nullable=True)
-    target_date: Any = Column(DateTime(timezone=True), nullable=True)
-    completion_date: Any = Column(DateTime(timezone=True), nullable=True)
+    start_date: Any = Column(DateOnly, nullable=True)
+    target_date: Any = Column(DateOnly, nullable=True)
+    completion_date: Any = Column(DateOnly, nullable=True)
     member_links: Any = Column(JSONEncodedList, default=list)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
@@ -332,20 +377,20 @@ class Project(Base):
 class Task(Base):
     __tablename__ = "tasks"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    venture_id: Any = Column(String(36), nullable=True, index=True)
-    project_id: Any = Column(String(36), nullable=True, index=True)
-    person_id: Any = Column(String(36), nullable=True, index=True)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    venture_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    project_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    person_id: Any = Column(FlexibleUUID, nullable=True, index=True)
     title: Any = Column(String(500), nullable=False)
     description: Any = Column(Text, nullable=True)
-    status: Any = Column(String(50), default="todo", nullable=False)
-    priority: Any = Column(String(50), default="medium", nullable=False)
+    status: Any = Column(PGEnum("task_status"), default="todo", nullable=False)
+    priority: Any = Column(PGEnum("task_priority"), default="medium", nullable=False)
     start_date: Any = Column(DateTime(timezone=True), nullable=True)
     due_date: Any = Column(DateTime(timezone=True), nullable=True, index=True)
-    completion_date: Any = Column(DateTime(timezone=True), nullable=True)
-    estimated_effort: Any = Column(String(100), nullable=True)
-    tags: Any = Column(JSONEncodedList, default=list)
+    completion_date: Any = Column("completed_date", DateTime(timezone=True), nullable=True)
+    estimated_effort: Any = Column(Integer, nullable=True)
+    tags: Any = Column(SafeArray(Text), default=list)
     calendar_sync_metadata: Any = Column(JSONEncodedDict, default=dict)
     gcal_event_id: Any = Column(String(255), nullable=True)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
@@ -367,16 +412,15 @@ class Meeting(Base):
     start_time: Any = Column(DateTime(timezone=True), nullable=False)
     end_time: Any = Column(DateTime(timezone=True), nullable=False)
     location: Any = Column(String(255), nullable=True)
-    status: Any = Column(String(50), default="scheduled")
-    participants: Any = Column(JSONEncodedList, default=list)
-    notes: Any = Column(Text, nullable=True)
+    status: Any = Column(PGEnum("meeting_status"), default="scheduled")
+    notes: Any = Column("raw_notes", Text, nullable=True)
     summary: Any = Column(Text, nullable=True)
-    decisions_list: Any = Column(JSONEncodedList, default=list)
-    action_items: Any = Column(JSONEncodedList, default=list)
-    calendar_source: Any = Column(String(100), default="local")
-    external_event_id: Any = Column(String(255), nullable=True)
+    decisions_list: Any = Column("decisions", SafeArray(Text), default=list)
+    action_items: Any = Column(SafeArray(Text), default=list)
+    calendar_source: Any = Column("source", String(100), default="local")
+    external_event_id: Any = Column("external_calendar_event_id", String(255), nullable=True)
     recording_url: Any = Column(String(1024), nullable=True)
-    meta: Any = Column(JSONEncodedDict, default=dict)
+    meta: Any = Column("metadata", JSONEncodedDict, default=dict)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
@@ -417,21 +461,21 @@ class Memory(Base):
     id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
     user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
     title: Any = Column(String(255), nullable=False)
-    type: Any = Column(String(100), default="note", nullable=False)
+    type: Any = Column("memory_type", Text, default="note", nullable=False)
     body: Any = Column(Text, nullable=False)
     summary: Any = Column(Text, nullable=True)
     is_ai_summary: Any = Column(Boolean, default=False)
     source: Any = Column(String(255), default="user_author")
     memory_date: Any = Column(DateTime(timezone=True), default=utc_now)
     importance: Any = Column(Integer, default=5)
-    related_people: Any = Column(JSONEncodedList, default=list)
-    related_projects: Any = Column(JSONEncodedList, default=list)
-    related_ventures: Any = Column(JSONEncodedList, default=list)
-    tags: Any = Column(JSONEncodedList, default=list)
+    related_people: Any = Column(SafeArray(PG_UUID(as_uuid=False)), default=list)
+    related_projects: Any = Column(SafeArray(PG_UUID(as_uuid=False)), default=list)
+    related_ventures: Any = Column(SafeArray(PG_UUID(as_uuid=False)), default=list)
+    tags: Any = Column(SafeArray(Text), default=list)
     linked_venture_id: Any = Column(FlexibleUUID, nullable=True, index=True)
     linked_person_id: Any = Column(FlexibleUUID, nullable=True, index=True)
-    meta: Any = Column(JSONEncodedDict, default=dict)
-    visibility: Any = Column(String(50), default="private")
+    meta: Any = Column("metadata", JSONEncodedDict, key="meta", default=dict)
+    visibility: Any = Column(PGEnum("visibility_status"), default="private")
     embedding_status: Any = Column(String(50), default="pending")
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
@@ -454,29 +498,29 @@ class MemoryEmbedding(Base):
     content: Any = Column(Text, nullable=False)
     # Stored as JSON array string in tests / fallback, or mapped to vector in live Postgres
     embedding: Any = Column(VectorType(768), nullable=True)
-    metadata_payload: Any = Column(JSONEncodedDict, default=dict)
+    metadata_payload: Any = Column("metadata", JSONEncodedDict, default=dict)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
 
 class Idea(Base):
     __tablename__ = "ideas"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    venture_id: Any = Column(String(36), nullable=True, index=True)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    venture_id: Any = Column(FlexibleUUID, nullable=True, index=True)
     title: Any = Column(String(255), nullable=False)
     problem: Any = Column(Text, nullable=True)
     solution: Any = Column(Text, nullable=True)
     target_users: Any = Column(String(500), nullable=True)
     market: Any = Column(String(500), nullable=True)
     potential_score: Any = Column(Integer, default=5)
-    status: Any = Column(String(50), default="draft", nullable=False)
-    assumptions: Any = Column(JSONEncodedList, default=list)
-    risks: Any = Column(JSONEncodedList, default=list)
-    resources: Any = Column(JSONEncodedList, default=list)
-    evidence: Any = Column(JSONEncodedList, default=list)
-    next_step: Any = Column(String(500), nullable=True)
-    converted_project_id: Any = Column(String(36), nullable=True)
+    status: Any = Column(PGEnum("idea_status"), default="draft", nullable=False)
+    assumptions: Any = Column(SafeArray(Text), default=list)
+    risks: Any = Column(SafeArray(Text), default=list)
+    resources: Any = Column("required_resources", SafeArray(Text), default=list)
+    evidence: Any = Column("validation_evidence", SafeArray(Text), default=list)
+    next_step: Any = Column("next_steps", Text, nullable=True)
+    converted_project_id: Any = Column(FlexibleUUID, nullable=True)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
@@ -488,14 +532,16 @@ class Idea(Base):
 class Decision(Base):
     __tablename__ = "decisions"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    venture_id: Any = Column(String(36), nullable=True, index=True)
-    project_id: Any = Column(String(36), nullable=True, index=True)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    venture_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    project_id: Any = Column(FlexibleUUID, nullable=True, index=True)
     context: Any = Column(Text, nullable=False)
+    # decisions.title is NOT NULL in the canonical schema; unmapped means every insert fails.
+    title: Any = Column(String(255), nullable=False)
     decision: Any = Column(Text, nullable=False)
     rationale: Any = Column(Text, nullable=True)
-    alternatives: Any = Column(JSONEncodedList, default=list)
+    alternatives: Any = Column("alternatives_considered", SafeArray(Text), default=list)
     expected_impact: Any = Column(Text, nullable=True)
     decision_date: Any = Column(DateTime(timezone=True), default=utc_now)
     review_date: Any = Column(DateTime(timezone=True), nullable=True)
@@ -534,7 +580,7 @@ class Document(Base):
     checksum: Any = Column(Text, nullable=False, index=True)
     storage_bucket: Any = Column(Text, nullable=False)
     storage_path: Any = Column(Text, nullable=False)
-    processing_status: Any = Column(Text, default="pending")
+    processing_status: Any = Column(PGEnum("document_processing_status"), default="pending")
     extracted_text: Any = Column(Text, nullable=True)
     chunking_state: Any = Column(Text, default="unprocessed")
     error_state: Any = Column(Text, nullable=True)
@@ -549,21 +595,29 @@ class Document(Base):
 
 
 class KPI(Base):
-    __tablename__ = "kpis"
+    """Maps canonical public.kpi_definitions.
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    venture_id: Any = Column(String(36), nullable=True, index=True)
-    project_id: Any = Column(String(36), nullable=True, index=True)
-    category: Any = Column(String(100), nullable=False)  # founder, network, learning
+    The application's KPI is a *definition* — it carries venture/project scope, a name,
+    a description, a target and an active flag. That is `kpi_definitions`. The separate
+    canonical `kpis` table is a narrower metric-snapshot table with no ORM model, which
+    is allowed: the contract only guarantees ORM -> database, not the reverse.
+    """
+
+    __tablename__ = "kpi_definitions"
+
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    venture_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    project_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    category: Any = Column(PGEnum("kpi_category"), nullable=False)  # founder, network, learning
     name: Any = Column(String(255), nullable=False)
     description: Any = Column(Text, nullable=True)
     unit: Any = Column(String(50), default="count")
-    target: Any = Column(Float, default=0.0, nullable=False)
-    current_value: Any = Column(Float, default=0.0, nullable=False)
-    period: Any = Column(String(50), default="weekly")
+    target: Any = Column("target_value", Numeric, default=0.0, nullable=False)
+    current_value: Any = Column(DOUBLE_PRECISION, default=0.0, nullable=False)
+    period: Any = Column("target_period", PGEnum("kpi_period"), default="weekly")
     evidence_docs: Any = Column(JSONEncodedList, default=list)
-    is_active: Any = Column(Boolean, default=True)
+    is_active: Any = Column("active", Boolean, default=True)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
@@ -575,28 +629,28 @@ class KPI(Base):
 class KPIEntry(Base):
     __tablename__ = "kpi_entries"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    kpi_id: Any = Column(String(36), nullable=False, index=True)
-    entry_date: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    numeric_value: Any = Column(Float, nullable=True)
-    text_value: Any = Column(String(500), nullable=True)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    kpi_id: Any = Column("definition_id", FlexibleUUID, nullable=False, index=True)
+    entry_date: Any = Column(DateOnly, default=utc_now, nullable=False)
+    numeric_value: Any = Column(Numeric, nullable=True)
+    text_value: Any = Column(Text, nullable=True)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
 
 class Achievement(Base):
     __tablename__ = "achievements"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    venture_id: Any = Column(String(36), nullable=True, index=True)
-    title: Any = Column(String(255), nullable=False)
-    role: Any = Column(String(255), nullable=False)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    venture_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    title: Any = Column(Text, nullable=False)
+    role: Any = Column(Text, nullable=False)
     problem: Any = Column(Text, nullable=True)
-    responsibilities: Any = Column(JSONEncodedList, default=list)
+    responsibilities: Any = Column(SafeArray(Text), default=list)
     impact: Any = Column(Text, nullable=True)
-    skills: Any = Column(JSONEncodedList, default=list)
-    date: Any = Column(DateTime(timezone=True), default=utc_now)
+    skills: Any = Column(SafeArray(Text), default=list)
+    date: Any = Column(DateOnly, default=utc_now)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
@@ -608,16 +662,16 @@ class Achievement(Base):
 class PortfolioCaseStudy(Base):
     __tablename__ = "portfolio_case_studies"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    achievement_id: Any = Column(String(36), nullable=True, index=True)
-    title: Any = Column(String(255), nullable=False)
-    project_name: Any = Column(String(255), nullable=False)
-    role: Any = Column(String(255), nullable=False)
-    problem_statement: Any = Column(Text, nullable=True)
-    solution_details: Any = Column(Text, nullable=True)
-    metrics_impact: Any = Column(Text, nullable=True)
-    skills_demonstrated: Any = Column(JSONEncodedList, default=list)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    achievement_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    title: Any = Column(Text, nullable=False)
+    project_name: Any = Column(Text, nullable=False)
+    role: Any = Column("target_role", Text, nullable=False)
+    problem_statement: Any = Column("problem", Text, nullable=True)
+    solution_details: Any = Column("actions", SafeArray(Text), nullable=True)
+    metrics_impact: Any = Column("impact", Text, nullable=True)
+    skills_demonstrated: Any = Column("skills", SafeArray(Text), default=list)
     is_ai_generated: Any = Column(Boolean, default=False)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
@@ -630,16 +684,16 @@ class PortfolioCaseStudy(Base):
 class ContentItem(Base):
     __tablename__ = "content_items"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    content_type: Any = Column(String(100), default="article", nullable=False)
-    title: Any = Column(String(500), nullable=False)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    content_type: Any = Column(Text, default="article", nullable=False)
+    title: Any = Column(Text, nullable=False)
     body: Any = Column(Text, nullable=False)
     status: Any = Column(
-        String(50), default="draft", nullable=False
+        PGEnum("content_status"), default="draft", nullable=False
     )  # draft, under_review, published
-    audience: Any = Column(String(255), nullable=True)
-    objective: Any = Column(String(500), nullable=True)
+    audience: Any = Column(Text, nullable=True)
+    objective: Any = Column(Text, nullable=True)
     source_records: Any = Column(JSONEncodedList, default=list)
     provider_metadata: Any = Column(JSONEncodedDict, default=dict)
     publication_metadata: Any = Column(JSONEncodedDict, default=dict)
@@ -655,35 +709,29 @@ class ContentItem(Base):
 class ContentVersion(Base):
     __tablename__ = "content_versions"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    content_id: Any = Column(String(36), nullable=False, index=True)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    content_id: Any = Column("content_item_id", FlexibleUUID, nullable=False, index=True)
     version_number: Any = Column(Integer, nullable=False)
-    title: Any = Column(String(500), nullable=False)
+    title: Any = Column(Text, nullable=False)
     body: Any = Column(Text, nullable=False)
-    change_summary: Any = Column(String(500), nullable=True)
+    change_summary: Any = Column(Text, nullable=True)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
 
 class WeeklyReview(Base):
     __tablename__ = "weekly_reviews"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    title: Any = Column(String(255), nullable=False)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    title: Any = Column(Text, nullable=False)
     review_date: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    period_start: Any = Column(DateTime(timezone=True), nullable=False)
-    period_end: Any = Column(DateTime(timezone=True), nullable=False)
-    completed_tasks: Any = Column(JSONEncodedList, default=list)
-    overdue_tasks: Any = Column(JSONEncodedList, default=list)
-    project_progress: Any = Column(JSONEncodedList, default=list)
-    meetings_summary: Any = Column(JSONEncodedList, default=list)
-    interactions_summary: Any = Column(JSONEncodedList, default=list)
-    new_ideas: Any = Column(JSONEncodedList, default=list)
-    decisions_made: Any = Column(JSONEncodedList, default=list)
-    achievements_recorded: Any = Column(JSONEncodedList, default=list)
-    kpi_changes: Any = Column(JSONEncodedList, default=list)
-    user_reflections: Any = Column(Text, nullable=True)
+    period_start: Any = Column("review_start_date", DateOnly, nullable=False)
+    period_end: Any = Column("review_end_date", DateOnly, nullable=False)
+    # The canonical schema stores the generated roll-up as one JSONB document rather than
+    # nine parallel arrays. The section names below remain the API contract.
+    generated_content: Any = Column(JSONEncodedText, default=dict)
+    user_reflections: Any = Column("user_edited_content", Text, nullable=True)
     is_ai_generated: Any = Column(Boolean, default=False)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
@@ -692,31 +740,73 @@ class WeeklyReview(Base):
     archived_at: Any = Column(DateTime(timezone=True), nullable=True)
     deleted_at: Any = Column(DateTime(timezone=True), nullable=True)
 
+    GENERATED_SECTIONS = (
+        "completed_tasks",
+        "overdue_tasks",
+        "project_progress",
+        "meetings_summary",
+        "interactions_summary",
+        "new_ideas",
+        "decisions_made",
+        "achievements_recorded",
+        "kpi_changes",
+    )
+
+
+def _generated_section(name: str) -> property:
+    def getter(self: Any) -> list[Any]:
+        return list((self.generated_content or {}).get(name, []))
+
+    def setter(self: Any, value: Optional[list[Any]]) -> None:
+        payload = dict(self.generated_content or {})
+        payload[name] = list(value or [])
+        self.generated_content = payload
+
+    return property(getter, setter)
+
+
+for _section in WeeklyReview.GENERATED_SECTIONS:
+    setattr(WeeklyReview, _section, _generated_section(_section))
+del _section
+
 
 class Integration(Base):
     __tablename__ = "integrations"
-    __table_args__ = (UniqueConstraint("user_id", "provider_name", name="uq_user_provider"),)
+    __table_args__ = (UniqueConstraint("user_id", "provider", name="uq_user_provider"),)
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
     provider_name: Any = Column(
-        String(100), nullable=False
+        "provider",
+        PGEnum("integration_provider", aliases={"google": "google_calendar"}),
+        nullable=False,
     )  # google, google_drive, google_calendar
-    account_identifier: Any = Column(String(255), nullable=True)
-    encrypted_tokens: Any = Column(Text, nullable=True)  # Protected field, AES-256-GCM encrypted
-    scopes: Any = Column(JSONEncodedList, default=list)
-    is_connected: Any = Column(Boolean, default=True)
+    account_identifier: Any = Column("external_account_identifier", String(255), nullable=True)
+    scopes: Any = Column("granted_scopes", SafeArray(Text), default=list)
+    status: Any = Column(PGEnum("integration_status"), default="connected", nullable=False)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
     )
 
+    # OAuth secrets live in public.integration_tokens, which the `authenticated` role cannot
+    # reach (migration 0020, proven by the G2 suite). Mapping them here would put ciphertext
+    # back on a user-readable table.
+
+    @property
+    def is_connected(self) -> bool:
+        return self.status == "connected"
+
+    @is_connected.setter
+    def is_connected(self, value: Optional[bool]) -> None:
+        self.status = "connected" if value else "revoked"
+
 
 class JobRecord(Base):
     __tablename__ = "jobs"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
     job_type: Any = Column(
         String(100), nullable=False
     )  # sync_google_drive, export_markdown, document_processing
@@ -738,8 +828,8 @@ class JobRecord(Base):
 class ExportRecord(Base):
     __tablename__ = "exports"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
     export_type: Any = Column(String(100), default="full")  # record, module, full
     status: Any = Column(String(50), default="pending", nullable=False)
     file_path: Any = Column(String(1024), nullable=True)
@@ -755,26 +845,27 @@ class ExportRecord(Base):
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
     event_type: Any = Column(
         String(100), nullable=False
     )  # profile_update, integration_connected, etc.
-    target_entity: Any = Column(String(100), nullable=True)
-    target_id: Any = Column(String(36), nullable=True)
-    details: Any = Column(JSONEncodedDict, default=dict)
-    timestamp: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    target_entity: Any = Column("resource_type", Text, nullable=True)
+    target_id: Any = Column("resource_id", FlexibleUUID, nullable=True)
+    # Canonical name records the redaction guarantee: only non-sensitive event data is stored.
+    details: Any = Column("safe_event_metadata", JSONEncodedDict, default=dict)
+    timestamp: Any = Column("created_at", DateTime(timezone=True), default=utc_now, nullable=False)
     request_id: Any = Column(String(100), nullable=True)
 
 
 class WorkSession(Base):
     __tablename__ = "work_sessions"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    venture_id: Any = Column(String(36), nullable=True, index=True)
-    project_id: Any = Column(String(36), nullable=True, index=True)
-    title: Any = Column(String(255), nullable=False)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    venture_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    project_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    title: Any = Column(Text, nullable=False)
     objective: Any = Column(Text, nullable=True)
     start_time: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     end_time: Any = Column(DateTime(timezone=True), nullable=True)
@@ -784,8 +875,8 @@ class WorkSession(Base):
     artifacts_created: Any = Column(JSONEncodedList, default=list)
     decisions_made: Any = Column(JSONEncodedList, default=list)
     skills_exercised: Any = Column(JSONEncodedList, default=list)
-    source: Any = Column(String(100), default="manual_log", nullable=False)
-    metadata_payload: Any = Column(JSONEncodedDict, default=dict)
+    source: Any = Column(Text, default="manual_log", nullable=False)
+    metadata_payload: Any = Column("metadata", JSONEncodedDict, default=dict)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
@@ -797,20 +888,20 @@ class WorkSession(Base):
 class EvidenceItem(Base):
     __tablename__ = "evidence_items"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    source_type: Any = Column(String(100), nullable=False)
-    source_id: Any = Column(String(36), nullable=False, index=True)
-    work_session_id: Any = Column(String(36), nullable=True, index=True)
-    venture_id: Any = Column(String(36), nullable=True, index=True)
-    project_id: Any = Column(String(36), nullable=True, index=True)
-    evidence_type: Any = Column(String(100), nullable=False)
-    title: Any = Column(String(255), nullable=False)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    source_type: Any = Column(Text, nullable=False)
+    source_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    work_session_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    venture_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    project_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    evidence_type: Any = Column(Text, nullable=False)
+    title: Any = Column(Text, nullable=False)
     content: Any = Column(Text, nullable=False)
-    source_reference: Any = Column(String(1024), nullable=True)
+    source_reference: Any = Column(Text, nullable=True)
     timestamp: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    confidence: Any = Column(Float, default=1.0, nullable=False)
-    metadata_payload: Any = Column(JSONEncodedDict, default=dict)
+    confidence: Any = Column(Numeric, default=1.0, nullable=False)
+    metadata_payload: Any = Column("metadata", JSONEncodedDict, default=dict)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
@@ -822,20 +913,20 @@ class EvidenceItem(Base):
 class PortfolioEvidence(Base):
     __tablename__ = "portfolio_evidence"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    skill: Any = Column(String(100), nullable=False, index=True)
-    project: Any = Column(String(255), nullable=False)
-    project_id: Any = Column(String(36), nullable=True, index=True)
-    venture_id: Any = Column(String(36), nullable=True, index=True)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    skill: Any = Column(Text, nullable=False, index=True)
+    project: Any = Column(Text, nullable=False)
+    project_id: Any = Column(FlexibleUUID, nullable=True, index=True)
+    venture_id: Any = Column(FlexibleUUID, nullable=True, index=True)
     claim: Any = Column(Text, nullable=False)
     supporting_evidence_ids: Any = Column(JSONEncodedList, default=list)
     impact: Any = Column(Text, nullable=False)
-    metric: Any = Column(String(255), nullable=True)
+    metric: Any = Column(Text, nullable=True)
     metric_verified: Any = Column(Boolean, default=False, nullable=False)
-    confidence: Any = Column(Float, default=1.0, nullable=False)
-    review_status: Any = Column(String(50), default="draft", nullable=False)
-    metadata_payload: Any = Column(JSONEncodedDict, default=dict)
+    confidence: Any = Column(Numeric, default=1.0, nullable=False)
+    review_status: Any = Column(Text, default="draft", nullable=False)
+    metadata_payload: Any = Column("metadata", JSONEncodedDict, default=dict)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
@@ -847,14 +938,14 @@ class PortfolioEvidence(Base):
 class EntityEdge(Base):
     __tablename__ = "entity_edges"
 
-    id: Any = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id: Any = Column(String(36), nullable=False, index=True)
-    source_entity_type: Any = Column(String(100), nullable=False, index=True)
-    source_entity_id: Any = Column(String(36), nullable=False, index=True)
-    target_entity_type: Any = Column(String(100), nullable=False, index=True)
-    target_entity_id: Any = Column(String(36), nullable=False, index=True)
-    relationship_type: Any = Column(String(100), nullable=False, index=True)
-    weight: Any = Column(Float, default=1.0, nullable=False)
-    metadata_payload: Any = Column(JSONEncodedDict, default=dict)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    source_entity_type: Any = Column(Text, nullable=False, index=True)
+    source_entity_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    target_entity_type: Any = Column(Text, nullable=False, index=True)
+    target_entity_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    relationship_type: Any = Column(Text, nullable=False, index=True)
+    weight: Any = Column(Numeric, default=1.0, nullable=False)
+    metadata_payload: Any = Column("metadata", JSONEncodedDict, default=dict)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 

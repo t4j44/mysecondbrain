@@ -4,7 +4,10 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine
 
-POSTGRES_URL = os.getenv("POSTGRES_TEST_DATABASE_URL", "").strip()
+from app.db.dsn import to_async_dsn
+
+# Accept either scheme in configuration; the suite always connects over asyncpg.
+POSTGRES_URL = to_async_dsn(os.getenv("POSTGRES_TEST_DATABASE_URL", ""))
 
 requires_postgres = pytest.mark.skipif(
     not POSTGRES_URL,

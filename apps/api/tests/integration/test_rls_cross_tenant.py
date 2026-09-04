@@ -69,10 +69,10 @@ async def venture_of_user_a(session_factory, two_users):
         await _apply_identity(session, USER_A)
         await session.execute(
             text(
-                "INSERT INTO public.ventures (id, user_id, name) "
-                "VALUES (:id, :user_id, :name)"
+                "INSERT INTO public.ventures (id, user_id, name, slug) "
+                "VALUES (:id, :user_id, :name, :slug)"
             ),
-            {"id": venture_id, "user_id": USER_A, "name": "Justor AI"},
+            {"id": venture_id, "user_id": USER_A, "name": "Justor AI", "slug": "justor-ai"},
         )
         await session.commit()
     yield venture_id
@@ -148,8 +148,8 @@ async def test_user_b_cannot_insert_a_row_owned_by_user_a(session_factory, two_u
         with pytest.raises(Exception) as exc_info:
             await session.execute(
                 text(
-                    "INSERT INTO public.ventures (id, user_id, name) "
-                    "VALUES (:id, :user_id, 'impersonated')"
+                    "INSERT INTO public.ventures (id, user_id, name, slug) "
+                    "VALUES (:id, :user_id, 'impersonated', 'impersonated')"
                 ),
                 {"id": uuid.uuid4(), "user_id": USER_A},
             )

@@ -64,15 +64,7 @@ class MeetingsRepository:
         db_meeting = result.scalar_one_or_none()
         if not db_meeting:
             raise NotFoundError("Meeting not found or access denied.")
-        participant_result = await db.execute(
-            select(MeetingParticipant).where(
-                and_(
-                    MeetingParticipant.meeting_id == meeting_id,
-                    MeetingParticipant.user_id == user_id,
-                )
-            )
-        )
-        db_meeting.participants = list(participant_result.scalars().all())
+        # `participants` is an eager relationship over public.meeting_participants.
         return db_meeting
 
     @staticmethod
