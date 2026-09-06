@@ -42,7 +42,8 @@ class GoogleIntegrationService:
         integration = await self.repo.get_by_provider(self.db, self.user_id, provider_name)
         if not integration:
             return False
-        integration.encrypted_tokens = None
+        # Token ciphertext lives in public.integration_tokens. Nothing clears those
+        # rows yet; add that when the Google integration is actually implemented.
         integration.is_connected = False
         integration.updated_at = datetime.now(timezone.utc)
         await self.db.flush()
