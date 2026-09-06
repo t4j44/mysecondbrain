@@ -1,5 +1,8 @@
 from dataclasses import dataclass
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Dict, Generic, List, Optional, TypeVar
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -41,9 +44,47 @@ class PaginatedResult(Generic[T]):
             has_more=(offset + len(items)) < total,
         )
 
+    @staticmethod
+    def _serialize_item(item: Any) -> Any:
+        """Convert a SQLAlchemy ORM instance into a plain JSON-safe dict.
+
+        List endpoints declare `response_model=dict` and return `model_dump()`,
+        so whatever ends up in "items" goes straight to the JSON encoder.
+        Returning ORM instances raised
+        `PydanticSerializationError: Unable to serialize unknown type`
+        and every list endpoint answered 500. Single-item endpoints were
+        unaffected because they declare a real response_model, which is why the
+        test suite stayed green while the Ventures, Projects, Tasks and People
+        pages were all broken.
+        """
+        if item is None or isinstance(item, (str, int, float, bool, dict, list)):
+            return item
+        if hasattr(item, "model_dump"):
+            return item.model_dump()
+        mapper = getattr(type(item), "__mapper__", None)
+        if mapper is None:
+            return item
+        data: Dict[str, Any] = {}
+        for attr in mapper.column_attrs:
+            if attr.key == "deleted_at":  # soft-delete internal; single-item responses omit it
+                continue
+            value = getattr(item, attr.key, None)
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            elif isinstance(value, date):
+                value = value.isoformat()
+            elif isinstance(value, Decimal):
+                value = float(value)
+            elif isinstance(value, UUID):
+                value = str(value)
+            elif value is not None and not isinstance(value, (str, int, float, bool, dict, list)):
+                value = str(value)
+            data[attr.key] = value
+        return data
+
     def model_dump(self) -> Dict[str, Any]:
         return {
-            "items": self.items,
+            "items": [self._serialize_item(i) for i in self.items],
             "total": self.total,
             "limit": self.limit,
             "offset": self.offset,
