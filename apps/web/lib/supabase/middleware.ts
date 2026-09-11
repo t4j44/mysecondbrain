@@ -2,6 +2,22 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { env } from '@/lib/env';
 
+const PUBLIC_EXACT_PATHS = new Set([
+  '/',
+  '/login',
+  '/signup',
+  '/forgot-password',
+  '/reset-password',
+  '/verify',
+  '/callback',
+  '/pricing',
+  '/widget',
+]);
+
+export function isPublic(pathname: string): boolean {
+  return PUBLIC_EXACT_PATHS.has(pathname) || pathname.startsWith('/widget/');
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -34,29 +50,8 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  const isAuthRoute = pathname.startsWith('/login') ||
-    pathname.startsWith('/signup') ||
-    pathname.startsWith('/forgot-password') ||
-    pathname.startsWith('/reset-password') ||
-    pathname.startsWith('/verify');
-
-  const isDashboardRoute = pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/settings') ||
-    pathname.startsWith('/ventures') ||
-    pathname.startsWith('/projects') ||
-    pathname.startsWith('/tasks') ||
-    pathname.startsWith('/people') ||
-    pathname.startsWith('/organizations') ||
-    pathname.startsWith('/memories') ||
-    pathname.startsWith('/meetings') ||
-    pathname.startsWith('/ideas') ||
-    pathname.startsWith('/kpis') ||
-    pathname.startsWith('/achievements') ||
-    pathname.startsWith('/content') ||
-    pathname.startsWith('/assistant');
-
-  // Guard protected routes against unauthenticated requests
-  if (!user && isDashboardRoute) {
+  // Every route is private unless it is explicitly allowlisted above.
+  if (!user && !isPublic(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('redirect', pathname);
@@ -64,6 +59,13 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Prevent authenticated users from visiting guest authentication pages
+  const isAuthRoute =
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/signup') ||
+    pathname.startsWith('/forgot-password') ||
+    pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/verify');
+
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
