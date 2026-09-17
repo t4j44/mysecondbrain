@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useChat } from '../../hooks/useChat';
 import { ChatMessage, UseChatOptions } from '../../types/chat';
@@ -17,13 +18,13 @@ export interface ChatAreaProps {
 
 const PRESET_PROMPTS = [
   'What is my primary execution bottleneck this week?',
-  'Summarize recent insights from mentor Yousuf Imran',
-  'Draft a LinkedIn founder update for Justor AI',
+  'Summarize my recent meetings',
+  'What work evidence have I saved recently?',
   'What are my active task priorities across ventures?',
 ];
 
 export function ChatArea({
-  api = '/api/v1/ai/search',
+  api = '/api/v1/ai/content-generate',
   initialMessages,
   title = "Taj's Second Brain",
   subtitle = 'AI Founder Coach & Executive Thinking Partner',
@@ -292,13 +293,13 @@ export function ChatArea({
                         Grounded Sources:
                       </span>
                       {msg.citations.map((citation, idx) => (
-                        <span
-                          key={citation.id || idx}
-                          className="px-2 py-0.5 rounded-md bg-purple-950/60 border border-purple-500/30 text-purple-300 text-[11px] font-mono flex items-center gap-1"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-                          {citation.title || citation.entity_type}
-                        </span>
+                          <Link
+                            key={citation.id || idx}
+                            href={`/sources/${encodeURIComponent(citation.entity_type)}/${encodeURIComponent(citation.id)}`}
+                            className="min-h-11 px-2 py-2 rounded-md bg-purple-950/60 border border-purple-500/30 text-purple-300 text-xs flex items-center gap-1 underline"
+                          >
+                            [{idx + 1}] {citation.title || citation.entity_type}
+                          </Link>
                       ))}
                     </div>
                   )}

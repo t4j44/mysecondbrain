@@ -3,11 +3,11 @@
   "version": "2.0.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter web dev",
-    "build": "pnpm --filter web build",
-    "test": "pnpm --filter web test",
-    "lint": "pnpm --filter web lint",
-    "typecheck": "pnpm --filter web typecheck"
+    "dev": "pnpm --filter @second-brain/web dev",
+    "build": "pnpm --filter @second-brain/web build",
+    "test": "pnpm --filter @second-brain/web test",
+    "lint": "pnpm --filter @second-brain/web lint",
+    "typecheck": "pnpm --filter @second-brain/web typecheck"
   },
   "devDependencies": {
     "typescript": "^5.4.5"

@@ -1,72 +1,24 @@
 'use client';
-
-import * as React from 'react';
-import { SectionHeader } from '@/components/shared/section-header';
-import { Download, FileText, Package, CheckCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
-
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api/browser-client';
+type Export = { id: string; status: string; created_at: string };
 export default function SettingsExportPage() {
-  const { toast } = useToast();
-
-  return (
-    <div className="space-y-6">
-      <SectionHeader
-        title="Data Portability & Ownership Export"
-        description="Export your entire Second Brain database into human-readable Markdown files or complete ZIP archives at any time."
-      />
-
-      <div className="rounded-lg border border-[#00ff9d]/30 bg-[#0c0614] p-6 space-y-3">
-        <div className="flex items-center space-x-2 text-xs font-mono text-[#00ff9d]">
-          <CheckCircle className="h-4 w-4" />
-          <span>OWNERSHIP-FIRST GUARANTEE</span>
-        </div>
-        <p className="text-sm text-cream leading-relaxed">
-          Taj’s Second Brain adheres strictly to zero lock-in design principles. All notes, CRM interactions, meetings, and task timelines can be generated as pristine Markdown bundles formatted for Obsidian, Logseq, or local Git repositories.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-        <div className="rounded-lg border border-border bg-[#0e0716] p-5 flex flex-col justify-between space-y-4">
-          <div className="space-y-2">
-            <div className="h-10 w-10 rounded-md bg-[#251238] border border-[#00ff9d]/30 flex items-center justify-center text-[#00ff9d]">
-              <FileText className="h-5 w-5" />
-            </div>
-            <h4 className="text-base font-bold text-[#f7f4ea]">Markdown Vault Bundle</h4>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Export all memories, ventures, projects, and notes into structured `.md` folders with YAML frontmatter metadata.
-            </p>
-          </div>
-          <Button
-            onClick={() => toast({ title: 'PORTABILITY STUB', description: 'Agent 7 will implement streaming ZIP download endpoints here.' })}
-            variant="default"
-            className="w-full font-mono text-xs font-bold"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            GENERATE MARKDOWN EXPORT
-          </Button>
-        </div>
-
-        <div className="rounded-lg border border-border bg-[#0e0716] p-5 flex flex-col justify-between space-y-4">
-          <div className="space-y-2">
-            <div className="h-10 w-10 rounded-md bg-[#251238] border border-[#00ff9d]/30 flex items-center justify-center text-[#00ff9d]">
-              <Package className="h-5 w-5" />
-            </div>
-            <h4 className="text-base font-bold text-[#f7f4ea]">Full Relational JSON Archive</h4>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Complete raw JSON dumps of your relational Postgres tables, RAG embeddings metadata, and audit logs.
-            </p>
-          </div>
-          <Button
-            onClick={() => toast({ title: 'PORTABILITY STUB', description: 'Agent 7 will connect bulk JSON archive packaging here.' })}
-            variant="outline"
-            className="w-full font-mono text-xs font-bold"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            DOWNLOAD JSON ARCHIVE
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
+  const [items, setItems] = useState<Export[]>([]); const [busy, setBusy] = useState(false); const [message, setMessage] = useState('');
+  async function load() { const result = await api.get<{ items: Export[] }>('/exports'); setItems(result.items); }
+  useEffect(() => { load().catch(error => setMessage(error.message)); }, []);
+  async function run(action: () => Promise<void>) { setBusy(true); setMessage(''); try { await action(); await load(); } catch (error) { setMessage(error instanceof Error ? error.message : 'Export failed.'); } finally { setBusy(false); } }
+  return <div className="space-y-5"><h1 className="text-2xl font-semibold">Export your records</h1>
+    <p>Create a Markdown copy of active people, organizations, projects, ventures, interactions, meetings, memories, tasks, commitments, and extracted document text. Original attachments and other tables are not included.</p>
+    <div className="flex flex-wrap gap-3"><button disabled={busy} className="min-h-11 rounded bg-primary px-4 text-primary-foreground" onClick={() => run(async () => {
+      await api.post('/exports', { export_type: 'full', include_attachments: false }, { timeoutMs: 60000 }); setMessage('Export queued. Refresh to check completion.');
+    })}>Create Markdown export</button><button disabled={busy} className="min-h-11 rounded border px-4" onClick={() => run(async () => {})}>Refresh status</button></div>
+    {items.map(item => <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded border p-4"><span>{new Date(item.created_at).toLocaleString()} · {item.status}</span>
+      {item.status === 'completed' && <button disabled={busy} className="min-h-11 rounded border px-4" onClick={() => run(async () => {
+        const content = await api.get<string>(`/exports/${item.id}/download`, { timeoutMs: 45000 });
+        const url = URL.createObjectURL(new Blob([content], { type: 'text/markdown;charset=utf-8' }));
+        const link = document.createElement('a'); link.href = url; link.download = 'second-brain-export.md'; link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      })}>Download</button>}</div>)}
+    {message && <p role="status">{message}</p>}
+  </div>;
 }

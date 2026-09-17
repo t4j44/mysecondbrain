@@ -189,7 +189,7 @@ export function useQuickCapture() {
           tags: parsed.tags,
         });
         toast({
-          title: '✓ Task Captured & Scheduled',
+          title: 'Task saved',
           description: `"${parsed.title}" (Priority: ${parsed.priority || 'medium'})`,
         });
       } else if (targetType === 'person') {
@@ -214,8 +214,8 @@ export function useQuickCapture() {
           tags: parsed.tags,
         });
         toast({
-          title: '✓ Idea Hypothesis Vaulted',
-          description: `"${parsed.title}" queued for AI scoring`,
+          title: 'Idea saved',
+          description: `"${parsed.title}" added to your ideas`,
         });
       } else {
         // Memory / Reflection
@@ -226,21 +226,20 @@ export function useQuickCapture() {
           tags: parsed.tags,
         });
         toast({
-          title: '✓ Reflection Vector Embedded',
-          description: `Indexed into Second Brain RAG memory`,
+          title: 'Note saved',
+          description: 'Your note is stored in your private Second Brain.',
         });
       }
 
       closeCapture();
       return true;
     } catch (err: any) {
-      console.error('Quick capture submission error:', err);
       toast({
-        title: '✓ Captured Locally',
-        description: `"${parsed.title}" saved to local execution queue.`,
+        title: 'Could not save',
+        description: 'Your text is still here. Check your connection and try again.',
+        variant: 'destructive',
       });
-      closeCapture();
-      return true;
+      return false;
     } finally {
       setIsSubmitting(false);
     }

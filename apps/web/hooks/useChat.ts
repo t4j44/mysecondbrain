@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { env } from '@/lib/env';
 import { ChatMessage, UseChatOptions, UseChatHelpers, Citation } from '../types/chat';
 
 /**
@@ -11,7 +12,7 @@ import { ChatMessage, UseChatOptions, UseChatHelpers, Citation } from '../types/
  */
 export function useChat(options: UseChatOptions = {}): UseChatHelpers {
   const {
-    api = '/api/v1/ai/search',
+    api = '/api/v1/ai/content-generate',
     initialMessages = [],
     onFinish,
     onError,
@@ -72,7 +73,7 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         status: 'thinking',
         isThinking: true,
-        thinkingText: 'Querying Second Brain & Vector Memory...',
+        thinkingText: 'Checking your saved context…',
         citations: [],
       };
 
@@ -94,12 +95,34 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
         } = await createClient().auth.getSession();
         const token = session?.access_token;
 
-        const response = await fetch(api, {
+        // Fail loudly instead of sending an anonymous request. Previously the
+        // Authorization header was spread in conditionally, so a missing session
+        // produced an unauthenticated call and the backend's opaque
+        // "401 AUTHENTICATION_REQUIRED / Missing authentication Bearer token".
+        if (!token) {
+          throw new Error(
+            'Your session has expired. Please sign in again to use the assistant.'
+          );
+        }
+
+        // Resolve against the configured API origin rather than relying on the
+        // Next.js rewrite. The rewrite is evaluated at BUILD time from
+        // NEXT_PUBLIC_API_BASE_URL, so a preview build or a missing build-time
+        // variable silently sends this request to the frontend origin instead of
+        // the backend. Every other call already goes through FastApiClient,
+        // which builds absolute URLs the same way.
+        const requestUrl = /^https?:\/\//i.test(api)
+          ? api
+          : `${env.NEXT_PUBLIC_API_BASE_URL.replace(/\/$/, '')}/${api
+              .replace(/^\/?api\/v1\/?/, '')
+              .replace(/^\//, '')}`;
+
+        const response = await fetch(requestUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
             ...headers,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             query: messageText,
@@ -115,6 +138,23 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
         if (!response.ok) {
           const errorText = await response.text().catch(() => response.statusText);
           throw new Error(`API returned ${response.status}: ${errorText}`);
+        }
+
+        if (response.headers.get('content-type')?.includes('application/json')) {
+          const result = await response.json();
+          if (typeof result.generated_text !== 'string') {
+            throw new Error('The assistant returned an unexpected response. Please try again.');
+          }
+          const finalMessage: ChatMessage = {
+            ...pendingAssistantMessage, content: result.generated_text,
+            status: 'completed', isThinking: false, citations: result.citations || [],
+          };
+          setMessages(prev => prev.map(message => message.id === assistantMessageId ? finalMessage : message));
+          setIsThinking(false);
+          setIsLoading(false);
+          abortControllerRef.current = null;
+          onFinish?.(finalMessage);
+          return;
         }
 
         if (!response.body) {

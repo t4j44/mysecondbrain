@@ -14,7 +14,9 @@ export class FastApiClient {
 
   private async request<T>(endpoint: string, method: HttpMethod, options: RequestOptions = {}): Promise<T> {
     const { params, body, headers = {}, timeoutMs = 15000, ...fetchOptions } = options;
-    const url = new URL(`${this.baseUrl.replace(/\/$/, '')}/${endpoint.replace(/^\//, '')}`);
+    const base = this.baseUrl.replace(/\/$/, '');
+    const path = base.endsWith('/api/v1') ? endpoint.replace(/^\/?api\/v1\/?/, '') : endpoint;
+    const url = new URL(`${base}/${path.replace(/^\//, '')}`);
 
     if (params) {
       Object.entries(params).forEach(([key, value]) => {

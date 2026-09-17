@@ -6,6 +6,7 @@ import { TopBar } from './top-bar';
 import { MobileBottomBar } from './mobile-bottom-bar';
 import { QuickCaptureModal } from '../capture/quick-capture-modal';
 import { WorkSessionModal } from '../session/work-session-modal';
+import { BetaNotice } from '../shared/beta-notice';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [quickCaptureOpen, setQuickCaptureOpen] = React.useState(false);
@@ -57,6 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main Content Workspace Column */}
       <div className="flex flex-1 flex-col min-w-0">
         <TopBar onOpenQuickCapture={() => setQuickCaptureOpen(true)} />
+        <BetaNotice />
         <main
           id="main-content"
           className="flex-1 overflow-x-hidden p-3 sm:p-5 md:p-6 pb-24 md:pb-8"

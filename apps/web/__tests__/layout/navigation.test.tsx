@@ -1,6 +1,6 @@
 import * as React from 'react';
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { Breadcrumbs } from '@/components/layout/breadcrumbs';
 import { Sidebar } from '@/components/layout/sidebar';
@@ -15,10 +15,11 @@ describe('Global App Shell & Navigation', () => {
   it('renders desktop Sidebar displaying primary surfaces and secondary groups', () => {
     render(<Sidebar />);
     expect(screen.getByText('Primary Surfaces')).toBeInTheDocument();
-    expect(screen.getByText('TODAY')).toBeInTheDocument();
-    expect(screen.getByText('ASK BRAIN')).toBeInTheDocument();
-    expect(screen.getByText('NETWORK')).toBeInTheDocument();
-    expect(screen.getByText('WORK & EVIDENCE')).toBeInTheDocument();
+    for (const name of ['Home', 'Capture', 'People', 'Work', 'Ask']) {
+      expect(screen.getByRole('link', { name })).toBeInTheDocument();
+    }
+    expect(screen.queryByText('Venture Execution')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'All Deep Modules' }));
     expect(screen.getByText('Venture Execution')).toBeInTheDocument();
     expect(screen.getByText('Growth & Synthesis')).toBeInTheDocument();
   });

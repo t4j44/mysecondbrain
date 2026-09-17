@@ -1,46 +1,29 @@
-import * as React from 'react';
-import { SectionHeader } from '@/components/shared/section-header';
-import { ShieldCheck, Database, Terminal } from 'lucide-react';
-
+'use client';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api/browser-client';
 export default function SettingsOverviewPage() {
-  return (
-    <div className="space-y-6">
-      <SectionHeader
-        title="Terminal Configuration Status"
-        description="System health check and security policy overview for your currently active session."
-      />
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="rounded-lg border border-border bg-[#0e0716] p-4 space-y-2">
-          <div className="flex items-center space-x-2 text-xs font-mono text-[#00ff9d]">
-            <ShieldCheck className="h-4 w-4" />
-            <span>RLS POLICY STATUS</span>
-          </div>
-          <h4 className="text-base font-bold text-[#f7f4ea]">Strict Isolation Enforced</h4>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            All Database read and write queries execute under verified JWT user ownership claims. Zero public schema leak risk.
-          </p>
-        </div>
-
-        <div className="rounded-lg border border-border bg-[#0e0716] p-4 space-y-2">
-          <div className="flex items-center space-x-2 text-xs font-mono text-[#00ff9d]">
-            <Database className="h-4 w-4" />
-            <span>VECTOR VAULT ENGINE</span>
-          </div>
-          <h4 className="text-base font-bold text-[#f7f4ea]">pgvector / OpenAI Ready</h4>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Embeddings generate automatically upon entity creation to empower proactive RAG chat synthesis.
-          </p>
-        </div>
-      </div>
-
-      <div className="border-t border-border pt-4 text-xs font-mono text-muted-foreground flex items-center justify-between">
-        <span className="flex items-center">
-          <Terminal className="h-3.5 w-3.5 mr-2 text-[#00ff9d]" />
-          App Router Foundation: Verified (Agent 4)
-        </span>
-        <span>Version: 2.0-PROD</span>
-      </div>
-    </div>
-  );
+  const [counts, setCounts] = useState<Record<string, number> | null>(null);
+  useEffect(() => { api.get<{ counts: Record<string, number> }>('/beta/value').then(value => setCounts(value.counts)).catch(() => setCounts(null)); }, []);
+  const [outcome, setOutcome] = useState('useful'); const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false); const [message, setMessage] = useState('');
+  return <div className="max-w-2xl space-y-6"><h1 className="text-2xl font-semibold">Settings and beta feedback</h1>
+    <p>This is an early closed beta. Your canonical records stay in the private database. Free-tier AI receives minimized text; redaction can miss details. Avoid highly sensitive or confidential information.</p>
+    <div className="flex flex-wrap gap-4"><Link href="/settings/integrations" className="underline">Google connections</Link><Link href="/settings/export" className="underline">Export records</Link><Link href="/portfolio" className="underline">Portfolio</Link><Link href="/settings/ai-access" className="underline">AI assistant access</Link></div>
+    {counts && <section className="rounded-xl border p-4"><h2 className="text-xl font-semibold">Your beta activity</h2>
+      <p className="mt-2">{counts.capture_confirmed} captures saved · {counts.beta_retrieval} searches · {counts.beta_source_opened} source checks</p>
+      <p className="mt-1 text-sm text-muted-foreground">Activity counts help you reflect on use. They do not prove answer accuracy or time saved.</p>
+    </section>}
+    <form className="space-y-4 rounded-xl border p-4" onSubmit={async event => {
+      event.preventDefault(); setBusy(true); setMessage('');
+      try { await api.post('/beta/feedback', { outcome, note }); setNote(''); setMessage('Feedback saved privately. Thank you for testing.'); }
+      catch (error) { setMessage(error instanceof Error ? error.message : 'Feedback could not be saved.'); }
+      finally { setBusy(false); }
+    }}><h2 className="text-xl font-semibold">Did this help with real work?</h2>
+      <label className="block">Outcome<select value={outcome} onChange={event => setOutcome(event.target.value)} className="mt-1 min-h-11 w-full rounded border bg-background px-3"><option value="useful">Useful</option><option value="not_useful">Not useful yet</option><option value="incorrect">Incorrect result</option><option value="bug">Something broke</option></select></label>
+      <label className="block">What happened? (optional)<textarea rows={4} maxLength={2000} value={note} onChange={event => setNote(event.target.value)} className="mt-1 w-full rounded border bg-background p-3" /></label>
+      <p className="text-sm text-muted-foreground">This feedback is private. It does not give permission to publish your words as a testimonial.</p>
+      <button disabled={busy} className="min-h-11 rounded bg-primary px-4 text-primary-foreground">Save feedback</button>
+    </form>{message && <p role="status">{message}</p>}
+  </div>;
 }

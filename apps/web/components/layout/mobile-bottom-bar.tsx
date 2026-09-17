@@ -9,30 +9,30 @@ interface MobileBottomBarProps {
   onOpenQuickCapture: () => void;
 }
 
-export function MobileBottomBar({ onOpenQuickCapture }: MobileBottomBarProps) {
+export function MobileBottomBar(_props: MobileBottomBarProps) {
   const pathname = usePathname();
 
   const navItems = [
     {
-      title: 'Today',
+      title: 'Home',
       href: '/dashboard',
       icon: LayoutDashboard,
       isActive: pathname === '/dashboard' || pathname === '/',
     },
     {
-      title: 'Ask Brain',
+      title: 'Ask',
       href: '/assistant',
       icon: Bot,
       isActive: pathname === '/assistant',
     },
     {
       title: 'Capture',
-      isAction: true,
-      onClick: onOpenQuickCapture,
+      href: '/capture',
+      isActive: pathname === '/capture',
       icon: Plus,
     },
     {
-      title: 'Network',
+      title: 'People',
       href: '/people',
       icon: Users,
       isActive: pathname.startsWith('/people') || pathname.startsWith('/organizations') || pathname.startsWith('/meetings'),
@@ -52,21 +52,6 @@ export function MobileBottomBar({ onOpenQuickCapture }: MobileBottomBarProps) {
     >
       <div className="flex items-center justify-around max-w-md mx-auto">
         {navItems.map((item, index) => {
-          if (item.isAction) {
-            return (
-              <button
-                key="capture-fab"
-                type="button"
-                onClick={item.onClick}
-                className="relative -top-3 flex flex-col items-center justify-center h-13 w-13 rounded-full bg-[#00ff9d] text-[#0a0510] font-bold shadow-[0_0_20px_rgba(0,255,157,0.4)] active:scale-95 transition-transform"
-                aria-label="1-Tap Quick Capture"
-              >
-                <Plus className="h-6 w-6 stroke-[2.5]" />
-                <span className="sr-only">Quick Capture</span>
-              </button>
-            );
-          }
-
           const Icon = item.icon;
           const active = item.isActive;
 

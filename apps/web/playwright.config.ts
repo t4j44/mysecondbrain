@@ -16,13 +16,13 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 2,
   timeout: 120_000,
   expect: { timeout: 15_000 },
-  reporter: [['list'], ['html', { open: 'never' }]],
+  reporter: [['list'], ['html', { open: 'never' }], ['junit', { outputFile: 'test-results/e2e-results.xml' }]],
   use: {
     baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  webServer: canBootWeb
+  webServer: canBootWeb && !process.env.PLAYWRIGHT_TEST_BASE_URL
     ? {
         command: 'pnpm exec next dev --port 3000',
         url: 'http://localhost:3000',
@@ -51,7 +51,7 @@ export default defineConfig({
     },
     {
       name: 'chromium',
-      testMatch: /core-lifecycle\.spec\.ts|negative\.authenticated\.spec\.ts|cross-tenant\.spec\.ts/,
+      testMatch: /beta-journey\.spec\.ts|core-lifecycle\.spec\.ts|negative\.authenticated\.spec\.ts|cross-tenant\.spec\.ts/,
       dependencies: hasAuth ? ['setup'] : [],
       use: {
         ...devices['Desktop Chrome'],
@@ -61,7 +61,7 @@ export default defineConfig({
     },
     {
       name: 'mobile-chrome',
-      testMatch: /core-lifecycle\.spec\.ts|negative\.authenticated\.spec\.ts/,
+      testMatch: /beta-journey\.spec\.ts|core-lifecycle\.spec\.ts|negative\.authenticated\.spec\.ts/,
       use: {
         ...devices['Pixel 5'],
         ...(hasAuth ? { storageState: AUTH_STATE_PATH } : {}),

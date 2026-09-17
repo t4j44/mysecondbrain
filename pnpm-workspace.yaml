@@ -2,5 +2,6 @@ packages:
   - 'apps/*'
   - 'packages/*'
 allowBuilds:
-  - esbuild
-  - unrs-resolver
+  esbuild: true
+  unrs-resolver: true
+  tesseract.js: false

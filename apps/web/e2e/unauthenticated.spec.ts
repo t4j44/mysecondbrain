@@ -22,13 +22,14 @@ test.describe('Unauthenticated and public form negatives', () => {
     await page.getByLabel(/email address/i).fill('not-an-email');
     await page.getByLabel(/security passkey/i).fill('x');
     await page.getByRole('button', { name: /initialize session/i }).click();
-    await expect(page.getByText('Please enter a valid email address.')).toBeVisible();
+    // Native email validation runs before React Hook Form submits.
+    expect(await page.getByLabel(/email address/i).evaluate((input: HTMLInputElement) => input.validity.typeMismatch)).toBe(true);
     await expect(page).toHaveURL(/\/login/);
   });
 
   test('login page exposes email, password, and submit controls', async ({ page }) => {
     await page.goto('/login');
-    await expect(page).toHaveTitle(/Taj's Second Brain|Login/i);
+    await expect(page).toHaveTitle(/Second Brain|Login/i);
     await expect(page.getByLabel(/email address/i)).toBeVisible();
     await expect(page.getByLabel(/security passkey/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /initialize session/i })).toBeVisible();

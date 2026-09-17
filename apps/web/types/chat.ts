@@ -1,6 +1,6 @@
 export interface Citation {
   id: string;
-  entity_type: 'venture' | 'project' | 'person' | 'interaction' | 'memory' | 'document' | 'idea';
+  entity_type: 'venture' | 'project' | 'person' | 'interaction' | 'memory' | 'document' | 'idea' | 'organization' | 'meeting' | 'task' | 'commitment' | 'achievement' | 'work_session' | 'evidence' | 'decision';
   title: string;
   uri?: string;
   snippet?: string;

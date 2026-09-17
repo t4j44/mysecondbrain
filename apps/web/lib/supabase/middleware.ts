@@ -15,7 +15,7 @@ const PUBLIC_EXACT_PATHS = new Set([
 ]);
 
 export function isPublic(pathname: string): boolean {
-  return PUBLIC_EXACT_PATHS.has(pathname) || pathname.startsWith('/widget/');
+  return PUBLIC_EXACT_PATHS.has(pathname) || pathname.startsWith('/widget/') || /^\/p\/[A-Za-z0-9_-]{43}$/.test(pathname);
 }
 
 export async function updateSession(request: NextRequest) {

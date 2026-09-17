@@ -31,14 +31,15 @@ interface SidebarProps {
 
 export function Sidebar({ className = '', onOpenQuickCapture }: SidebarProps) {
   const pathname = usePathname();
-  const [showSecondary, setShowSecondary] = React.useState(true);
+  const [showSecondary, setShowSecondary] = React.useState(false);
 
   // 4 Primary Surfaces
   const primarySurfaces = [
-    { title: 'TODAY', href: '/dashboard', icon: LayoutDashboard, badge: 'SURFACE' },
-    { title: 'ASK BRAIN', href: '/assistant', icon: Bot, badge: 'AI RAG' },
-    { title: 'NETWORK', href: '/people', icon: Users },
-    { title: 'WORK & EVIDENCE', href: '/tasks', icon: CheckSquare },
+    { title: 'Home', href: '/dashboard', icon: LayoutDashboard },
+    { title: 'Capture', href: '/capture', icon: Plus },
+    { title: 'People', href: '/people', icon: Users },
+    { title: 'Work', href: '/tasks', icon: CheckSquare },
+    { title: 'Ask', href: '/assistant', icon: Bot },
   ];
 
   // Secondary Modules underneath
@@ -51,6 +52,8 @@ export function Sidebar({ className = '', onOpenQuickCapture }: SidebarProps) {
         { title: 'Idea Incubator', href: '/ideas', icon: Lightbulb },
         { title: 'Second Brain Vault', href: '/memories', icon: Brain },
         { title: 'Meetings & Audio', href: '/meetings', icon: Calendar },
+        { title: 'Documents', href: '/documents', icon: FileText },
+        { title: 'Portfolio', href: '/portfolio', icon: Briefcase },
         { title: 'Organizations', href: '/organizations', icon: Building2 },
       ],
     },
@@ -131,17 +134,6 @@ export function Sidebar({ className = '', onOpenQuickCapture }: SidebarProps) {
                   />
                   <span>{item.title}</span>
                 </div>
-                {item.badge && (
-                  <span
-                    className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
-                      isActive
-                        ? 'bg-[#00ff9d] text-[#0a0510] border-[#00ff9d]'
-                        : 'bg-[#251238] text-[#00ff9d] border-[#00ff9d]/30'
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
               </Link>
             );
           })}
@@ -197,7 +189,7 @@ export function Sidebar({ className = '', onOpenQuickCapture }: SidebarProps) {
         <div className="flex items-center justify-between">
           <span className="flex items-center">
             <span className="h-2 w-2 rounded-full bg-[#00ff9d] mr-2 shadow-[0_0_6px_#00ff9d]" />
-            RLS VAULT ACTIVE
+            PRIVATE WORKSPACE
           </span>
           <span className="text-[#00ff9d]/80 text-[10px]">Zero Overload</span>
         </div>

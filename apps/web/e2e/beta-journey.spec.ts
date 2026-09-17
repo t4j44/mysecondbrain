@@ -1,0 +1,60 @@
+import { test, expect } from '@playwright/test';
+import { getPrimaryE2EUser, hasSupabasePublicConfig } from './helpers/credentials';
+import { uniqueId } from './helpers/ui';
+
+test.describe('Closed beta capture, retrieve, act and share', () => {
+  test.skip(!getPrimaryE2EUser() || !hasSupabasePublicConfig(), 'Requires a configured staging test account.');
+  test('reviewed capture persists, becomes a task and supports a revocable portfolio', async ({ page, browser }) => {
+    const marker = uniqueId('betaproof').replace(/-/g, '');
+    const note = `${marker} tested a prototype and promised to send a demo. Outcomes are not yet measured.`;
+    await page.goto('/capture');
+    await expect(page.getByRole('complementary', { name: 'Closed beta privacy notice' })).toBeVisible();
+    await page.getByLabel('Capture text').fill(note);
+    await page.getByRole('button', { name: 'Review capture', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Check before saving' })).toBeVisible();
+    await page.getByLabel('Person', { exact: true }).fill(marker);
+    await page.getByLabel('Organization', { exact: true }).fill('');
+    await page.getByLabel('Existing project', { exact: true }).fill('');
+    await page.getByLabel('Existing venture', { exact: true }).fill('');
+    await page.getByLabel('Summary', { exact: true }).fill(note);
+    await page.getByLabel('Commitment', { exact: true }).fill(`Send ${marker} demo`);
+    await page.getByLabel('Who made the commitment?').selectOption('owed_by_me');
+    await page.getByRole('button', { name: 'Confirm and save' }).click();
+    await expect(page.getByText('Saved. Your context', { exact: false })).toBeVisible();
+    await page.goto('/tasks');
+    await expect(page.getByTestId('task-row').filter({ hasText: `Send ${marker} demo` })).toBeVisible();
+    await page.reload();
+    await expect(page.getByTestId('task-row').filter({ hasText: `Send ${marker} demo` })).toBeVisible();
+    await page.goto('/assistant');
+    await page.getByPlaceholder('Ask your Second Brain about tasks, ventures, mentors, or strategic choices...').fill(marker);
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    const citation = page.locator('a[href^="/sources/"]').first();
+    await expect(citation).toBeVisible({ timeout: 60000 });
+    await citation.click();
+    await expect(page.getByText(marker, { exact: false }).last()).toBeVisible();
+    await page.goto('/portfolio');
+    await page.getByLabel('Find portfolio evidence').fill(marker);
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
+    await page.getByRole('checkbox').first().check();
+    await page.getByRole('button', { name: 'Create private draft' }).click();
+    const approvedText = `I tested a prototype for ${marker}. Impact is not yet measured.`;
+    await page.getByLabel('Public title').fill(marker);
+    await page.getByLabel('Public case study text').fill(approvedText);
+    await page.getByRole('button', { name: 'Save private draft' }).click();
+    await page.getByRole('checkbox', { name: /I reviewed this exact text/ }).check();
+    await page.getByRole('button', { name: 'Publish reviewed copy' }).click();
+    const share = await page.locator('a[href*="/p/"]').getAttribute('href');
+    expect(share).toBeTruthy();
+    const publicContext = await browser.newContext();
+    const visitor = await publicContext.newPage();
+    try {
+      await visitor.goto(share!);
+      await expect(visitor.getByText(approvedText, { exact: true })).toBeVisible();
+      await expect(visitor.getByText(note, { exact: true })).toHaveCount(0);
+      await page.getByText(`${marker} · Public via link`, { exact: true }).locator('..').getByRole('button', { name: 'Revoke link' }).click();
+      await visitor.reload();
+      await expect(visitor.getByText(approvedText, { exact: true })).toHaveCount(0);
+    } finally { await publicContext.close(); }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  });
+});
