@@ -1,0 +1,44 @@
+name: Closed beta staging E2E
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  beta-journey:
+    runs-on: ubuntu-latest
+    environment: beta-staging
+    env:
+      CI: 'true'
+      PLAYWRIGHT_TEST_BASE_URL: ${{ vars.BETA_WEB_URL }}
+      NEXT_PUBLIC_API_BASE_URL: ${{ vars.BETA_API_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.BETA_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.BETA_SUPABASE_PUBLISHABLE_KEY }}
+      E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+      E2E_EMAIL_B: ${{ secrets.E2E_EMAIL_B }}
+      E2E_PASSWORD_B: ${{ secrets.E2E_PASSWORD_B }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require isolated staging and two test users
+        shell: bash
+        run: |
+          for key in PLAYWRIGHT_TEST_BASE_URL NEXT_PUBLIC_API_BASE_URL NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY E2E_EMAIL E2E_PASSWORD E2E_EMAIL_B E2E_PASSWORD_B; do
+            if [ -z "${!key}" ]; then echo "Missing required setting: $key"; exit 1; fi
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.17.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @second-brain/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @second-brain/web test:e2e
+      - run: python scripts/check_test_evidence.py apps/web/test-results/e2e-results.xml
+      # Reports use dedicated synthetic test accounts. Do not upload cookies or auth state.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: beta-e2e-evidence
+          path: apps/web/test-results/e2e-results.xml
+          retention-days: 7

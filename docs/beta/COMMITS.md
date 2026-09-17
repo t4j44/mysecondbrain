@@ -1,0 +1,111 @@
+# Local beta implementation commits
+
+Branch: `codex/free-tier-beta`. Base: `522810cc7ecb2959eb450069aabb5653d7397286`. No push or deployment performed.
+
+- `905b43bf82acecf9f83238e16718bad30ddf4957` feat(api): implement private free-tier beta workflows
+- `007cd365be25d9df52ee634bcc1e76c4ab654ce7` feat(web): connect reviewed capture and private beta tools
+- CI and handoff: the commit containing this document, titled `ci: gate beta rollout with database and browser evidence`. Resolve its SHA with `git log -1 --format=%H -- docs/beta/COMMITS.md`.
+
+## Exact product and verification files
+
+- `.github/workflows/beta-e2e.yml`
+- `.github/workflows/postgres.yml`
+- `.github/workflows/security_ci.yml`
+- `.gitignore`
+- `apps/api/.env.example`
+- `apps/api/app/ai/embeddings_storage.py`
+- `apps/api/app/ai/indexing.py`
+- `apps/api/app/ai/privacy.py`
+- `apps/api/app/ai/provider.py`
+- `apps/api/app/ai/retrieval.py`
+- `apps/api/app/ai/structured.py`
+- `apps/api/app/api/v1/endpoints/capture.py`
+- `apps/api/app/api/v1/endpoints/pdf_analysis.py`
+- `apps/api/app/api/v1/endpoints/portfolio_beta.py`
+- `apps/api/app/api/v1/endpoints/sources.py`
+- `apps/api/app/api/v1/endpoints/system.py`
+- `apps/api/app/api/v1/router.py`
+- `apps/api/app/config.py`
+- `apps/api/app/db/schema_contract.py`
+- `apps/api/app/dependencies/database.py`
+- `apps/api/app/integrations/google_client.py`
+- `apps/api/app/integrations/storage_client.py`
+- `apps/api/app/jobs/handlers/document_processing.py`
+- `apps/api/app/jobs/handlers/export_markdown.py`
+- `apps/api/app/jobs/handlers/sync_google.py`
+- `apps/api/app/jobs/index_queue.py`
+- `apps/api/app/jobs/runner.py`
+- `apps/api/app/main.py`
+- `apps/api/app/mcp/beta_tools.py`
+- `apps/api/app/mcp/extraction.py`
+- `apps/api/app/mcp/router.py`
+- `apps/api/app/mcp/server.py`
+- `apps/api/app/mcp/tools.py`
+- `apps/api/app/middleware/error_handling.py`
+- `apps/api/app/middleware/logging.py`
+- `apps/api/app/models/entities.py`
+- `apps/api/app/models/publication.py`
+- `apps/api/app/models/rag.py`
+- `apps/api/app/repositories/base.py`
+- `apps/api/app/repositories/interactions.py`
+- `apps/api/app/repositories/meetings.py`
+- `apps/api/app/schemas/founder.py`
+- `apps/api/app/schemas/knowledge.py`
+- `apps/api/app/services/capture.py`
+- `apps/api/app/services/document_extractor.py`
+- `apps/api/app/services/founder.py`
+- `apps/api/app/services/gemini_client.py`
+- `apps/api/app/services/integrations.py`
+- `apps/api/app/services/knowledge.py`
+- `apps/api/tests/integration/test_beta_vector_retrieval.py`
+- `apps/api/tests/test_ai_privacy.py`
+- `apps/api/tests/test_capture_beta.py`
+- `apps/api/tests/test_document_beta.py`
+- `apps/api/tests/test_g0_truth_gate.py`
+- `apps/api/tests/test_g2_rls_security.py`
+- `apps/api/tests/test_g5_mcp_write_gate.py`
+- `apps/api/tests/test_google_beta.py`
+- `apps/api/tests/test_integrations_export.py`
+- `apps/api/tests/test_job_beta.py`
+- `apps/api/tests/test_knowledge_ai.py`
+- `apps/api/tests/test_mcp_tools.py`
+- `apps/api/tests/test_mcp_transport_beta.py`
+- `apps/api/tests/test_pdf_analysis.py`
+- `apps/api/tests/test_portfolio_beta.py`
+- `apps/api/tests/test_storage_client.py`
+- `apps/api/tests/test_structured_beta.py`
+- `apps/web/__tests__/layout/navigation.test.tsx`
+- `apps/web/app/(dashboard)/assistant/page.tsx`
+- `apps/web/app/(dashboard)/capture/page.tsx`
+- `apps/web/app/(dashboard)/documents/page.tsx`
+- `apps/web/app/(dashboard)/portfolio/page.tsx`
+- `apps/web/app/(dashboard)/settings/ai-access/page.tsx`
+- `apps/web/app/(dashboard)/settings/export/page.tsx`
+- `apps/web/app/(dashboard)/settings/integrations/google/callback/page.tsx`
+- `apps/web/app/(dashboard)/settings/integrations/page.tsx`
+- `apps/web/app/(dashboard)/settings/page.tsx`
+- `apps/web/app/(dashboard)/sources/[kind]/[id]/page.tsx`
+- `apps/web/app/p/[token]/page.tsx`
+- `apps/web/components/capture/photo-text-input.tsx`
+- `apps/web/components/chat/ChatArea.tsx`
+- `apps/web/components/layout/app-shell.tsx`
+- `apps/web/components/layout/mobile-bottom-bar.tsx`
+- `apps/web/components/layout/sidebar.tsx`
+- `apps/web/components/shared/beta-notice.tsx`
+- `apps/web/e2e/beta-journey.spec.ts`
+- `apps/web/e2e/unauthenticated.spec.ts`
+- `apps/web/hooks/useChat.ts`
+- `apps/web/hooks/useQuickCapture.ts`
+- `apps/web/lib/api/client.ts`
+- `apps/web/lib/supabase/middleware.ts`
+- `apps/web/package.json`
+- `apps/web/playwright.config.ts`
+- `apps/web/types/chat.ts`
+- `docs/beta/COMMITS.md`
+- `docs/beta/RUNBOOK.md`
+- `docs/beta/STATUS.md`
+- `package.json`
+- `pnpm-lock.yaml`
+- `pnpm-workspace.yaml`
+- `scripts/check_test_evidence.py`
+- `supabase/migrations/20260916000024_beta_publications_and_feedback.sql`

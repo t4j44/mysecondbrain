@@ -1,0 +1,38 @@
+name: PostgreSQL tenant and schema gate
+on:
+  push:
+    branches: [main, 'recovery/**', 'codex/**']
+  pull_request:
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: second_brain_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 12
+    env:
+      POSTGRES_TEST_DATABASE_URL: postgresql+asyncpg://postgres:test-only-password@localhost:5432/second_brain_test
+      PYTHONPATH: apps/api
+      ENVIRONMENT: test
+      APP_ENV: test
+      GEMINI_API_KEY: mock_ci_key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r apps/api/requirements.txt
+      - run: python scripts/db/bootstrap_migrations.py
+      - run: pytest apps/api/tests/integration -q -o addopts='' --junitxml=postgres-results.xml
+      - run: python scripts/check_test_evidence.py postgres-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: postgres-test-evidence
+          path: postgres-results.xml
