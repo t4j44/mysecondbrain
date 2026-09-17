@@ -21,7 +21,7 @@ from app.dependencies.auth import AuthenticatedUser, get_current_user
 _IS_SQLITE = settings.uses_sqlite()
 
 _engine_kwargs: Dict[str, Any] = {
-    "echo": settings.LOG_LEVEL.upper() == "DEBUG",
+    "echo": False,  # SQL parameters can contain private records, even in debug mode.
     "future": True,
 }
 if _IS_SQLITE:

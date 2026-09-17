@@ -14,6 +14,8 @@ def create_mock_jwt(
 ) -> str:
     secret = secret or settings.SUPABASE_JWT_SECRET or settings.JWT_SECRET
     payload = {
+        "aud": "authenticated",
+        "iss": settings.SUPABASE_URL.rstrip("/") + "/auth/v1",
         "sub": user_id,
         "aud": "authenticated",
         "role": "authenticated",

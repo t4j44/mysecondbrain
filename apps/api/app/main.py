@@ -106,7 +106,7 @@ async def readiness_probe():
         db_status = "connected"
         http_code = status.HTTP_200_OK
     except Exception as exc:
-        logger.error(f"Database readiness health check failed: {str(exc)}")
+        logger.error("Database readiness health check failed (%s)", type(exc).__name__)
         db_status = "unreachable"
         http_code = status.HTTP_503_SERVICE_UNAVAILABLE
 

@@ -71,6 +71,8 @@ def other_user_id() -> str:
 @pytest.fixture
 def auth_headers(test_user_id: str) -> dict:
     payload = {
+        "aud": "authenticated",
+        "iss": settings.SUPABASE_URL.rstrip("/") + "/auth/v1",
         "sub": test_user_id,
         "email": "taj@founder.local",
         "role": "founder",
@@ -86,6 +88,8 @@ def auth_headers(test_user_id: str) -> dict:
 @pytest.fixture
 def other_auth_headers(other_user_id: str) -> dict:
     payload = {
+        "aud": "authenticated",
+        "iss": settings.SUPABASE_URL.rstrip("/") + "/auth/v1",
         "sub": other_user_id,
         "email": "intruder@external.local",
         "role": "viewer",

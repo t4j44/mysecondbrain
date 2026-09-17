@@ -41,6 +41,8 @@ async def test_opaque_secret_key_rejected_as_user_jwt(async_client):
 @pytest.mark.asyncio
 async def test_expired_jwt_token(async_client, test_user_id):
     payload = {
+        "aud": "authenticated",
+        "iss": settings.SUPABASE_URL.rstrip("/") + "/auth/v1",
         "sub": test_user_id,
         "email": "taj@founder.local",
         "exp": datetime.now(timezone.utc) - timedelta(hours=1),  # Expired!
@@ -82,6 +84,8 @@ async def test_valid_supabase_jwks_asymmetric_jwt(async_client, test_user_id, mo
 
     # 3. Create RS256 token signed by Supabase Auth with key ID
     payload = {
+        "aud": "authenticated",
+        "iss": settings.SUPABASE_URL.rstrip("/") + "/auth/v1",
         "sub": test_user_id,
         "email": "taj@founder.local",
         "role": "founder",
@@ -129,6 +133,8 @@ async def test_production_fails_closed_on_invalid_jwks_signature(async_client, t
 
     # Token signed with rogue key
     payload = {
+        "aud": "authenticated",
+        "iss": settings.SUPABASE_URL.rstrip("/") + "/auth/v1",
         "sub": test_user_id,
         "email": "rogue@attacker.local",
         "exp": datetime.now(timezone.utc) + timedelta(hours=1),
@@ -189,3 +195,17 @@ def test_token_encryption_and_decryption_service():
 
     decrypted = decrypt_token(encrypted)
     assert decrypted == raw_secret
+
+
+@pytest.mark.parametrize("change", [{"aud": "service_role"}, {"iss": "https://other.supabase.co/auth/v1"}, {"exp": None}, {"aud": None}])
+def test_rejects_wrong_or_missing_supabase_claims(change, test_user_id, monkeypatch):
+    from app.dependencies.auth import decode_and_verify_token
+    from app.core.errors import AuthenticationError
+    monkeypatch.setattr(settings, "SUPABASE_URL", "https://expected.supabase.co")
+    payload = {"sub": test_user_id, "aud": "authenticated", "iss": "https://expected.supabase.co/auth/v1",
+               "exp": datetime.now(timezone.utc) + timedelta(minutes=5)}
+    payload.update(change)
+    payload = {key: value for key, value in payload.items() if value is not None}
+    token = jwt.encode(payload, settings.SUPABASE_JWT_SECRET or settings.JWT_SECRET, algorithm="HS256")
+    with pytest.raises(AuthenticationError):
+        decode_and_verify_token(token)

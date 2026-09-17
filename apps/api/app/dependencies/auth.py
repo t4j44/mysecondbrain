@@ -79,7 +79,9 @@ def decode_and_verify_token(token: str) -> Dict[str, Any]:
                 token,
                 signing_key.key,
                 algorithms=["RS256", "ES256", "RS384", "RS512", "ES384", "ES512", "EdDSA"],
-                options={"verify_exp": True, "verify_sub": True},
+                audience="authenticated",
+                issuer=settings.SUPABASE_URL.rstrip("/") + "/auth/v1" if settings.SUPABASE_URL else None,
+                options={"verify_exp": True, "verify_sub": True, "require": ["sub", "exp", "aud"]},
             )
         except jwt.ExpiredSignatureError as exc:
             raise AuthenticationError(
@@ -103,7 +105,9 @@ def decode_and_verify_token(token: str) -> Dict[str, Any]:
                 token,
                 symmetric_secret,
                 algorithms=["HS256", "HS384", "HS512"],
-                options={"verify_exp": True, "verify_sub": True},
+                audience="authenticated",
+                issuer=settings.SUPABASE_URL.rstrip("/") + "/auth/v1" if settings.SUPABASE_URL else None,
+                options={"verify_exp": True, "verify_sub": True, "require": ["sub", "exp", "aud"]},
             )
         except jwt.ExpiredSignatureError as exc:
             raise AuthenticationError(
