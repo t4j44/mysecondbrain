@@ -9,6 +9,7 @@ from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel
 
 from app.dependencies.database import admin_db_session, rls_db_session
+from app.mcp.beta_tools import READ_TOOLS, WRITE_TOOLS
 from app.mcp.extraction import extract_session_intelligence
 from app.mcp.security import (
     FINALIZE_REQUIRED_SCOPES,
@@ -386,6 +387,9 @@ MCP_WRITE_TOOLS_MANIFEST: List[Dict[str, Any]] = [
     },
 ]
 
+MCP_TOOLS_MANIFEST.extend(READ_TOOLS)
+MCP_WRITE_TOOLS_MANIFEST.extend(WRITE_TOOLS)
+
 MCP_ALL_TOOLS: List[Dict[str, Any]] = MCP_TOOLS_MANIFEST + MCP_WRITE_TOOLS_MANIFEST
 
 
@@ -448,6 +452,7 @@ async def _invoke_write_tool(
             summary=call_args.get("summary"),
             session_payload=call_args.get("session_payload"),
             provider=call_args.get("provider"),
+            user_id=sec_ctx.user_id,
         )
         venture_hint = call_args.pop("venture", None)
         project_hint = call_args.pop("project", None)
@@ -562,7 +567,9 @@ async def invoke_mcp_tool(
     async with rls_db_session(sec_ctx.user_id) as db:
         domain = MCPDomainTools(db=db, user_id=sec_ctx.user_id)
 
-        if payload.tool == "search_people":
+        if payload.tool in {item["name"] for item in READ_TOOLS}:
+            result = await getattr(domain, payload.tool)(**_allowed_arguments(tool_spec, args))
+        elif payload.tool == "search_people":
             result = await domain.search_people(query=args.get("query"), limit=args.get("limit", 20))
         elif payload.tool == "search_memory":
             result = await domain.search_memory(

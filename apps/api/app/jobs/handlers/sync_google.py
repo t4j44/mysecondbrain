@@ -2,7 +2,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import ErrorCode
 from app.core.errors import IntegrationError
-from app.core.logging import logger
 
 
 async def execute_google_sync_handler(
@@ -13,15 +12,10 @@ async def execute_google_sync_handler(
 
     G0: never invent sync success metrics or mark jobs completed.
     """
-    _ = (db, user_id, payload)
-    logger.warning(
-        "Google sync job %s refused for user %s — integration not implemented.",
-        job_type,
-        user_id,
-    )
-    raise IntegrationError(
-        "Google Workspace sync is not implemented. Refusing simulated success metrics.",
-        code=ErrorCode.INTEGRATION_NOT_IMPLEMENTED,
-        status_code=501,
-        details={"job_type": job_type},
-    )
+    from app.integrations.google_client import GoogleIntegrationService
+    service = GoogleIntegrationService(db, user_id)
+    if job_type == "sync_google_drive":
+        return await service.export_drive(payload)
+    if job_type == "sync_google_calendar":
+        return await service.sync_calendar(payload)
+    raise IntegrationError("Unknown sync operation.", code=ErrorCode.VALIDATION_FAILED)

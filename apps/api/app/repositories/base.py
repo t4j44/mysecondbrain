@@ -88,6 +88,8 @@ class BaseRepository(Generic[ModelType]):
         db.add(db_obj)
         await db.flush()
         await db.refresh(db_obj)
+        from app.jobs.index_queue import queue_index
+        queue_index(db, db_obj)
         return db_obj
 
     async def update(
@@ -98,11 +100,15 @@ class BaseRepository(Generic[ModelType]):
             return None
 
         for field, value in update_data.items():
+            if field in {"id", "user_id", "created_at"}:
+                continue
             if hasattr(db_obj, field):
                 setattr(db_obj, field, value)
 
         await db.flush()
         await db.refresh(db_obj)
+        from app.jobs.index_queue import queue_index
+        queue_index(db, db_obj)
         return db_obj
 
     async def delete(
@@ -113,6 +119,9 @@ class BaseRepository(Generic[ModelType]):
         if not db_obj:
             return False
 
+        from app.jobs.index_queue import delete_index
+        await delete_index(db, db_obj)
+
         if hard_delete:
             await db.delete(db_obj)
         else:
@@ -121,8 +130,6 @@ class BaseRepository(Generic[ModelType]):
             now = datetime.now(timezone.utc)
             if hasattr(db_obj, "deleted_at"):
                 db_obj.deleted_at = now
-            if hasattr(db_obj, "status") and getattr(db_obj, "status", None) not in {"deleted"}:
-                db_obj.status = "archived"
             elif hasattr(db_obj, "archived_at"):
                 db_obj.archived_at = now
 

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Literal
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -43,7 +43,16 @@ class Settings(BaseSettings):
     # AI Provider Configuration
     GEMINI_API_KEY: str = "placeholder_gemini_key"
     GEMINI_MODEL: str = "gemini-2.5-flash"
-    GEMINI_EMBEDDING_MODEL: str = "text-embedding-004"
+    GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
+    # Billing is configured in Google Cloud; changing tiers never changes data ownership.
+    AI_DATA_MODE: Literal["free_redacted", "paid_private"] = "free_redacted"
+    AI_MAX_INPUT_CHARS: int = 24000
+    AI_MAX_OUTPUT_TOKENS: int = 2048
+    AI_EMBEDDING_DIMENSIONS: Literal[768] = 768
+    JOB_WORKER_ENABLED: bool = True
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "http://localhost:3000/settings/integrations/google/callback"
     OPENAI_API_KEY: str = "placeholder_openai_key"
     OPENAI_MODEL: str = "gpt-4o"
 

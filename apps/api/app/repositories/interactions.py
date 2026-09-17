@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.core.errors import NotFoundError
+from app.jobs.index_queue import delete_index, queue_index
 from app.models.entities import Interaction
 from app.schemas.interactions import InteractionCreate, InteractionUpdate
 
@@ -30,6 +31,11 @@ class InteractionsRepository:
             meta=schema.metadata,
         )
         db.add(db_interaction)
+        await db.flush()
+        if db_interaction.deleted_at or db_interaction.archived_at:
+            await delete_index(db, db_interaction)
+        else:
+            queue_index(db, db_interaction)
         await db.commit()
         await db.refresh(db_interaction)
         return db_interaction
@@ -102,6 +108,11 @@ class InteractionsRepository:
             setattr(db_interaction, key, value)
 
         db_interaction.updated_at = datetime.utcnow()
+        await db.flush()
+        if db_interaction.deleted_at or db_interaction.archived_at:
+            await delete_index(db, db_interaction)
+        else:
+            queue_index(db, db_interaction)
         await db.commit()
         await db.refresh(db_interaction)
         return db_interaction
@@ -112,6 +123,11 @@ class InteractionsRepository:
     ) -> Interaction:
         db_interaction = await InteractionsRepository.get_interaction(db, user_id, interaction_id)
         db_interaction.deleted_at = datetime.utcnow()
+        await db.flush()
+        if db_interaction.deleted_at or db_interaction.archived_at:
+            await delete_index(db, db_interaction)
+        else:
+            queue_index(db, db_interaction)
         await db.commit()
         await db.refresh(db_interaction)
         return db_interaction

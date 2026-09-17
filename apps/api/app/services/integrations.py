@@ -88,6 +88,7 @@ class ExportService:
                     "export_id": exp_record.id,
                     "export_type": export_type,
                     "target_module": target_module,
+                    "record_id": record_id,
                 },
             },
         )

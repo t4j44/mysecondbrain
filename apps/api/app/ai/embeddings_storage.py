@@ -1,5 +1,6 @@
 """Fail-closed helpers for embedding persistence (G0 Product Truth Gate)."""
 
+import math
 from typing import Any, List, Sequence
 
 from app.core.errors import EmbeddingStorageNotImplementedError
@@ -26,7 +27,7 @@ def require_storable_embedding_vector(
             message=(
                 "String/truncated embedding payloads cannot be stored as real vectors."
             ),
-            details={"reason": "embedding_is_string", "preview": value[:64]},
+            details={"reason": "embedding_is_string"},
         )
     if not isinstance(value, (list, tuple)):
         raise EmbeddingStorageNotImplementedError(
@@ -52,6 +53,8 @@ def require_storable_embedding_vector(
                 "expected_dim": dimensions,
             },
         )
+    if any(isinstance(v, bool) for v in value) or not all(math.isfinite(v) for v in floats) or not any(floats):
+        raise EmbeddingStorageNotImplementedError(details={"reason": "embedding_invalid_values"})
     return floats
 
 

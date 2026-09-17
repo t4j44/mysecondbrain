@@ -12,6 +12,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.pagination import PaginationParams
+from app.jobs.index_queue import queue_index
+from app.mcp.beta_tools import BetaMCPTools
 from app.models.entities import (
     AuditLog,
     Decision,
@@ -144,7 +146,9 @@ def _parse_markdown_sections(text: str) -> Dict[str, List[str]]:
 parse_markdown_sections = _parse_markdown_sections
 
 
-class MCPDomainTools:
+
+
+class MCPDomainTools(BetaMCPTools):
     def __init__(self, db: AsyncSession, user_id: str):
         self.db = db
         self.user_id = str(user_id)
@@ -172,6 +176,7 @@ class MCPDomainTools:
             )
             self.db.add(audit)
             await self.db.flush()
+            queue_index(self.db, audit)
         except Exception:  # nosec B110
             pass
 
@@ -295,6 +300,7 @@ class MCPDomainTools:
             )
             self.db.add(mem)
             await self.db.flush()
+            queue_index(self.db, mem)
             await self.db.refresh(mem)
             await self._emit_audit(
                 "mcp.memory.saved",
@@ -339,6 +345,7 @@ class MCPDomainTools:
             )
             self.db.add(task)
             await self.db.flush()
+            queue_index(self.db, task)
             await self.db.refresh(task)
             await self._emit_audit(
                 "mcp.task.created",
@@ -519,6 +526,7 @@ class MCPDomainTools:
             )
             self.db.add(person)
             await self.db.flush()
+            queue_index(self.db, person)
             await self.db.refresh(person)
             await self._emit_audit(
                 "mcp.person.created", "person", str(person.id), {"name": clean_name}
@@ -632,6 +640,7 @@ class MCPDomainTools:
             )
             self.db.add(proj)
             await self.db.flush()
+            queue_index(self.db, proj)
             await self.db.refresh(proj)
             await self._emit_audit(
                 "mcp.project.created", "project", str(proj.id), {"name": clean_name}
@@ -725,6 +734,7 @@ class MCPDomainTools:
             )
             self.db.add(dec)
             await self.db.flush()
+            queue_index(self.db, dec)
             await self.db.refresh(dec)
             await self._emit_audit(
                 "mcp.decision.saved", "decision", str(dec.id), {"decision": decision[:100]}
@@ -774,6 +784,7 @@ class MCPDomainTools:
             )
             self.db.add(interaction)
             await self.db.flush()
+            queue_index(self.db, interaction)
             await self.db.refresh(interaction)
             await self._emit_audit(
                 "mcp.work_session.saved", "interaction", str(interaction.id), {"title": title}
@@ -1055,6 +1066,7 @@ class MCPDomainTools:
             )
             self.db.add(session_record)
             await self.db.flush()
+            queue_index(self.db, session_record)
 
             # 5. Extract & Create Canonical Decisions
             created_decisions: List[Dict[str, Any]] = []
@@ -1086,6 +1098,7 @@ class MCPDomainTools:
                 )
                 self.db.add(decision_obj)
                 await self.db.flush()
+                queue_index(self.db, decision_obj)
                 created_decisions.append(_serialize_model(decision_obj, "decision", "mcp://decisions"))
 
             # 6. Extract & Create Canonical Tasks (with deduplication)
@@ -1146,6 +1159,7 @@ class MCPDomainTools:
                 )
                 self.db.add(task_obj)
                 await self.db.flush()
+                queue_index(self.db, task_obj)
                 task_ser = _serialize_model(task_obj, "task", "mcp://tasks")
                 task_ser["deduplicated"] = False
                 created_tasks.append(task_ser)
@@ -1190,6 +1204,7 @@ class MCPDomainTools:
                 )
                 self.db.add(mem)
                 await self.db.flush()
+                queue_index(self.db, mem)
                 created_memories.append(_serialize_model(mem, "memory", "mcp://memory"))
 
             # 9. Stage Portfolio / Case Study Candidates (Draft-Safe Mode)
@@ -1215,6 +1230,7 @@ class MCPDomainTools:
                 )
                 self.db.add(case_study)
                 await self.db.flush()
+                queue_index(self.db, case_study)
                 staged_portfolio.append(
                     {
                         "id": str(case_study.id),
@@ -1343,22 +1359,12 @@ class MCPDomainTools:
             (p for p in projects if project_name.lower() in p.get("name", "").lower()), None
         )
 
-        title = matched.get("name", project_name) if matched else project_name
-        return {
-            "title": f"Case Study: {title}",
-            "project_name": title,
-            "role": "Founder / Product Lead",
-            "problem_statement": f"Solving execution and scalability bottlenecks in {title}.",
-            "responsibilities": [
-                "AI Product Strategy",
-                "Architecture Design",
-                "Multi-Agent Systems Execution",
-            ],
-            "impact_metrics": ["Validated MVP launch", "Streamlined operation workflows"],
-            "skills": ["AI Product Management", "System Architecture", "Leadership"],
-            "status": "draft",
-            "notice": "Staged draft mode - requires human review prior to portfolio export.",
-        }
+        if not matched:
+            return {"status": "insufficient_evidence", "notice": "No matching project found. Save project evidence first."}
+        return {"title": f"Case Study: {matched['name']}", "project_name": matched['name'],
+                "problem_statement": matched.get('description'), "impact_metrics": [], "skills": [],
+                "source_ids": [matched['id']], "status": "evidence_outline",
+                "notice": "Project record only. Role, actions, skills and impact need supporting evidence and review."}
 
     async def generate_weekly_review(self) -> Dict[str, Any]:
         """Synthesize weekly founder executive review."""

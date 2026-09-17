@@ -305,6 +305,6 @@ class DashboardInsightsResponse(BaseModel):
     ai_summary: str
     attention_required_projects: List[str] = []
     network_follow_ups: List[Any] = []
-    productivity_velocity: float = 1.0
+    productivity_velocity: Optional[float] = None
     recommendations: List[str] = []
     model_config = ConfigDict(from_attributes=True)

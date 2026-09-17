@@ -16,6 +16,7 @@ from app.dependencies.database import admin_db_session, rls_db_session
 from app.mcp.extraction import extract_session_intelligence
 from app.mcp.security import (
     FINALIZE_REQUIRED_SCOPES,
+    READ_SCOPES,
     SCOPE_CALENDAR_READ,
     SCOPE_CONTENT_DRAFT,
     SCOPE_DECISIONS_WRITE,
@@ -484,7 +485,8 @@ async def finalize_work_session(
     # Extraction runs first and completely outside the transaction: inference latency must
     # never hold a database connection or locks open.
     extracted = await extract_session_intelligence(
-        summary=summary, session_payload=session_payload, provider=provider
+        summary=summary, session_payload=session_payload, provider=provider,
+        user_id=_authenticated_user_id(*FINALIZE_REQUIRED_SCOPES),
     )
     fields = extracted["fields"]
 
@@ -508,6 +510,68 @@ async def finalize_work_session(
 # are scope-checked and RLS-scoped; writes additionally require a granular write scope and
 # a single committed transaction (G5_MCP_FINALIZE_GATE.md).
 # ---------------------------------------------------------------------------
+
+
+@mcp_server.tool(annotations=READ_ONLY)
+async def search_context(query: str, limit: int = 10) -> list[dict[str, Any]]:
+    """Retrieve approved context with real semantic search or a labelled keyword fallback."""
+    owner = _authenticated_user_id(*sorted(READ_SCOPES))
+    async with rls_db_session(owner) as db:
+        return await MCPDomainTools(db=db, user_id=owner).search_context(query, limit)
+
+@mcp_server.tool(annotations=READ_ONLY)
+async def find_relevant_contacts(query: str, limit: int = 5) -> list[dict[str, Any]]:
+    """Suggest contacts from recorded links, with evidence and no claimed availability."""
+    owner = _authenticated_user_id(*sorted(READ_SCOPES))
+    async with rls_db_session(owner) as db:
+        return await MCPDomainTools(db=db, user_id=owner).find_relevant_contacts(query, limit)
+
+
+@mcp_server.tool(annotations=READ_ONLY)
+async def search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
+    """Search only the authenticated owner's extracted documents."""
+    owner = _authenticated_user_id(*sorted(READ_SCOPES))
+    async with rls_db_session(owner) as db:
+        return await MCPDomainTools(db=db, user_id=owner).search_documents(query, limit)
+
+
+@mcp_server.tool(annotations=READ_ONLY)
+async def get_person_context(person_id: str) -> dict[str, Any]:
+    """Read the person's recorded relationship history, affiliations and commitments."""
+    owner = _authenticated_user_id(*sorted(READ_SCOPES))
+    async with rls_db_session(owner) as db:
+        return await MCPDomainTools(db=db, user_id=owner).get_person_context(person_id)
+
+@mcp_server.tool(annotations=READ_ONLY)
+async def prepare_meeting(person_id: str) -> dict[str, Any]:
+    """Prepare a factual brief from the selected person's saved history."""
+    return await get_person_context(person_id)
+
+@mcp_server.tool(annotations=READ_ONLY)
+async def get_commitments(person_id: Optional[str] = None, overdue_only: bool = False, limit: int = 20) -> list[dict[str, Any]]:
+    """Read open commitments, optionally overdue or related to one person."""
+    owner = _authenticated_user_id(*sorted(READ_SCOPES))
+    async with rls_db_session(owner) as db:
+        return await MCPDomainTools(db=db, user_id=owner).get_commitments(person_id, overdue_only, limit)
+
+@mcp_server.tool(annotations=CREATES)
+async def create_commitment(description: str, person_id: Optional[str] = None, direction: str = 'unspecified', due_at: Optional[str] = None) -> dict[str, Any]:
+    """Save a commitment the user explicitly requested."""
+    async with _write_domain(SCOPE_TASKS_WRITE) as domain:
+        return await domain.create_commitment(description, person_id, direction, due_at)
+
+@mcp_server.tool(annotations=UPDATES)
+async def complete_commitment(commitment_id: str) -> dict[str, Any]:
+    """Complete an explicitly identified commitment."""
+    async with _write_domain(SCOPE_TASKS_WRITE) as domain:
+        return await domain.complete_commitment(commitment_id)
+
+@mcp_server.tool(annotations=CREATES)
+async def capture_context(text: str = '', draft_id: Optional[str] = None, reviewed_proposal: Optional[dict] = None, confirmed: bool = False) -> dict[str, Any]:
+    """Propose first. Show the proposal to the user; obtain confirmation before submitting draft_id, reviewed_proposal and confirmed=true."""
+    async with _write_domain(*FINALIZE_REQUIRED_SCOPES) as domain:
+        return await domain.capture_context(text, draft_id, reviewed_proposal, confirmed)
+
 
 mcp_asgi_app = mcp_server.streamable_http_app(
     streamable_http_path="/mcp",

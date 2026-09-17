@@ -19,16 +19,15 @@ from app.core.config import settings
 from app.core.constants import ErrorCode
 from app.core.errors import (
     AIProviderError,
-    DocumentExtractionNotImplementedError,
     EmbeddingStorageNotImplementedError,
+    IntegrationError,
 )
 from app.integrations.google_client import GoogleIntegrationService
 from app.jobs.handlers.document_processing import process_document_handler
-from app.jobs.handlers.sync_google import execute_google_sync_handler
 from app.mcp import server as mcp_server_module
 from app.mcp.router import MCP_ALL_TOOLS, MCP_WRITE_TOOLS_MANIFEST
 from app.mcp.tools import MCPDomainTools
-from app.models.entities import Document, MemoryEmbedding, Profile
+from app.models.entities import Document, Memory, MemoryEmbedding, Profile
 
 
 async def _ensure_profile(db, user_id: str) -> None:
@@ -67,14 +66,13 @@ async def test_document_pipeline_cannot_persist_fabricated_text(
 
     async with TestingSessionLocal() as db:
         doc = await _create_document(db, test_user_id)
-        with pytest.raises(DocumentExtractionNotImplementedError) as exc_info:
+        with pytest.raises(FileNotFoundError):
             await process_document_handler(db, test_user_id, {"document_id": doc.id})
-        assert exc_info.value.code == ErrorCode.DOCUMENT_EXTRACTION_NOT_IMPLEMENTED.value
 
         await db.refresh(doc)
         assert doc.extracted_text in (None, "")
         assert doc.processing_status == "failed"
-        assert doc.error_state == ErrorCode.DOCUMENT_EXTRACTION_NOT_IMPLEMENTED.value
+        assert doc.error_state == "DOCUMENT_PROCESSING_FAILED"
         assert "Extracted knowledge from" not in (doc.extracted_text or "")
 
         emb_rows = (
@@ -118,6 +116,7 @@ async def test_retrieval_never_emits_constant_089(prepare_database, test_user_id
 
     async with TestingSessionLocal() as db:
         await _ensure_profile(db, test_user_id)
+        db.add(Memory(user_id=test_user_id, title='Strategy', content='founder strategy keyword evidence about ventures'))
         db.add(
             MemoryEmbedding(
                 user_id=test_user_id,
@@ -152,44 +151,14 @@ async def test_google_cannot_report_connected_without_real_integration(
         json={"code": "any_oauth_code_12345", "state": "state"},
         headers=auth_headers,
     )
-    assert res.status_code == 200
-    data = res.json()
-    assert data["status"] == "not_implemented"
-    assert data["status"] != "connected"
-    assert data.get("code") == ErrorCode.INTEGRATION_NOT_IMPLEMENTED.value
-    assert data.get("account_identifier") in (None, "")
-
-    list_res = await async_client.get("/api/v1/integrations", headers=auth_headers)
+    assert res.status_code == 503
+    assert res.json()['error']['code'] == 'GOOGLE_NOT_CONFIGURED'
+    list_res = await async_client.get('/api/v1/integrations', headers=auth_headers)
     assert list_res.status_code == 200
-    items = list_res.json().get("items", [])
-    assert all(not item.get("is_connected") for item in items)
-
-    sync_res = await async_client.post(
-        "/api/v1/sync/gdrive",
-        json={"folder_id": "root", "sync_mode": "one_way"},
-        headers=auth_headers,
-    )
-    assert sync_res.status_code == 501
-    err = sync_res.json()["error"]
-    assert err["code"] == ErrorCode.INTEGRATION_NOT_IMPLEMENTED.value
-
-    from tests.conftest import TestingSessionLocal
-
-    async with TestingSessionLocal() as db:
-        with pytest.raises(Exception) as exc_info:
-            await execute_google_sync_handler(
-                db, test_user_id, {"folder_id": "x"}, "sync_google_drive"
-            )
-        assert getattr(exc_info.value, "code", None) == (
-            ErrorCode.INTEGRATION_NOT_IMPLEMENTED.value
-        )
-
-    google_src = inspect.getsource(GoogleIntegrationService.connect_oauth_callback)
-    assert "simulated_refresh_token" not in google_src
-    sync_src = inspect.getsource(execute_google_sync_handler)
-    assert "return {" not in sync_src
-    assert '"completed"' not in sync_src
-    assert "14" not in sync_src.split("raise", 1)[0]  # no hardcoded success counts before raise
+    assert not list_res.json()['items']
+    sync_res = await async_client.post('/api/v1/sync/gdrive', json={}, headers=auth_headers)
+    assert sync_res.status_code == 409
+    assert 'simulated_refresh_token' not in inspect.getsource(GoogleIntegrationService)
 
 
 @pytest.mark.asyncio
@@ -239,16 +208,16 @@ async def test_production_environment_cannot_silently_select_simulation(monkeypa
 
     with pytest.raises(AIProviderError) as gen_exc:
         await provider.generate_content("hello founder")
-    assert "unconfigured" in gen_exc.value.message.lower()
+    assert gen_exc.value.code == ErrorCode.AI_PROVIDER_NOT_CONFIGURED.value
 
     with pytest.raises(AIProviderError) as emb_exc:
         await provider.embed_text("hello founder")
-    assert "unconfigured" in emb_exc.value.message.lower()
+    assert emb_exc.value.code == ErrorCode.AI_PROVIDER_NOT_CONFIGURED.value
 
     class _DummyDb:
         pass
 
     svc = GoogleIntegrationService(_DummyDb(), "user-prod")  # type: ignore[arg-type]
-    result = await svc.connect_oauth_callback("code1234567890", None)
-    assert result["status"] == "not_implemented"
-    assert result["status"] != "connected"
+    with pytest.raises(IntegrationError) as exc:
+        await svc.connect_oauth_callback('code1234567890', None)
+    assert exc.value.code == 'GOOGLE_NOT_CONFIGURED'

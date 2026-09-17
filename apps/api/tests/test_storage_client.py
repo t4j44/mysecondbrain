@@ -115,9 +115,12 @@ async def test_development_storage_uses_local_fallback(
     expected = tmp_path / ".storage_buckets" / storage.bucket_name / relative_path
     assert expected.read_bytes() == b"local development only"
 
-    # Test local signed URL
-    local_signed = await storage.get_signed_url(relative_path)
-    assert f"/api/storage/{storage.bucket_name}/{relative_path}" in local_signed
+    # Local files must be served through an authenticated download, never a fake URL.
+    with pytest.raises(RuntimeError, match='authenticated download'):
+        await storage.get_signed_url(relative_path)
+    assert await storage.read_file(relative_path) == b"local development only"
+    with pytest.raises(ValueError):
+        await storage.read_file('../outside.txt')
 
     # Test local delete
     deleted = await storage.delete_file(relative_path)

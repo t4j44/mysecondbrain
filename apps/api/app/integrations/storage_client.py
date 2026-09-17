@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta, timezone
+from pathlib import Path, PurePosixPath
 from typing import Tuple
 from urllib.parse import quote
 
@@ -10,6 +10,16 @@ from app.utils.files import calculate_checksum, validate_upload_file
 
 
 class StorageService:
+    def _validate_path(self, relative_path: str) -> str:
+        path = PurePosixPath(relative_path)
+        if path.is_absolute() or '\\' in relative_path or ':' in relative_path or '..' in path.parts or len(path.parts) != 2:
+            raise ValueError('Invalid storage object path.')
+        base = Path(self.base_path).resolve()
+        target = (base / relative_path).resolve()
+        if not target.is_relative_to(base):
+            raise ValueError('Invalid storage object path.')
+        return str(target)
+
     def __init__(self, bucket_name: str = settings.STORAGE_BUCKET_DOCUMENTS):
         self.bucket_name = bucket_name
         supabase_url = (settings.SUPABASE_URL or "").lower()
@@ -79,6 +89,7 @@ class StorageService:
 
     async def get_signed_url(self, relative_path: str, expires_seconds: int = 3600) -> str:
         """Generate short-lived signed access URL for private attachment reading."""
+        self._validate_path(relative_path)
         if self.use_supabase:
             object_path = quote(relative_path, safe="/")
             async with httpx.AsyncClient(timeout=15.0) as client:
@@ -93,11 +104,11 @@ class StorageService:
                 return signed_path
             return f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1{signed_path}"
 
-        expires = (datetime.now(timezone.utc) + timedelta(seconds=expires_seconds)).isoformat()
-        return f"{settings.FRONTEND_URL}/api/storage/{self.bucket_name}/{relative_path}?token=sig_{relative_path[:8]}&expires={expires}"
+        raise RuntimeError('Local storage requires an authenticated download; signed URLs are unavailable.')
 
     async def read_file(self, relative_path: str) -> bytes:
         """Read raw bytes of uploaded file from Supabase storage or local directory fallback."""
+        full_path = self._validate_path(relative_path)
         if self.use_supabase:
             object_path = quote(relative_path, safe="/")
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -108,13 +119,13 @@ class StorageService:
             response.raise_for_status()
             return response.content
 
-        full_path = os.path.join(self.base_path, relative_path)
         if not os.path.exists(full_path):
             raise FileNotFoundError(f"Storage file not found at: {full_path}")
         with open(full_path, "rb") as f:
             return f.read()
 
     async def delete_file(self, relative_path: str) -> bool:
+        full_path = self._validate_path(relative_path)
         if self.use_supabase:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 response = await client.request(
@@ -126,7 +137,6 @@ class StorageService:
             response.raise_for_status()
             return True
 
-        full_path = os.path.join(self.base_path, relative_path)
         if os.path.exists(full_path):
             os.remove(full_path)
             return True

@@ -3,7 +3,6 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.provider import get_llm_provider
 from app.core.errors import (
     ConflictError,
     ErrorCode,
@@ -342,19 +341,16 @@ class DashboardService:
         )
 
     async def get_insights(self) -> DashboardInsightsResponse:
-        llm = get_llm_provider()
-        prompt = "Analyze founder velocity and summarize active priorities across ventures and task queues."
-        synthesis = await llm.generate_content(
-            prompt, system_instruction="You are Taj's AI Chief of Staff."
-        )
-
+        summary = await self.get_summary()
+        overdue_count = len(summary.overdue_tasks)
+        today_count = len(summary.tasks_today)
         return DashboardInsightsResponse(
-            ai_summary=synthesis,
-            attention_required_projects=["Project Alpha", "Q3 Fundraise Prep"],
+            ai_summary=(f"{summary.active_ventures_count} active ventures and "
+                f"{summary.in_progress_projects_count} projects in progress. "
+                f"{today_count} tasks due today; {overdue_count} overdue. "
+                "This brief is calculated from your saved records."),
+            attention_required_projects=[],
             network_follow_ups=[],
-            productivity_velocity=1.24,
-            recommendations=[
-                "Delegate technical recruitment screenings",
-                "Accelerate MVP release milestone",
-            ],
+            productivity_velocity=None,
+            recommendations=["Review overdue tasks and adjust their dates."] if overdue_count else [],
         )

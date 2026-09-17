@@ -52,7 +52,7 @@ class Embedding(Base):
     )
     embedding: Any = Column(VectorType(EMBEDDING_DIMENSIONS), nullable=False)
     provider: Any = Column(Text, nullable=False, default="gemini")
-    model: Any = Column(Text, nullable=False, default="text-embedding-004")
+    model: Any = Column(Text, nullable=False, default="gemini-embedding-001")
     dimensions: Any = Column(Integer, nullable=False, default=EMBEDDING_DIMENSIONS)
     content_checksum: Any = Column(Text, nullable=True)
     meta: Any = Column("metadata", JSONEncodedDict, default=dict)

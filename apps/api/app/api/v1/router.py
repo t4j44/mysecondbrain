@@ -2,15 +2,21 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     ai_portfolio,
+    capture,
     founder,
     knowledge,
     mcp,
     network,
     pdf_analysis,
+    portfolio_beta,
+    sources,
     system,
 )
 
 api_router = APIRouter()
+api_router.include_router(capture.router)
+api_router.include_router(sources.router)
+api_router.include_router(portfolio_beta.router)
 
 
 @api_router.get("", include_in_schema=False)

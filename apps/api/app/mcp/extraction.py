@@ -165,6 +165,7 @@ async def extract_session_intelligence(
     summary: Optional[str] = None,
     session_payload: Optional[Dict[str, Any]] = None,
     provider: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Extract Work Intelligence buckets from a session transcript without touching the database.
@@ -192,17 +193,27 @@ async def extract_session_intelligence(
         return {"fields": fallback, "extraction": telemetry}
 
     try:
-        response = await llm.generate_content(
-            prompt=transcript[:60000],
-            system_instruction=_EXTRACTION_INSTRUCTION,
-        )
+        from app.ai.privacy import private_ai_scope
+        from app.dependencies.database import rls_db_session
+        if user_id is None:
+            raise ValueError('Authenticated owner is required for AI extraction.')
+        # Load the alias dictionary under RLS, then release the read transaction
+        # before inference and before the finalizer's atomic write transaction.
+        with private_ai_scope(user_id) as privacy:
+            async with rls_db_session(user_id) as db:
+                privacy.db = db
+                await privacy.load()
+            privacy.db = None
+            response = await llm.generate_content(
+                prompt=transcript, system_instruction=_EXTRACTION_INSTRUCTION,
+            )
         extracted = _merge(_coerce(_parse_model_json(response)), fallback)
         telemetry["mode"] = MODE_AI
         telemetry["model"] = settings.GEMINI_MODEL
         return {"fields": extracted, "extraction": telemetry}
     except Exception as exc:  # inference/parse failure must never lose the session
-        logger.warning(f"MCP finalize AI extraction failed; using deterministic parse: {exc}")
-        telemetry["error"] = f"{exc.__class__.__name__}: {exc}"
+        logger.warning('MCP extraction unavailable (%s); using deterministic parse', type(exc).__name__)
+        telemetry["error"] = type(exc).__name__
         return {"fields": fallback, "extraction": telemetry}
 
 

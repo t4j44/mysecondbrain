@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, status
@@ -29,7 +30,15 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing Taj's Second Brain FastAPI Backend Architecture...")
     async with mcp_server.session_manager.run():
         await verify_database_ready()
-        yield
+        from app.jobs.runner import queue_worker
+        worker = asyncio.create_task(queue_worker()) if settings.JOB_WORKER_ENABLED else None
+        try:
+            yield
+        finally:
+            if worker:
+                worker.cancel()
+                with suppress(asyncio.CancelledError):
+                    await worker
     logger.info("Shutting down FastAPI Backend Gracefully...")
 
 

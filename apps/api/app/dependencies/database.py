@@ -86,7 +86,10 @@ async def rls_db_session(
         if _supports_rls(session):
             _install_identity_listener(session, statements)
         try:
-            yield session
+            from app.ai.privacy import private_ai_scope
+
+            with private_ai_scope(user_id, session):
+                yield session
         except Exception:
             await session.rollback()
             raise

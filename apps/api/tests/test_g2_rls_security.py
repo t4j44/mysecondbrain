@@ -149,7 +149,7 @@ def test_admin_session_is_not_injectable():
 
 def test_privileged_paths_use_the_admin_context_explicitly():
     expected = {
-        "jobs/runner.py": "job_execution",
+        "jobs/runner.py": "job_claim",
         "mcp/server.py": "mcp_token_verification",
         "mcp/router.py": "mcp_api_key_verification",
         "main.py": "readiness_probe",

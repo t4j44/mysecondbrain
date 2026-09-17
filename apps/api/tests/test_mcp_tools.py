@@ -73,7 +73,7 @@ async def test_all_mcp_domain_tools(setup_mcp_test_env):
         assert "Draft Mode" in li_draft["notice"] or "human review" in li_draft["notice"]
 
         cs_draft = await tools.generate_case_study(project_name="AI Expansion Engine")
-        assert cs_draft["status"] == "draft"
+        assert cs_draft["status"] == "evidence_outline"
         assert cs_draft["project_name"] == "AI Expansion Engine"
 
         rev_draft = await tools.generate_weekly_review()

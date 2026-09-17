@@ -53,6 +53,8 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
         "work_sessions",
         "evidence_items",
         "portfolio_evidence",
+        "portfolio_publications",
+        "beta_feedback",
         "entity_edges",
     }
 )
@@ -60,6 +62,15 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
 # Critical columns (name → expected PostgreSQL udt/type family hints).
 # Type hints are matched loosely against information_schema / pg_catalog.
 APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
+    "portfolio_publications": {
+        "id": "uuid", "user_id": "uuid", "draft_id": "uuid",
+        "token_hash": "varchar", "snapshot": "jsonb",  # nosec B105
+        "created_at": "timestamp|timestamptz", "revoked_at": "timestamp|timestamptz",
+    },
+    "beta_feedback": {
+        "id": "uuid", "user_id": "uuid", "outcome": "varchar",
+        "note": "text", "created_at": "timestamp|timestamptz",
+    },
     "documents": {
         "id": "uuid",
         "user_id": "uuid",
@@ -226,6 +237,7 @@ APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
 
 # Foreign keys the application relies on for RAG and relationship-graph integrity.
 APPLICATION_REQUIRED_FOREIGN_KEYS: Sequence[Mapping[str, str]] = (
+    {"table": "portfolio_publications", "column": "draft_id", "ref_table": "content_items", "ref_column": "id"},
     {
         "table": "person_organization_roles",
         "column": "person_id",
@@ -297,6 +309,7 @@ MIGRATION_FILES: List[str] = [
     "20260828000021b_mcp_work_session_finalization_objects.sql",
     "20260828000022_network_relationship_intelligence.sql",
     "20260828000023_align_canonical_columns_with_application_contract.sql",
+    "20260916000024_beta_publications_and_feedback.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).

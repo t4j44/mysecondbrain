@@ -57,7 +57,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
     async def integrity_error_handler(request: Request, exc: IntegrityError) -> JSONResponse:
         request_id = getattr(request.state, "request_id", "N/A")
         logger.error(
-            f"Database integrity constraint violated during request: {str(exc.orig)}",
+            f"Database integrity constraint violated during request: {type(exc.orig).__name__}",
             extra={"request_id": request_id, "error_code": ErrorCode.CONFLICT.value},
         )
         # Never leak raw SQL or database internal identifiers
@@ -78,9 +78,8 @@ def setup_exception_handlers(app: FastAPI) -> None:
     async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         request_id = getattr(request.state, "request_id", "N/A")
         logger.error(
-            f"Unhandled system failure: {str(exc)}",
+            f"Unhandled system failure: {type(exc).__name__}",
             extra={"request_id": request_id, "error_code": ErrorCode.INTERNAL_ERROR.value},
-            exc_info=True,
         )
         # Prevent stack trace exposure in production
         return JSONResponse(

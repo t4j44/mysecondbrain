@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from pgvector.sqlalchemy import Vector as PGVector
 from sqlalchemy import (
@@ -402,6 +402,8 @@ class Task(Base):
 
 
 class Meeting(Base):
+    if TYPE_CHECKING:
+        participants: Any
     __tablename__ = "meetings"
 
     id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)

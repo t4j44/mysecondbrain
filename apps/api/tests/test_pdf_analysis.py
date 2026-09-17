@@ -1,12 +1,25 @@
 import base64
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.errors import AIProviderError, RateLimitExceededError
 from app.main import app
 
 client = TestClient(app)
+
+@pytest.fixture(autouse=True)
+def signed_in_analysis_client(auth_headers):
+    client.headers.update(auth_headers)
+    yield
+    client.headers.pop('Authorization', None)
+
+
+def test_analysis_requires_authentication():
+    response = client.post('/api/v1/analyze/pdf', json={}, headers={'Authorization': ''})
+    assert response.status_code == 401
+
 
 # Helper sample payloads
 VALID_PDF_BYTES = b"%PDF-1.4 sample pdf content for testing regulatory compliance."

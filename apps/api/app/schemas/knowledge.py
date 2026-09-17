@@ -235,6 +235,7 @@ class AIContentGenerateResponse(BaseModel):
     provider_used: str
     model_used: str
     source_citations: List[str] = []
+    citations: List[Dict[str, str]] = []
 
 
 class AICoverletterRequest(BaseModel):

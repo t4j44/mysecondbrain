@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.core.errors import NotFoundError
+from app.jobs.index_queue import delete_index, queue_index
 from app.models.entities import Person
 from app.models.meetings import Meeting, MeetingParticipant
 from app.schemas.meetings import MeetingCreate, MeetingUpdate
@@ -47,6 +48,11 @@ class MeetingsRepository:
             )
             db.add(db_part)
 
+        await db.flush()
+        if db_meeting.deleted_at or db_meeting.archived_at:
+            await delete_index(db, db_meeting)
+        else:
+            queue_index(db, db_meeting)
         await db.commit()
         await db.refresh(db_meeting)
         return db_meeting
@@ -144,6 +150,11 @@ class MeetingsRepository:
                 )
                 db.add(db_part)
 
+        await db.flush()
+        if db_meeting.deleted_at or db_meeting.archived_at:
+            await delete_index(db, db_meeting)
+        else:
+            queue_index(db, db_meeting)
         await db.commit()
         await db.refresh(db_meeting)
         return db_meeting
@@ -152,6 +163,11 @@ class MeetingsRepository:
     async def soft_delete_meeting(db: AsyncSession, user_id: UUID, meeting_id: UUID) -> Meeting:
         db_meeting = await MeetingsRepository.get_meeting(db, user_id, meeting_id)
         db_meeting.deleted_at = datetime.utcnow()
+        await db.flush()
+        if db_meeting.deleted_at or db_meeting.archived_at:
+            await delete_index(db, db_meeting)
+        else:
+            queue_index(db, db_meeting)
         await db.commit()
         await db.refresh(db_meeting)
         return db_meeting

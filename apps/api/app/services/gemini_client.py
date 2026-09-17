@@ -57,6 +57,9 @@ class GoogleGenAIClient:
         Returns:
             Dict[str, Any]: Structured analysis response including content and metadata.
         """
+        if settings.AI_DATA_MODE != "paid_private":
+            from app.ai.privacy import PrivacyBlocked
+            raise PrivacyBlocked("raw_attachment_requires_local_extraction")
         try:
             from google import genai
             from google.genai import types
@@ -99,11 +102,11 @@ class GoogleGenAIClient:
             status_code = getattr(exc, "code", None)
 
             if status_code == 429 or "429" in str(exc) or "ResourceExhausted" in exc_name:
-                logger.warning(f"GoogleGenAI rate limit exceeded: {exc}")
+                logger.warning("GoogleGenAI rate limit exceeded")
                 raise RateLimitExceededError(
                     retry_after_seconds=60,
                     message="GoogleGenAI rate limit exceeded. Please retry after 60 seconds.",
                 ) from exc
 
-            logger.error(f"GoogleGenAI client execution error: {exc}", exc_info=True)
-            raise AIProviderError(provider_message=str(exc), provider="GoogleGenAI") from exc
+            logger.error("GoogleGenAI client execution error (%s)", exc_name)
+            raise AIProviderError(message="Document AI request failed.", provider="GoogleGenAI") from exc
