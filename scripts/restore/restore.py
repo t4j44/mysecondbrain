@@ -1,43 +1,34 @@
-#!/usr/bin/env python3
-"""
-Automated Disaster Recovery & Database Restoration Script for Taj's Second Brain.
-Restores PostgreSQL dumps while preserving RLS policies and user isolation invariants.
-"""
-
+"""Restore only to an explicitly designated empty isolated PostgreSQL database."""
+import importlib.util
 import os
-import sys
 import subprocess
+import sys
+from pathlib import Path
 
-def restore_backup(backup_file_path: str):
-    if not os.path.exists(backup_file_path):
-        print(f"[!] ERROR: Specified backup file does not exist: {backup_file_path}")
-        sys.exit(1)
-        
-    target_db_url = os.environ.get("DATABASE_URL")
-    if not target_db_url:
-        print("[!] ERROR: DATABASE_URL environment variable is required for restoration.")
-        sys.exit(1)
-        
-    print(f"[*] Restoring database from {backup_file_path}...")
-    
-    if backup_file_path.endswith(".gz"):
-        cmd = f"gunzip -c '{backup_file_path}' | psql '{target_db_url}'"
-    else:
-        cmd = f"psql '{target_db_url}' -f '{backup_file_path}'"
-        
-    res = subprocess.run(cmd, shell=True)
-    
-    if res.returncode == 0:
-        print("[+] Database restoration completed successfully.")
-        print("[*] Verifying RLS policies and extensions...")
-        verify_cmd = f"psql '{target_db_url}' -c 'SELECT count(*) FROM pg_tables WHERE schemaname = public AND rowsecurity = true;'"
-        subprocess.run(verify_cmd, shell=True)
-    else:
-        print(f"[!] ERROR: Database restoration failed with code {res.returncode}")
-        sys.exit(res.returncode)
+spec = importlib.util.spec_from_file_location('brain_backup', Path(__file__).resolve().parents[1] / 'backup' / 'backup.py')
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python restore.py <path_to_backup.sql[.gz]>")
-        sys.exit(1)
+
+def restore_backup(backup_file_path):
+    if os.environ.get('RESTORE_ALLOW_ISOLATED') != '1' or not os.environ.get('RESTORE_DATABASE_URL'):
+        raise SystemExit('Set RESTORE_ALLOW_ISOLATED=1 and RESTORE_DATABASE_URL to an EMPTY isolated target.')
+    path = Path(backup_file_path).resolve(strict=True)
+    env = module.pg_environment(os.environ['RESTORE_DATABASE_URL'])
+    try:
+        probe = subprocess.run(['psql', '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-c',
+            "SELECT count(*) FROM pg_tables WHERE schemaname='public'"], env=env, check=True,
+            capture_output=True, timeout=30)
+        if probe.stdout.strip() != b'0':
+            raise RuntimeError('Restore target is not empty')
+        subprocess.run(['pg_restore', '--exit-on-error', '--single-transaction', '--no-owner', '--no-acl',
+            '--dbname', env['PGDATABASE'], str(path)], env=env, check=True, timeout=600, stderr=subprocess.DEVNULL)
+        print('Dump restored into isolated target. Run schema/RLS/content and Storage verification before trusting recovery.')
+    except Exception:
+        raise SystemExit('Isolated restore failed. No successful restore was recorded.') from None
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        raise SystemExit('Usage: restore.py <database.dump>')
     restore_backup(sys.argv[1])

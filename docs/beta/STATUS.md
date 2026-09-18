@@ -1,3 +1,5 @@
+> September 18 update: this historical snapshot is superseded by [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md). The beta branch has since been pushed; hosted launch gates remain open.
+
 # Second Brain V1 status — September 17, 2026
 
 **Closed-beta readiness: PARTIAL. Implementation is ready for connected staging verification; this is not a verified production release.** The $0 Gemini decision is implemented and no additional budget decision is required. Supplied credentials, account configuration, real PostgreSQL execution and external-client checks remain the release gates.

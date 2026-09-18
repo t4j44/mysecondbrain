@@ -3,7 +3,7 @@ import hashlib
 import io
 import json
 import os
-import subprocess
+import subprocess  # nosec B404 - fixed local worker, allowlisted extension, stdin bytes, no shell
 import sys
 import tempfile
 import zipfile

@@ -1,3 +1,5 @@
+> September 18 update: this historical snapshot is superseded by [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md). The beta branch has since been pushed; hosted launch gates remain open.
+
 # Local beta implementation commits
 
 Branch: `codex/free-tier-beta`. Base: `522810cc7ecb2959eb450069aabb5653d7397286`. No push or deployment performed.

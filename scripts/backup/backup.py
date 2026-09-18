@@ -1,35 +1,49 @@
-#!/usr/bin/env python3
-"""
-Automated Database and Storage Backup Script for Taj's Second Brain.
-Creates timestamped backups of PostgreSQL schema & data and private storage files.
-"""
-
-import os
-import sys
+"""Checked PostgreSQL custom-format dump. Storage bytes require separate backup."""
 import datetime
+import os
 import subprocess
+from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlsplit
+
+
+def pg_environment(url):
+    parsed = urlsplit(url.replace('postgresql+asyncpg://', 'postgresql://'))
+    if parsed.scheme not in {'postgres', 'postgresql'} or not parsed.hostname:
+        raise ValueError('A PostgreSQL URL is required')
+    environment = {**os.environ, 'PGHOST': parsed.hostname, 'PGPORT': str(parsed.port or 5432),
+            'PGDATABASE': parsed.path.lstrip('/'), 'PGUSER': unquote(parsed.username or ''),
+            'PGPASSWORD': unquote(parsed.password or '')}
+    options = parse_qs(parsed.query)
+    for query, variable in {'sslmode': 'PGSSLMODE', 'sslrootcert': 'PGSSLROOTCERT',
+                            'connect_timeout': 'PGCONNECT_TIMEOUT'}.items():
+        if query in options:
+            environment[variable] = options[query][-1]
+    return environment
+
 
 def run_backup():
-    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
-    backup_dir = os.environ.get("BACKUP_DIR", "./backups")
-    os.makedirs(backup_dir, exist_ok=True)
-    
-    db_url = os.environ.get("DATABASE_URL")
-    if not db_url:
-        print("[!] ERROR: DATABASE_URL environment variable is required for backup.")
-        sys.exit(1)
-        
-    backup_path = os.path.join(backup_dir, f"taj_brain_db_{timestamp}.sql.gz")
-    print(f"[*] Starting Supabase PostgreSQL backup to {backup_path}...")
-    
-    cmd = f"pg_dump '{db_url}' | gzip > '{backup_path}'"
-    res = subprocess.run(cmd, shell=True)
-    
-    if res.returncode == 0:
-        print(f"[+] Backup completed successfully: {backup_path}")
-    else:
-        print(f"[!] ERROR: pg_dump failed with exit code {res.returncode}")
-        sys.exit(res.returncode)
+    url = os.environ.get('DATABASE_URL')
+    if not url:
+        raise SystemExit('DATABASE_URL is required; do not paste it into logs.')
+    folder = Path(os.environ.get('BACKUP_DIR', './backups')).resolve()
+    folder.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S')
+    partial = folder / f'brain_{stamp}.partial'
+    final = folder / f'brain_{stamp}.dump'
+    try:
+        subprocess.run(['pg_dump', '--format=custom', '--no-owner', '--no-acl', '--file', str(partial)],
+            env=pg_environment(url), check=True, timeout=600, stderr=subprocess.DEVNULL)
+        if not partial.exists() or partial.stat().st_size < 100:
+            raise RuntimeError('Empty database dump')
+        subprocess.run(['pg_restore', '--list', str(partial)], check=True, timeout=60,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        partial.replace(final)
+    except Exception:
+        partial.unlink(missing_ok=True)
+        raise SystemExit('Backup failed; no successful backup was recorded.') from None
+    print(f'Database dump verified: {final.name}. Storage object bytes are NOT included.')
+    return final
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     run_backup()
