@@ -9,7 +9,7 @@ export default function SettingsOverviewPage() {
   const [busy, setBusy] = useState(false); const [message, setMessage] = useState('');
   return <div className="max-w-2xl space-y-6"><h1 className="text-2xl font-semibold">Settings and beta feedback</h1>
     <p>This is an early closed beta. Your canonical records stay in the private database. Free-tier AI receives minimized text; redaction can miss details. Avoid highly sensitive or confidential information.</p>
-    <div className="flex flex-wrap gap-4"><Link href="/settings/integrations" className="underline">Google connections</Link><Link href="/settings/export" className="underline">Export records</Link><Link href="/portfolio" className="underline">Portfolio</Link><Link href="/settings/ai-access" className="underline">AI assistant access</Link></div>
+    <div className="flex flex-wrap gap-4"><Link href="/settings/privacy" className="underline">Privacy &amp; Data</Link><Link href="/settings/integrations" className="underline">Google connections</Link><Link href="/settings/export" className="underline">Export records</Link><Link href="/portfolio" className="underline">Portfolio</Link><Link href="/settings/ai-access" className="underline">AI assistant access</Link></div>
     {counts && <section className="rounded-xl border p-4"><h2 className="text-xl font-semibold">Your beta activity</h2>
       <p className="mt-2">{counts.capture_confirmed} captures saved · {counts.beta_retrieval} searches · {counts.beta_source_opened} source checks</p>
       <p className="mt-1 text-sm text-muted-foreground">Activity counts help you reflect on use. They do not prove answer accuracy or time saved.</p>
