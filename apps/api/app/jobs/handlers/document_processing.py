@@ -1,3 +1,5 @@
+import asyncio
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.knowledge import DocumentRepository
@@ -23,14 +25,19 @@ async def process_document_handler(db: AsyncSession, user_id: str, payload: dict
 
     from app.ai.indexing import index_record
     from app.integrations.storage_client import StorageService
-    from app.services.document_extractor import DocumentExtractor
+    from app.services.document_normalizer import converter_identity, normalize
 
     try:
-        content = await StorageService().read_file(doc.storage_path)
-        extracted = DocumentExtractor.extract_text(content, doc.filename, doc.mime_type)
-        if not extracted.success:
-            raise ValueError(extracted.error)
-        doc.extracted_text = extracted.extracted_text
+        metadata = doc.conversion_metadata or {}
+        if not doc.extracted_text or metadata.get("source_checksum") != doc.checksum or metadata.get("converter_identity") != converter_identity():
+            content = await StorageService().read_file(doc.storage_path)
+            markdown, metadata = await asyncio.to_thread(normalize, content, doc.filename)
+            # Conversion ran outside the event loop; recheck deletion before saving.
+            await db.refresh(doc)
+            if doc.deleted_at is not None:
+                raise ValueError("Document was deleted during conversion")
+            doc.extracted_text = markdown
+            doc.conversion_metadata = metadata
         doc.chunking_state = "extracted"
         # Preserve successful local extraction even when free AI is unavailable.
         await db.commit()

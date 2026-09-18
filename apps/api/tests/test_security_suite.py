@@ -17,7 +17,6 @@ def create_mock_jwt(
         "aud": "authenticated",
         "iss": settings.SUPABASE_URL.rstrip("/") + "/auth/v1",
         "sub": user_id,
-        "aud": "authenticated",
         "role": "authenticated",
         "exp": int(time.time()) - 3600 if expired else int(time.time()) + 3600,
         "iat": int(time.time()),

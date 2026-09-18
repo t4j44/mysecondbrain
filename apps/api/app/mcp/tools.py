@@ -591,6 +591,12 @@ class MCPDomainTools(BetaMCPTools):
             if metadata is not None:
                 person.meta = metadata
 
+            from app.jobs.index_queue import queue_index
+            from app.services.person_context import correct_person_context
+            changes = {key: value for key, value in {'company': company, 'role': role}.items() if value is not None}
+            await correct_person_context(self.db, person, changes)
+            queue_index(self.db, person)
+
             person.updated_at = datetime.now(timezone.utc)
             await self.db.flush()
             await self.db.refresh(person)

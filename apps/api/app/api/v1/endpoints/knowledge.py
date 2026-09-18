@@ -267,7 +267,11 @@ async def upload_document(
     service: DocumentService = Depends(get_document_service),
     _user: AuthenticatedUser = Depends(get_current_user),
 ):
-    content = await file.read()
+    from app.core.constants import MAX_UPLOAD_SIZE_BYTES
+    from app.core.errors import AppError
+    content = await file.read(MAX_UPLOAD_SIZE_BYTES + 1)
+    if len(content) > MAX_UPLOAD_SIZE_BYTES:
+        raise AppError("File exceeds the upload limit.", status_code=413)
     filename = file.filename or "unnamed_upload.pdf"
     content_type = file.content_type or "application/octet-stream"
     return await service.upload_document(

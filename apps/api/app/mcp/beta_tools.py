@@ -55,6 +55,26 @@ class BetaMCPTools:
             results = await perform_keyword_search(self.db, self.user_id, request.query, request.limit, ['document'])
         return [item.model_dump() for item in results]
 
+    async def search_document_chunks(self, query: str, limit: int = 6):
+        return await self.search_documents(query, max(1, min(limit, 10)))
+
+    async def get_document_metadata(self, document_id: str):
+        doc = await owned_record(self.db, self.user_id, 'document', str(UUID(document_id)))
+        return {'id': str(doc.id), 'filename': doc.filename, 'checksum': doc.checksum,
+                'conversion': doc.conversion_metadata or {}, 'status': doc.processing_status}
+
+    async def get_document_section(self, document_id: str, offset: int = 0, limit: int = 3):
+        from app.services.document_chunker import chunk_markdown
+        record = await owned_record(self.db, self.user_id, 'document', str(UUID(document_id)))
+        offset, limit = max(0, offset), max(1, min(limit, 5))
+        # Canonical normalized text remains readable even when embedding is unavailable.
+        chunks = chunk_markdown(record.extracted_text or '')
+        rows = chunks[offset:offset + limit]
+        return {'document_id': document_id, 'next_offset': offset + limit if len(chunks) > offset + limit else None,
+                'sections': [{'index': row['chunk_index'], 'checksum': row['checksum'],
+                    'heading': row['section_title'], 'page': row['page_number'], 'text': row['chunk_text']}
+                    for row in rows]}
+
     async def get_person_context(self, person_id: str):
         person = await owned_record(self.db, self.user_id, 'person', str(UUID(person_id)))
         result = await NetworkIntelligenceService(self.db, self.user_id).person_relationship(person_id)
@@ -105,6 +125,9 @@ def spec(name, properties, required, write=False, scopes=None):
     scopes = scopes or sorted(READ_SCOPES)
     return {'name': name, 'description': {
         'find_relevant_contacts': 'Suggest contacts only from saved context and relationship links, with evidence.',
+        'search_document_chunks': 'Retrieve a bounded set of relevant document excerpts.',
+        'get_document_section': 'Read a page of document sections; never returns the full document by default.',
+        'get_document_metadata': 'Read conversion and source identity metadata without document body.',
         'search_documents': 'Search owned document text with semantic retrieval and a keyword fallback.',
         'search_context': 'Search approved private context with semantic retrieval and a labelled keyword fallback.',
         'get_person_context': 'Read recorded affiliations, interactions and open commitments for one person.',
@@ -119,6 +142,9 @@ def spec(name, properties, required, write=False, scopes=None):
 
 STRING = {'type': 'string'}
 READ_TOOLS = [
+    spec('search_document_chunks', {'query': STRING, 'limit': {'type': 'integer'}}, ['query']),
+    spec('get_document_metadata', {'document_id': STRING}, ['document_id']),
+    spec('get_document_section', {'document_id': STRING, 'offset': {'type': 'integer'}, 'limit': {'type': 'integer'}}, ['document_id']),
     spec('find_relevant_contacts', {'query': STRING, 'limit': {'type': 'integer'}}, ['query']),
     spec('search_documents', {'query': STRING, 'limit': {'type': 'integer'}}, ['query']),
     spec('search_context', {'query': STRING, 'limit': {'type': 'integer', 'minimum': 1, 'maximum': 50}}, ['query']),

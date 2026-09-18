@@ -584,6 +584,7 @@ class Document(Base):
     storage_path: Any = Column(Text, nullable=False)
     processing_status: Any = Column(PGEnum("document_processing_status"), default="pending")
     extracted_text: Any = Column(Text, nullable=True)
+    conversion_metadata: Any = Column(JSONEncodedDict, default=dict)
     chunking_state: Any = Column(Text, default="unprocessed")
     error_state: Any = Column(Text, nullable=True)
     extracted_text_status: Any = Column(Text, default="pending")
@@ -599,7 +600,7 @@ class Document(Base):
 class KPI(Base):
     """Maps canonical public.kpi_definitions.
 
-    The application's KPI is a *definition* — it carries venture/project scope, a name,
+    The application's KPI is a *definition* â€” it carries venture/project scope, a name,
     a description, a target and an active flag. That is `kpi_definitions`. The separate
     canonical `kpis` table is a narrower metric-snapshot table with no ORM model, which
     is allowed: the contract only guarantees ORM -> database, not the reverse.
@@ -951,3 +952,13 @@ class EntityEdge(Base):
     metadata_payload: Any = Column("metadata", JSONEncodedDict, default=dict)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
+
+
+class AccountClosure(Base):
+    """Minimal deletion receipt, deliberately survives auth.users removal."""
+    __tablename__ = "account_closures"
+    user_id: Any = Column(FlexibleUUID, primary_key=True)
+    status: Any = Column(String(30), nullable=False, default="pending")
+    error_code: Any = Column(String(100), nullable=True)
+    requested_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Any = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)

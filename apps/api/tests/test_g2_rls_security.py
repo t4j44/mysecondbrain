@@ -186,7 +186,12 @@ def _policy_statements() -> list[str]:
 
 def test_every_policy_is_owner_scoped():
     for statement in _policy_statements():
-        assert "auth.uid()" in statement, statement
+        if 'brain_private_anon_guard' in statement:
+            assert 'AS RESTRICTIVE' in statement and 'TO anon' in statement
+            assert "USING (bucket_id <> 'brain-documents')" in statement
+            assert "WITH CHECK (bucket_id <> 'brain-documents')" in statement
+        else:
+            assert "auth.uid()" in statement, statement
 
 
 def test_hardening_migration_requires_a_present_identity():

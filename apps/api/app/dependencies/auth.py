@@ -166,6 +166,13 @@ async def get_current_user(
             code=ErrorCode.INVALID_ACCESS_TOKEN,
         )
 
+    if request.url.path not in {"/api/v1/account/deletion-status", "/api/v1/account/delete"}:
+        from app.dependencies.database import admin_db_session
+        from app.models.entities import AccountClosure
+        async with admin_db_session(reason="account_active_check") as db:
+            if await db.get(AccountClosure, str(user_id)):
+                raise AuthenticationError("Account deletion is in progress.")
+
     return AuthenticatedUser(
         id=str(user_id),
         email=str(payload.get("email", "unknown@founder.local")),

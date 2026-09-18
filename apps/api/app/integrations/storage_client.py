@@ -67,6 +67,7 @@ class StorageService:
 
         unique_name = f"{checksum[:12]}_{sanitized}"
         relative_path = f"{user_id}/{unique_name}"
+        self._validate_path(relative_path)
 
         if self.use_supabase:
             object_path = quote(relative_path, safe="/")
@@ -90,6 +91,7 @@ class StorageService:
     async def get_signed_url(self, relative_path: str, expires_seconds: int = 3600) -> str:
         """Generate short-lived signed access URL for private attachment reading."""
         self._validate_path(relative_path)
+        expires_seconds = max(1, min(expires_seconds, 300))
         if self.use_supabase:
             object_path = quote(relative_path, safe="/")
             async with httpx.AsyncClient(timeout=15.0) as client:
@@ -141,3 +143,33 @@ class StorageService:
             os.remove(full_path)
             return True
         return False
+
+
+    async def delete_owner_files(self, user_id: str) -> int:
+        """Erase only the canonical flat owner prefix, including orphaned uploads."""
+        from uuid import UUID
+        owner = str(UUID(user_id))
+        deleted = 0
+        if not self.use_supabase:
+            folder = Path(self.base_path).resolve() / owner
+            if folder.exists():
+                for file in folder.iterdir():
+                    if not file.is_file() or file.is_symlink():
+                        raise ValueError("Unexpected storage layout; manual cleanup required")
+                    await self.delete_file(f"{owner}/{file.name}")
+                    deleted += 1
+            return deleted
+        async with httpx.AsyncClient(timeout=30) as client:
+            while True:
+                response = await client.post(f"{self._storage_url}/object/list/{self.bucket_name}",
+                    headers=self._service_headers, json={"prefix": owner, "limit": 100, "offset": 0})
+                response.raise_for_status()
+                files = response.json()
+                if not files:
+                    break
+                for file in files:
+                    if not file.get("id"):
+                        raise ValueError("Unexpected storage folder; manual cleanup required")
+                    await self.delete_file(f"{owner}/{file['name']}")
+                    deleted += 1
+        return deleted

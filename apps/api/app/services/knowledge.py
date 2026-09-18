@@ -249,11 +249,20 @@ class DocumentService:
         return res
 
     async def delete_document(self, id: str) -> bool:
-        res = await self.repo.delete(self.db, self.user_id, id)
-        if not res:
-            raise NotFoundError('Document not found.')
+        from sqlalchemy import delete
+
+        from app.models.entities import JobRecord
+        from app.models.rag import DocumentChunk
+        doc = await self.get_document(id)
+        self.db.add(JobRecord(user_id=self.user_id, job_type='storage_delete', status='pending',
+            result_payload={'path': doc.storage_path, 'bucket': doc.storage_bucket}))
+        await self.repo.delete(self.db, self.user_id, id)
+        await self.db.execute(delete(DocumentChunk).where(DocumentChunk.user_id == self.user_id,
+            DocumentChunk.document_id == id))
+        doc.extracted_text = None
+        doc.conversion_metadata = {}
         await self.db.commit()
-        return res
+        return True
 
 
 class AIService:
@@ -285,14 +294,19 @@ class AIService:
                 return structured
         if record_ids is None:
             record_ids = []
-        rag_items = (await self.execute_search(prompt, limit=5))["results"]
+        from app.ai.context import bounded_context
+        from app.core.config import settings
+        rag_items = (await self.execute_search(prompt, limit=max(1, min(settings.RAG_TOP_K, 20))))["results"]
         if record_ids:
             rag_items = [item for item in rag_items if item.id in record_ids]
         if not rag_items:
             return {"generated_text": "I could not find supporting records. Save or index relevant context first.",
                     "provider_used": "local", "model_used": "none", "source_citations": []}
         # Record UUIDs and raw file addresses are never needed by the language model.
-        context = "\n\n".join(f"[{i}] {item.snippet}" for i, item in enumerate(rag_items, 1))
+        rag_items, context = await bounded_context(self.db, self.user_id, rag_items, prompt)
+        if not rag_items:
+            return {"generated_text": "No supporting excerpt fits the request budget. Shorten your question and retry.",
+                    "provider_used": "local", "model_used": "none", "source_citations": []}
         provider_used, model_used = "google_gemini", getattr(self.llm, "model", "gemini-2.5-flash")
         try:
             with private_ai_scope(self.user_id, self.db):
@@ -313,7 +327,8 @@ class AIService:
             "source_citations": [i.id for i in rag_items],
             "citations": [{"id": item.id, "entity_type": item.entity_type,
                 "title": item.title, "snippet": item.snippet,
-                "uri": f"/sources/{item.entity_type}/{item.id}"} for item in rag_items],
+                "uri": f"/sources/{item.entity_type}/{item.id}" + (f"?chunk={item.chunk_id}" if item.chunk_id else ""),
+                "section": item.section or "", "page": str(item.page or "")} for item in rag_items],
         }
 
     async def generate_cover_letter(

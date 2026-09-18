@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     AI_DATA_MODE: Literal["free_redacted", "paid_private"] = "free_redacted"
     AI_MAX_INPUT_CHARS: int = 24000
     AI_MAX_OUTPUT_TOKENS: int = 2048
+    RAG_TOP_K: int = 6
+    RAG_CONTEXT_MAX_CHARS: int = 12000
+    RAG_NEIGHBOR_WINDOW: int = 1
     AI_EMBEDDING_DIMENSIONS: Literal[768] = 768
     JOB_WORKER_ENABLED: bool = True
     GOOGLE_CLIENT_ID: str = ""

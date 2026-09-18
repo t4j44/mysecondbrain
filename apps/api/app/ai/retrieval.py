@@ -5,6 +5,7 @@ from sqlalchemy import String, cast, func, or_, select
 
 from app.ai.indexing import SOURCES, record_text
 from app.schemas.knowledge import SearchResultItem
+from app.services.document_chunker import chunk_markdown
 
 STOP_WORDS = set('a an the who what where when how did do does is are was were with for from my me i to of and in on about can you have has'.split())
 
@@ -27,11 +28,20 @@ async def perform_keyword_search(db, user_id: str, query: str, limit: int = 10,
         rows = (await db.execute(select(model).where(*conditions).order_by(model.updated_at.desc()).limit(100))).scalars()
         for record in rows:
             content = record_text(record, kind)
+            section = None
+            chunk_index = None
+            if kind == 'document' and record.extracted_text:
+                chunks = chunk_markdown(record.extracted_text)
+                if chunks:
+                    best = max(chunks, key=lambda chunk: sum(word in chunk['chunk_text'].casefold() for word in words))
+                    content = best['chunk_text']
+                    section = best.get('section_title')
+                    chunk_index = best['chunk_index']
             matches = sum(word in content.casefold() for word in words)
             item = SearchResultItem(id=str(record.id), entity_type=kind,
                 title=str(getattr(record, 'title', None) or getattr(record, 'name', None)
                           or getattr(record, 'filename', None) or kind),
-                snippet=content[:1200], score=None, search_mode='keyword', confidence_available=False)
+                snippet=content[:1800], section=section, chunk_index=chunk_index, score=None, search_mode='keyword', confidence_available=False)
             candidates.append((matches, item))
     candidates.sort(key=lambda pair: -pair[0])
     return [item for _, item in candidates[:max(1, min(limit, 50))]]

@@ -585,3 +585,27 @@ mcp_asgi_app = mcp_server.streamable_http_app(
 )
 
 __all__ = ["mcp_asgi_app", "mcp_server"]
+
+
+@mcp_server.tool(annotations=READ_ONLY)
+async def search_document_chunks(query: str, limit: int = 6) -> list[dict[str, Any]]:
+    """Retrieve relevant owned document excerpts, never entire documents."""
+    owner = _authenticated_user_id(*sorted(READ_SCOPES))
+    async with rls_db_session(owner) as db:
+        return await MCPDomainTools(db=db, user_id=owner).search_document_chunks(query, limit)
+
+
+@mcp_server.tool(annotations=READ_ONLY)
+async def get_document_metadata(document_id: str) -> dict[str, Any]:
+    """Read source and conversion metadata without the document body."""
+    owner = _authenticated_user_id(*sorted(READ_SCOPES))
+    async with rls_db_session(owner) as db:
+        return await MCPDomainTools(db=db, user_id=owner).get_document_metadata(document_id)
+
+
+@mcp_server.tool(annotations=READ_ONLY)
+async def get_document_section(document_id: str, offset: int = 0, limit: int = 3) -> dict[str, Any]:
+    """Read bounded document sections with heading/page citations."""
+    owner = _authenticated_user_id(*sorted(READ_SCOPES))
+    async with rls_db_session(owner) as db:
+        return await MCPDomainTools(db=db, user_id=owner).get_document_section(document_id, offset, limit)

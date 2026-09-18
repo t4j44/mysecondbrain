@@ -105,6 +105,9 @@ class BaseRepository(Generic[ModelType]):
             if hasattr(db_obj, field):
                 setattr(db_obj, field, value)
 
+        if self.model.__tablename__ == 'people':
+            from app.services.person_context import correct_person_context
+            await correct_person_context(db, db_obj, update_data)
         await db.flush()
         await db.refresh(db_obj)
         from app.jobs.index_queue import queue_index
@@ -119,6 +122,9 @@ class BaseRepository(Generic[ModelType]):
         if not db_obj:
             return False
 
+        if self.model.__tablename__ == "people":
+            from app.services.person_context import delete_person_context
+            await delete_person_context(db, db_obj)
         from app.jobs.index_queue import delete_index
         await delete_index(db, db_obj)
 

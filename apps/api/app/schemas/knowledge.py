@@ -215,6 +215,10 @@ class SearchResultItem(BaseModel):
     score: Optional[float] = None
     confidence_available: bool = False
     search_mode: str = "keyword"
+    chunk_id: Optional[str] = None
+    chunk_index: Optional[int] = None
+    section: Optional[str] = None
+    page: Optional[int] = None
 
 
 class SearchResultResponse(BaseModel):

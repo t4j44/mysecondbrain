@@ -8,7 +8,7 @@ from app.core.logging import logger
 from app.dependencies.database import admin_db_session, rls_db_session
 from app.models.entities import ExportRecord, JobRecord
 
-RUNNABLE = {'document_processing', 'index_record', 'export_markdown', 'export_archive', 'sync_google_drive', 'sync_google_calendar'}
+RUNNABLE = {'storage_delete', 'document_processing', 'index_record', 'export_markdown', 'export_archive', 'sync_google_drive', 'sync_google_calendar'}
 
 class JobRunner:
     @classmethod
@@ -58,6 +58,12 @@ class JobRunner:
 
     @staticmethod
     async def _execute_payload(db, user_id: str, job_type: str, payload: dict) -> dict:
+        if job_type == 'storage_delete':
+            from app.integrations.storage_client import StorageService
+            if not payload['path'].startswith(user_id + '/'):
+                raise ValueError('Invalid deletion path')
+            await StorageService(payload['bucket']).delete_file(payload['path'])
+            return {'deleted': True}
         if job_type == 'index_record':
             from app.ai.indexing import index_record
             return await index_record(db, user_id, payload['kind'], payload['record_id'])
@@ -78,6 +84,8 @@ async def process_job_async(job_id: str) -> None:
 async def queue_worker() -> None:
     while True:
         try:
+            from app.services.account import process_closures
+            await process_closures()
             async with admin_db_session(reason='queue_poll') as db:
                 now = datetime.now(timezone.utc)
                 jobs = (await db.execute(select(JobRecord).where(

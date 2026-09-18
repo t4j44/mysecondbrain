@@ -169,7 +169,7 @@ async def test_supabase_get_signed_url_with_secret_key(monkeypatch: pytest.Monke
     async def mock_post(self, url, headers=None, json=None, **kwargs):
         assert headers["apikey"] == "sb_secret_test_sign_key_456"
         assert headers["Authorization"] == "Bearer sb_secret_test_sign_key_456"
-        assert json == {"expiresIn": 1800}
+        assert json == {"expiresIn": 300}  # Private links are capped at five minutes.
         req = httpx.Request("POST", str(url), headers=headers)
         return httpx.Response(
             200,

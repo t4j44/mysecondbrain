@@ -66,6 +66,13 @@ def _install_identity_listener(session: AsyncSession, statements: IdentityStatem
 
     @event.listens_for(session.sync_session, "after_begin")
     def _reapply_identity(_session: Any, _transaction: Any, connection: Any) -> None:
+        # Shared owner lock lasts for this transaction; deletion takes exclusive.
+        owner = next(params["subject"] for _, params in statements if "subject" in params)
+        connection.execute(text("SELECT pg_advisory_xact_lock_shared(hashtextextended(:owner, 17))"), {"owner": owner})
+        active = connection.execute(text("SELECT public.account_active(CAST(:owner AS uuid))"), {"owner": owner}).scalar()
+        if not active:
+            from app.core.errors import AuthenticationError
+            raise AuthenticationError("This account is being deleted.")
         for statement, params in statements:
             connection.execute(text(statement), params)
 

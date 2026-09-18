@@ -39,6 +39,12 @@ MAX_PAGE_SIZE = 100
 MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB limit
 ALLOWED_MIME_TYPES = {
     "application/pdf": "pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "text/csv": "csv",
+    "application/json": "json",
+    "text/html": "html",
     "text/plain": "txt",
     "text/markdown": "md",
     "image/jpeg": "jpg",

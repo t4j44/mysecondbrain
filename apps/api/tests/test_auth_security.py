@@ -199,8 +199,8 @@ def test_token_encryption_and_decryption_service():
 
 @pytest.mark.parametrize("change", [{"aud": "service_role"}, {"iss": "https://other.supabase.co/auth/v1"}, {"exp": None}, {"aud": None}])
 def test_rejects_wrong_or_missing_supabase_claims(change, test_user_id, monkeypatch):
-    from app.dependencies.auth import decode_and_verify_token
     from app.core.errors import AuthenticationError
+    from app.dependencies.auth import decode_and_verify_token
     monkeypatch.setattr(settings, "SUPABASE_URL", "https://expected.supabase.co")
     payload = {"sub": test_user_id, "aud": "authenticated", "iss": "https://expected.supabase.co/auth/v1",
                "exp": datetime.now(timezone.utc) + timedelta(minutes=5)}

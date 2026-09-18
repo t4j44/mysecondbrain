@@ -14,6 +14,7 @@ from app.core.errors import AIProviderError, NotFoundError
 from app.models import entities as m
 from app.models.rag import DocumentChunk, Embedding
 from app.schemas.knowledge import SearchResultItem
+from app.services.document_chunker import CHUNKING_VERSION, chunk_markdown
 from app.services.document_extractor import DocumentExtractor
 
 SOURCES = {
@@ -75,9 +76,10 @@ async def index_record(db, user_id: str, kind: str, record_id: str) -> dict:
         Embedding.model == llm.embedding_model))).scalars().all()
     if existing and all(row.meta.get('source_fingerprint') == fingerprint(source)
                         and row.meta.get('data_mode') == settings.AI_DATA_MODE
-                        and row.meta.get('privacy_version') == 1 for row in existing):
+                        and row.meta.get('privacy_version') == 1
+                        and row.meta.get('chunking_version') == CHUNKING_VERSION for row in existing):
         return {'source_type': kind, 'source_id': str(record_id), 'chunks': len(existing), 'unchanged': True}
-    chunks = DocumentExtractor.split_text_into_chunks(source, chunk_size=1200, overlap=150)
+    chunks = chunk_markdown(record.extracted_text or "") if kind == "document" else DocumentExtractor.split_text_into_chunks(source, chunk_size=1200, overlap=150)
     if len(chunks) > 100:
         raise AIProviderError(message="This beta supports up to 100 text chunks per record.")
     # Finish inference before replacing a previous index. Failures leave the old
@@ -90,19 +92,34 @@ async def index_record(db, user_id: str, kind: str, record_id: str) -> dict:
         Embedding.user_id == user_id, Embedding.source_record_type == kind,
         Embedding.source_record_id == record_id,
     ))
+    reusable_chunks = {}
     if kind == "document":
-        await db.execute(delete(DocumentChunk).where(
+        stored = (await db.execute(select(DocumentChunk).where(
             DocumentChunk.user_id == user_id, DocumentChunk.document_id == record_id,
-        ))
+        ).order_by(DocumentChunk.chunk_index))).scalars().all()
+        if len(stored) == len(chunks) and all(
+            row.checksum == chunk['checksum'] and row.meta.get('chunking_version') == CHUNKING_VERSION
+            and row.meta.get('source_checksum') == record.checksum
+            for row, chunk in zip(stored, chunks, strict=True)
+        ):
+            reusable_chunks = {row.chunk_index: row for row in stored}
+        else:
+            await db.execute(delete(DocumentChunk).where(
+                DocumentChunk.user_id == user_id, DocumentChunk.document_id == record_id,
+            ))
     for chunk, vector in zip(chunks, vectors, strict=True):
         chunk_id = None
         if kind == "document":
-            doc_chunk = DocumentChunk(user_id=user_id, document_id=record_id,
-                chunk_index=chunk["chunk_index"], chunk_text=chunk["chunk_text"],
-                token_count=chunk["token_count"], character_count=chunk["character_count"],
-                checksum=chunk["checksum"], embedding_status="completed")
-            db.add(doc_chunk)
-            await db.flush()
+            doc_chunk = reusable_chunks.get(chunk['chunk_index'])
+            if doc_chunk is None:
+                doc_chunk = DocumentChunk(user_id=user_id, document_id=record_id,
+                    chunk_index=chunk["chunk_index"], chunk_text=chunk["chunk_text"],
+                    token_count=chunk["token_count"], character_count=chunk["character_count"],
+                    checksum=chunk["checksum"], embedding_status="completed",
+                    section_title=chunk.get("section_title"), page_number=chunk.get("page_number"),
+                    meta={**chunk.get("metadata", {}), "source_checksum": record.checksum})
+                db.add(doc_chunk)
+                await db.flush()
             chunk_id = doc_chunk.id
         db.add(Embedding(user_id=user_id, source_record_type=kind,
             source_record_id=record_id, document_chunk_id=chunk_id, embedding=vector,
@@ -110,6 +127,8 @@ async def index_record(db, user_id: str, kind: str, record_id: str) -> dict:
             content_checksum=chunk["checksum"], meta={
                 "content": chunk["chunk_text"], "source_fingerprint": fingerprint(source),
                 "data_mode": settings.AI_DATA_MODE, "privacy_version": 1,
+                "chunking_version": CHUNKING_VERSION, "chunk_index": chunk["chunk_index"],
+                "section_title": chunk.get("section_title"), "page_number": chunk.get("page_number"),
             }))
     if hasattr(record, "embedding_status"):
         record.embedding_status = "completed"
@@ -143,18 +162,20 @@ async def semantic_search(db, user_id: str, query: str, limit: int = 10,
     metadata = cast(Embedding.meta, JSONB)
     distance = Embedding.embedding.op("<=>", return_type=Float)(literal(vector, type_=Vector(768)))
     result = await db.execute(select(
-        Embedding.source_record_type, Embedding.source_record_id,
+        Embedding.source_record_type, Embedding.source_record_id, Embedding.document_chunk_id,
         Embedding.meta.label("metadata"), (1 - distance).label("score"),
     ).where(
         Embedding.user_id == user_id, Embedding.model == llm.embedding_model,
         metadata["data_mode"].astext == settings.AI_DATA_MODE,
-        metadata["privacy_version"].astext == '1', or_(*live),
+        metadata["privacy_version"].astext == '1',
+        metadata["chunking_version"].astext == str(CHUNKING_VERSION), or_(*live),
     ).order_by(distance).limit(min(max(limit, 1), 50) * 4))
     items = []
     seen = set()
     for row in result.mappings():
         kind, identity = row["source_record_type"], str(row["source_record_id"])
-        if (kind, identity) in seen:
+        key = (kind, str(row["document_chunk_id"]) if kind == "document" else identity)
+        if key in seen:
             continue
         record = await owned_record(db, user_id, kind, identity)
         metadata = row["metadata"]
@@ -162,11 +183,14 @@ async def semantic_search(db, user_id: str, query: str, limit: int = 10,
             continue
         if float(row["score"]) < 0.25:
             continue
-        seen.add((kind, identity))
+        seen.add(key)
         items.append(SearchResultItem(id=identity, entity_type=kind,
             title=str(getattr(record, "title", None) or getattr(record, "name", None)
                       or getattr(record, "filename", None) or kind),
-            snippet=metadata.get("content", "")[:1200], score=float(row["score"]),
+            snippet=metadata.get("content", "")[:1800], score=float(row["score"]),
+            chunk_id=str(row["document_chunk_id"]) if row["document_chunk_id"] else None,
+            chunk_index=metadata.get("chunk_index"), section=metadata.get("section_title"),
+            page=metadata.get("page_number"),
             confidence_available=False, search_mode="semantic"))
         if len(items) >= limit:
             break

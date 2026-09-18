@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    account,
     ai_portfolio,
     capture,
     founder,
@@ -14,6 +15,7 @@ from app.api.v1.endpoints import (
 )
 
 api_router = APIRouter()
+api_router.include_router(account.router)
 api_router.include_router(capture.router)
 api_router.include_router(sources.router)
 api_router.include_router(portfolio_beta.router)

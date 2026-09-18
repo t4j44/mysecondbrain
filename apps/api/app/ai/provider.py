@@ -121,7 +121,7 @@ class GeminiLLMProvider(BaseLLMProvider):
             clean_text, _privacy = await prepare_text(text)
             clean_text = clean_text.strip()
             if not clean_text:
-                return [0.0] * 768
+                raise AIProviderError("Empty text cannot produce an embedding.")
 
             async with httpx.AsyncClient(timeout=15.0) as client:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.embedding_model}:embedContent"

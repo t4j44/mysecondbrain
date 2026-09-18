@@ -14,6 +14,7 @@ from typing import Dict, FrozenSet, List, Mapping, Sequence, Set
 APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
     {
         "profiles",
+        "account_closures",
         "ventures",
         "projects",
         "tasks",
@@ -59,9 +60,10 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
     }
 )
 
-# Critical columns (name → expected PostgreSQL udt/type family hints).
+# Critical columns (name â†’ expected PostgreSQL udt/type family hints).
 # Type hints are matched loosely against information_schema / pg_catalog.
 APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
+    "account_closures": {"user_id": "uuid", "status": "varchar", "error_code": "varchar", "requested_at": "timestamptz", "updated_at": "timestamptz"},
     "portfolio_publications": {
         "id": "uuid", "user_id": "uuid", "draft_id": "uuid",
         "token_hash": "varchar", "snapshot": "jsonb",  # nosec B105
@@ -72,6 +74,7 @@ APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
         "note": "text", "created_at": "timestamp|timestamptz",
     },
     "documents": {
+        "conversion_metadata": "jsonb",
         "id": "uuid",
         "user_id": "uuid",
         "title": "text",
@@ -310,10 +313,12 @@ MIGRATION_FILES: List[str] = [
     "20260828000022_network_relationship_intelligence.sql",
     "20260828000023_align_canonical_columns_with_application_contract.sql",
     "20260916000024_beta_publications_and_feedback.sql",
+    "20260917000025_document_normalization.sql",
+    "20260917000026_account_closure_and_storage.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).
-RLS_POLICY_EXEMPT_TABLES: FrozenSet[str] = frozenset({"integration_tokens"})
+RLS_POLICY_EXEMPT_TABLES: FrozenSet[str] = frozenset({"integration_tokens", "account_closures"})
 
 
 def type_matches(actual: str, expected_pattern: str) -> bool:
