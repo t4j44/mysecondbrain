@@ -18,8 +18,8 @@ Sources checked September 17, 2026: [API keys](https://ai.google.dev/gemini-api/
 ## Database and release gates
 
 - Canonical schema is `supabase/migrations`, never SQLAlchemy `create_all` in deployment.
-- New migration: `20260916000024_beta_publications_and_feedback.sql`. It creates owner-scoped, forced-RLS publication snapshots and private feedback. Do not apply all historical migrations again to an existing project. Use the project's migration history and apply outstanding migrations in order after review/backup.
-- For an **empty disposable staging database only**, `scripts/db/bootstrap_migrations.py` bootstraps migrations using `POSTGRES_TEST_DATABASE_URL`. It is not an incremental production migration tool.
+- Outstanding beta migrations include `20260916000024_beta_publications_and_feedback.sql`, `20260917000025_document_normalization.sql`, and `20260917000026_account_closure_and_storage.sql` for publications/feedback, document conversion metadata, and closure/Storage policies. Do not apply all historical migrations again to an existing project. Use the project's migration history and apply outstanding migrations in order after review/backup.
+- For an **empty disposable staging database only**, `scripts/db/bootstrap_migrations.py` bootstraps migrations using `POSTGRES_TEST_DATABASE_URL`. Remote targets additionally require `BOOTSTRAP_ALLOW_ISOLATED=1`; populated public schemas are refused. It is not an incremental production migration tool.
 - The `PostgreSQL tenant and schema gate` CI job creates pgvector PostgreSQL, bootstraps the real migration chain, and runs integration tests. `scripts/check_test_evidence.py` rejects empty/skipped results. The vector test uses explicit test embeddings; it proves database behavior, not model quality.
 - Security & Quality CI runs Python lint, Bandit, unit tests, mypy, frontend lint/typecheck/unit tests/build. PostgreSQL integration runs separately.
 - Configure `beta-staging` environment variables `BETA_WEB_URL`, `BETA_API_URL` (including `/api/v1`), `BETA_SUPABASE_URL`; secret `BETA_SUPABASE_PUBLISHABLE_KEY`; and the four E2E secrets above. Manually dispatch `Closed beta staging E2E`. Missing credentials fail rather than silently pass. It tests desktop/mobile browser projects and rejects skipped cases.
@@ -45,6 +45,17 @@ Enabling billing does not require a code change. Keep `free_redacted` if you wan
 
 ## Known beta boundaries
 
-English photo OCR; review transcription errors. Redaction is heuristic, including limited support for unknown names in non-Latin text. No offline private-record cache or guaranteed mobile PWA installation. Voice depends on browser support/permissions. Documents support local text/Markdown/PDF extraction; scanned PDFs need OCR before upload. Limits: 16,000-character captures, 24,000-character AI input, 100 chunks per record. Free quotas are unmeasured and shared; retry/error/fallback paths exist, but 15-user capacity is not certified.
+English photo OCR; review transcription errors. Redaction is heuristic, including limited support for unknown names in non-Latin text. No offline private-record cache or guaranteed mobile PWA installation. Voice depends on browser support/permissions. Documents support local text/Markdown/PDF/DOCX/PPTX/XLSX/CSV/JSON/HTML normalization; scanned PDFs need OCR before upload. Limits: 16,000-character captures, 24,000-character AI input, 100 chunks per record. Free quotas are unmeasured and shared; retry/error/fallback paths exist, but 15-user capacity is not certified.
 
 Drive exports active whitelisted record fields into one Markdown archive; it is not a full attachment backup or bidirectional import. Calendar sync explicitly schedules/reschedules/cancels selected tasks; importing remote events is not implemented. Disconnect removes local OAuth tokens; users can revoke the grant in Google account settings. Portfolio links reveal exactly the reviewed text to anyone holding the link; revocation stops future access but cannot erase copies recipients made. Feedback is not testimonial consent. Structured question handling covers explicit overdue-task/open-commitment requests; broader natural language uses retrieval with evidence, not arbitrary database queries.
+
+
+## Release identity and recovery proof
+
+`GET /health` returns `release_sha` only when RELEASE_SHA or RENDER_GIT_COMMIT contains a full Git SHA. Null means the deployed revision is unverified. [Render documents its commit variable here](https://render.com/docs/environment-variables). Compare this with the tested branch SHA and the provider deployment record; a health response alone does not prove the core workflow.
+
+The PostgreSQL CI job runs `scripts/db/verify_backup_restore.py` with `RUN_ISOLATED_RESTORE_PROOF=1`. It permits only a disposable loopback test database, creates a unique restore target, verifies data/permissions/isolation and runs the integration suite again. Both JUnit reports are retained; a skipped or failed gate is not success. Hosted Supabase Auth and Storage object recovery remain separate checks. The target server needs the roles referenced by the dump, and pg_dump/pg_restore should match the server's major version.
+
+Private dump files, partial dumps and the default backups folder are excluded from Git. Dumps contain private data and are not encrypted by these scripts; keep them in access-controlled encrypted storage under a defined retention policy. Original attachment bytes are not included in PostgreSQL dumps.
+
+Latest evidence: [September 19 release gate](RELEASE_GATE_SEP19.md). Reproduce the synthetic local document measurements with `apps/api/.venv/Scripts/python.exe scripts/benchmark_document_pipeline.py`. This does not call Gemini or measure semantic ranking.

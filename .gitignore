@@ -43,3 +43,8 @@ supabase/.temp/
 Thumbs.db
 
 .test-tmp/
+
+# Private database backup artifacts
+backups/
+*.dump
+*.partial

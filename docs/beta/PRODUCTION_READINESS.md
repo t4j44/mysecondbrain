@@ -1,3 +1,5 @@
+> Latest checkpoint: [September 19 release gate](RELEASE_GATE_SEP19.md). This September 18 report is retained as historical evidence.
+
 # SECOND BRAIN — FINAL PRODUCTION READINESS
 
 Evidence checkpoint: September 18, 2026. **Release decision: NOT YET VERIFIED for personal production use or a 10–15-user private-data pilot.** This is a readiness checkpoint, not a completion certificate. The free Gemini decision remains accepted; paid Gemini is not a release requirement.
