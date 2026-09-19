@@ -21,6 +21,7 @@ import asyncio
 import os
 import sys
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
@@ -48,6 +49,9 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
         CREATE ROLE authenticated NOLOGIN NOINHERIT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+        CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
     END IF;
 END $$;
 
@@ -121,9 +125,15 @@ def resolve_target_url() -> str:
             "POSTGRES_TEST_DATABASE_URL is not set. Configure a separate development/staging "
             "PostgreSQL or Supabase project (see docs/production-recovery/G1_DATABASE_SCHEMA_GATE.md)."
         )
-    lowered = url.lower()
-    if any(marker in lowered for marker in PRODUCTION_MARKERS):
-        raise SystemExit(f"Refusing to bootstrap a production-looking database: {lowered[:40]}...")
+    parsed = urlsplit(url.replace('postgresql+asyncpg://', 'postgresql://'))
+    if parsed.scheme not in {'postgres', 'postgresql'} or not parsed.hostname:
+        raise SystemExit('A PostgreSQL test database URL is required.')
+    # Never print connection strings, even partially: they can start with passwords.
+    identity = (parsed.hostname + '/' + unquote(parsed.path)).lower()
+    if any(marker in identity for marker in PRODUCTION_MARKERS):
+        raise SystemExit('Refusing to bootstrap a production-looking database.')
+    if parsed.hostname not in {'localhost', '127.0.0.1', '::1'} and os.getenv('BOOTSTRAP_ALLOW_ISOLATED') != '1':
+        raise SystemExit('Remote bootstrap requires BOOTSTRAP_ALLOW_ISOLATED=1 and an empty isolated database.')
     return url
 
 
@@ -148,7 +158,7 @@ def migration_paths() -> list[Path]:
             "Migration contract drift: supabase/migrations does not match "
             f"app/db/schema_contract.MIGRATION_FILES.\n  on disk: {on_disk}\n  contract: {sorted(MIGRATION_FILES)}"
         )
-    return [MIGRATIONS_DIR / name for name in MIGRATION_FILES]
+    return [MIGRATIONS_DIR / name for name in sorted(MIGRATION_FILES)]
 
 
 async def apply_migrations(url: str) -> None:
@@ -156,6 +166,9 @@ async def apply_migrations(url: str) -> None:
 
     conn = await asyncpg.connect(asyncpg_url(url))
     try:
+        count = await conn.fetchval("SELECT count(*) FROM pg_tables WHERE schemaname='public'")
+        if count:
+            raise SystemExit('Bootstrap requires an empty public schema; use normal migrations for an existing database.')
         await conn.execute(AUTH_SHIM_SQL)
         print("auth.users shim ensured (no-op on Supabase).")
         for path in migration_paths():

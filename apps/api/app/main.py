@@ -85,6 +85,7 @@ async def health_check():
         "status": "healthy",
         "environment": settings.ENVIRONMENT,
         "version": app.version,
+        "release_sha": settings.verified_release_sha,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -101,8 +102,9 @@ async def liveness_probe():
 )
 async def readiness_probe():
     try:
-        async with admin_db_session(reason="readiness_probe") as session:
-            await session.execute(text("SELECT 1"))
+        async with asyncio.timeout(5):
+            async with admin_db_session(reason="readiness_probe") as session:
+                await session.execute(text("SELECT 1"))
         db_status = "connected"
         http_code = status.HTTP_200_OK
     except Exception as exc:

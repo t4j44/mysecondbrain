@@ -36,3 +36,50 @@ async def test_closure_restricts_direct_authenticated_database_access(pg_engine)
         async with pg_engine.begin() as conn:
             await conn.execute(text('DELETE FROM public.account_closures WHERE user_id=CAST(:id AS uuid)'), {'id': owner})
             await conn.execute(text('DELETE FROM auth.users WHERE id=CAST(:id AS uuid)'), {'id': owner})
+
+
+@pytest.mark.asyncio
+async def test_account_export_and_erasure_against_real_schema(pg_engine, monkeypatch):
+    import io
+    import json
+    import zipfile
+    from unittest.mock import AsyncMock
+
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.dependencies import database
+    from app.integrations.storage_client import StorageService
+    from app.models.entities import AccountClosure, Memory
+    from app.services.account import close_account, portable_export, request_closure
+
+    owners = [str(uuid.uuid4()), str(uuid.uuid4())]
+    factory = async_sessionmaker(pg_engine, expire_on_commit=False)
+    monkeypatch.setattr(database, 'AsyncSessionLocal', factory)
+    monkeypatch.setattr(StorageService, 'delete_owner_files', AsyncMock(return_value=0))
+    monkeypatch.setattr('app.services.account.delete_auth_user', AsyncMock())
+    async with pg_engine.begin() as conn:
+        for owner in owners:
+            await conn.execute(text('INSERT INTO auth.users(id,email) VALUES(CAST(:id AS uuid),:email)'),
+                               {'id': owner, 'email': owner + '@erasure.test'})
+    try:
+        async with factory() as db:
+            db.add_all([Memory(user_id=owners[0], title='Erase fixture', content='own evidence'),
+                        Memory(user_id=owners[1], title='Keep fixture', content='foreign evidence')])
+            await db.commit()
+        async with database.rls_db_session(owners[0]) as db:
+            archive = await portable_export(db, owners[0])
+            with zipfile.ZipFile(io.BytesIO(archive)) as bundle:
+                data = json.loads(bundle.read('data.json'))
+                assert [row['title'] for row in data['tables']['memories']] == ['Erase fixture']
+        await request_closure(owners[0])
+        await close_account(owners[0])
+        async with factory() as db:
+            remaining = (await db.execute(select(Memory).where(Memory.user_id.in_(owners)))).scalars().all()
+            assert [row.title for row in remaining] == ['Keep fixture']
+            assert (await db.get(AccountClosure, owners[0])).status == 'completed'
+    finally:
+        async with pg_engine.begin() as conn:
+            for owner in owners:
+                await conn.execute(text('DELETE FROM public.account_closures WHERE user_id=CAST(:id AS uuid)'), {'id': owner})
+                await conn.execute(text('DELETE FROM auth.users WHERE id=CAST(:id AS uuid)'), {'id': owner})

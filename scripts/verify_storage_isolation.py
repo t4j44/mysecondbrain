@@ -9,6 +9,11 @@ from uuid import uuid4
 import httpx
 
 
+def expect_denied(response):
+    # Outages, redirects and rate limits cannot count as proof of authorization.
+    assert response.status_code in {400, 401, 403, 404}, 'Expected an explicit access denial'
+
+
 def verify():
     if os.environ.get('STAGING_STORAGE_TEST') != '1':
         raise SystemExit('Set STAGING_STORAGE_TEST=1 only for an isolated staging project.')
@@ -37,12 +42,21 @@ def verify():
             uploaded = True
             assert client.get(object_url, headers=headers(token_a)).status_code == 200, 'Owner read failed'
             for token in [token_b, None]:
-                assert client.get(object_url, headers=headers(token)).status_code not in (200, 206), 'Unauthorized file read'
+                expect_denied(client.get(object_url, headers=headers(token)))
                 response = client.post(base + '/storage/v1/object/sign/brain-documents/' + path,
                                        headers=headers(token), json={'expiresIn': 60})
-                assert response.status_code != 200, 'Unauthorized signed URL creation'
+                expect_denied(response)
+                response = client.put(object_url, headers={**headers(token), 'Content-Type': 'text/plain'}, content=b'forbidden replacement')
+                expect_denied(response)
+                response = client.request('DELETE', base + '/storage/v1/object/brain-documents',
+                                          headers=headers(token), json={'prefixes': [path]})
+                # Supabase may return an empty success list for an invisible object.
+                if response.status_code not in (200, 204):
+                    expect_denied(response)
+                original = client.get(object_url, headers=headers(token_a))
+                assert original.status_code == 200 and original.content == b'synthetic storage isolation evidence', 'Foreign mutation changed the object'
             public = client.get(base + '/storage/v1/object/public/brain-documents/' + path, headers=headers())
-            assert public.status_code not in (200, 206), 'Bucket is publicly readable'
+            expect_denied(public)
             response = client.post(base + '/storage/v1/object/sign/brain-documents/' + path,
                                    headers=headers(token_a), json={'expiresIn': 60})
             assert response.status_code == 200, 'Owner signed URL creation failed'
@@ -50,7 +64,7 @@ def verify():
             assert isinstance(signed, str) and signed.startswith('/'), 'Unexpected signed URL'
             assert client.get(base + '/storage/v1' + signed).status_code == 200, 'Signed URL read failed'
             # A bearer signed URL is usable by anyone holding it until expiry; it is not an identity check.
-            print('PASS: authenticated owner upload/read/sign; other-user and anonymous read/sign denied; public read denied.')
+            print('PASS: owner upload/read/sign; foreign and anonymous read/sign/update/delete isolated; public read denied.')
         finally:
             if uploaded:
                 response = client.request('DELETE', base + '/storage/v1/object/brain-documents',

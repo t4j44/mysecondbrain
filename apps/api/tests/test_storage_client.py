@@ -85,14 +85,15 @@ def test_storage_service_headers_with_legacy_key(monkeypatch: pytest.MonkeyPatch
     assert headers["Authorization"] == "Bearer legacy_service_key_xyz789"
 
 
-def test_production_storage_requires_supabase_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
-    monkeypatch.setattr(settings, "APP_ENV", "production")
+@pytest.mark.parametrize("environment", ["production", "staging"])
+def test_production_storage_requires_supabase_credentials(monkeypatch: pytest.MonkeyPatch, environment) -> None:
+    monkeypatch.setattr(settings, "ENVIRONMENT", environment)
+    monkeypatch.setattr(settings, "APP_ENV", environment)
     monkeypatch.setattr(settings, "SUPABASE_URL", "")
     monkeypatch.setattr(settings, "SUPABASE_SECRET_KEY", "")
     monkeypatch.setattr(settings, "SUPABASE_SERVICE_ROLE_KEY", "")
 
-    with pytest.raises(RuntimeError, match="Production document storage requires"):
+    with pytest.raises(RuntimeError, match="Production and staging document storage requires"):
         StorageService()
 
 
@@ -204,3 +205,20 @@ async def test_supabase_delete_file_with_secret_key(monkeypatch: pytest.MonkeyPa
     storage = StorageService(bucket_name="test-bucket")
     success = await storage.delete_file("usr_123/file.txt")
     assert success is True
+
+
+@pytest.mark.asyncio
+async def test_owner_cleanup_fails_if_provider_does_not_delete(monkeypatch, test_user_id):
+    monkeypatch.setattr(settings, 'SUPABASE_URL', 'https://staging.supabase.co')
+    monkeypatch.setattr(settings, 'SUPABASE_SECRET_KEY', 'synthetic-server-key')
+    attempts = []
+    async def mock_post(self, url, **kwargs):
+        return httpx.Response(200, json=[{'id': 'fixture-id', 'name': 'fixture.txt'}], request=httpx.Request('POST', url))
+    async def mock_delete(self, path):
+        attempts.append(path)
+        return True
+    monkeypatch.setattr(httpx.AsyncClient, 'post', mock_post)
+    monkeypatch.setattr(StorageService, 'delete_file', mock_delete)
+    with pytest.raises(RuntimeError, match='did not make progress'):
+        await StorageService().delete_owner_files(test_user_id)
+    assert attempts == [test_user_id + '/fixture.txt']

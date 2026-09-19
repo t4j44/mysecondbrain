@@ -21,10 +21,12 @@ def restore_backup(backup_file_path):
             capture_output=True, timeout=30)
         if probe.stdout.strip() != b'0':
             raise RuntimeError('Restore target is not empty')
-        subprocess.run(['pg_restore', '--exit-on-error', '--single-transaction', '--no-owner', '--no-acl',
+        # Preserve grants: a restored database without authenticated-role privileges is not usable.
+        # The isolated target server must already contain the roles referenced by the dump.
+        subprocess.run(['pg_restore', '--exit-on-error', '--single-transaction', '--no-owner',
             '--dbname', env['PGDATABASE'], str(path)], env=env, check=True, timeout=600, stderr=subprocess.DEVNULL)
         print('Dump restored into isolated target. Run schema/RLS/content and Storage verification before trusting recovery.')
-    except Exception:
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError):
         raise SystemExit('Isolated restore failed. No successful restore was recorded.') from None
 
 

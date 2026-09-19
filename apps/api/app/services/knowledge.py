@@ -195,8 +195,14 @@ class DocumentService:
         mime_type: str,
         background_tasks: Optional[BackgroundTasks] = None,
     ) -> Document:
+        from sqlalchemy import text
+
         from app.utils.files import calculate_checksum
-        existing = await self.repo.get_by_checksum(self.db, self.user_id, calculate_checksum(content))
+        checksum = calculate_checksum(content)
+        if self.db.bind.dialect.name == 'postgresql':
+            await self.db.execute(text('SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))'),
+                {'key': f'upload:{self.user_id}:{checksum}'})
+        existing = await self.repo.get_by_checksum(self.db, self.user_id, checksum)
         if existing:
             return existing
         sanitized, ext, size, checksum, storage_path = await self.storage.save_upload(

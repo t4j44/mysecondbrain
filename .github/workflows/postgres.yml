@@ -31,8 +31,16 @@ jobs:
       - run: python scripts/db/bootstrap_migrations.py
       - run: pytest apps/api/tests/integration -q -o addopts='' --junitxml=postgres-results.xml
       - run: python scripts/check_test_evidence.py postgres-results.xml
+      - name: Install PostgreSQL recovery client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Prove isolated backup and restore
+        env:
+          RUN_ISOLATED_RESTORE_PROOF: '1'
+        run: python scripts/db/verify_backup_restore.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: postgres-test-evidence
-          path: postgres-results.xml
+          path: |
+            postgres-results.xml
+            restore-results.xml

@@ -2,6 +2,7 @@ import os
 from pathlib import Path, PurePosixPath
 from typing import Tuple
 from urllib.parse import quote
+from uuid import uuid4
 
 import httpx
 
@@ -31,9 +32,10 @@ class StorageService:
         self.use_supabase = bool(
             settings.SUPABASE_URL and settings.supabase_secret and not is_mock_host
         )
-        if settings.is_production() and not self.use_supabase:
+        hosted = settings.is_production() or 'staging' in {settings.ENVIRONMENT.lower(), settings.APP_ENV.lower()}
+        if hosted and not self.use_supabase:
             raise RuntimeError(
-                "Production document storage requires SUPABASE_URL and "
+                "Production and staging document storage requires SUPABASE_URL and "
                 "SUPABASE_SECRET_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY)."
             )
 
@@ -65,7 +67,8 @@ class StorageService:
         sanitized, ext, valid_mime, size = validate_upload_file(raw_filename, content, content_type)
         checksum = calculate_checksum(content)
 
-        unique_name = f"{checksum[:12]}_{sanitized}"
+        # An old queued delete must never target a later upload of identical bytes.
+        unique_name = f"{uuid4().hex}_{sanitized}"
         relative_path = f"{user_id}/{unique_name}"
         self._validate_path(relative_path)
 
@@ -160,6 +163,7 @@ class StorageService:
                     deleted += 1
             return deleted
         async with httpx.AsyncClient(timeout=30) as client:
+            previous_names: set[str] = set()
             while True:
                 response = await client.post(f"{self._storage_url}/object/list/{self.bucket_name}",
                     headers=self._service_headers, json={"prefix": owner, "limit": 100, "offset": 0})
@@ -167,6 +171,10 @@ class StorageService:
                 files = response.json()
                 if not files:
                     break
+                names = {file['name'] for file in files}
+                if names & previous_names:
+                    raise RuntimeError('Storage deletion did not make progress; retry cleanup later')
+                previous_names = names
                 for file in files:
                     if not file.get("id"):
                         raise ValueError("Unexpected storage folder; manual cleanup required")

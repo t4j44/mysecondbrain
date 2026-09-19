@@ -1,6 +1,7 @@
+import re
 from typing import List, Literal
 
-from pydantic import model_validator
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Environments that must never use SQLite (G1 ONE SCHEMA).
@@ -17,6 +18,7 @@ def _is_sqlite_url(url: str) -> bool:
 class Settings(BaseSettings):
     APP_NAME: str = "Taj's Second Brain API"
     APP_VERSION: str = "1.0.0"
+    RELEASE_SHA: str = Field(default='', validation_alias=AliasChoices('RELEASE_SHA', 'RENDER_GIT_COMMIT'))
     API_V1_PREFIX: str = "/api/v1"
     APP_ENV: str = "development"
     ENVIRONMENT: str = "development"
@@ -101,6 +103,11 @@ class Settings(BaseSettings):
 
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() == "production" or self.APP_ENV.lower() == "production"
+
+    @property
+    def verified_release_sha(self) -> str | None:
+        """Only expose a full Git identifier, never arbitrary deployment environment text."""
+        return self.RELEASE_SHA.lower() if re.fullmatch(r'[a-fA-F0-9]{40}', self.RELEASE_SHA) else None
 
     def uses_sqlite(self) -> bool:
         return _is_sqlite_url(self.DATABASE_URL)
