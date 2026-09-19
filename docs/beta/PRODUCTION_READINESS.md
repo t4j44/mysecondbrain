@@ -1,4 +1,4 @@
-> Latest checkpoint: [September 19 release gate](RELEASE_GATE_SEP19.md). This September 18 report is retained as historical evidence.
+> Latest checkpoint: [September 19 verified release status](VERIFIED_RELEASE_SEP19.md). This September 18 report is retained as historical evidence.
 
 # SECOND BRAIN — FINAL PRODUCTION READINESS
 

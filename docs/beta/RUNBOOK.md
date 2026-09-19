@@ -58,4 +58,4 @@ The PostgreSQL CI job runs `scripts/db/verify_backup_restore.py` with `RUN_ISOLA
 
 Private dump files, partial dumps and the default backups folder are excluded from Git. Dumps contain private data and are not encrypted by these scripts; keep them in access-controlled encrypted storage under a defined retention policy. Original attachment bytes are not included in PostgreSQL dumps.
 
-Latest evidence: [September 19 release gate](RELEASE_GATE_SEP19.md). Reproduce the synthetic local document measurements with `apps/api/.venv/Scripts/python.exe scripts/benchmark_document_pipeline.py`. This does not call Gemini or measure semantic ranking.
+Latest evidence: [September 19 verified release status](VERIFIED_RELEASE_SEP19.md). GitHub billing is unlocked; Security CI, 33 real PostgreSQL tests and the real restore drill pass on the recorded implementation SHA. Hosted verification remains blocked on staging access. Reproduce the earlier synthetic local document measurements with `apps/api/.venv/Scripts/python.exe scripts/benchmark_document_pipeline.py`. This does not call Gemini or measure semantic ranking.

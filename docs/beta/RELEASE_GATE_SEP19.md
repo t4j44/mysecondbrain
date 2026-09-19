@@ -1,3 +1,5 @@
+> Superseded by [the verified release checkpoint](VERIFIED_RELEASE_SEP19.md): GitHub is unlocked; the pnpm fix, 33 PostgreSQL tests and real restore drill now pass. This earlier checkpoint is retained as historical evidence.
+
 # Release gate — September 19, 2026
 
 **READY FOR TAJ DAILY USE = NO, pending hosted verification.**
