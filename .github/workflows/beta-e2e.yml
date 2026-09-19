@@ -30,7 +30,7 @@ jobs:
           node-version: '22'
       - uses: pnpm/action-setup@v4
         with:
-          version: 11.17.0
+          version: 10.17.1
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @second-brain/web exec playwright install --with-deps chromium
       - run: pnpm --filter @second-brain/web test:e2e

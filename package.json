@@ -2,6 +2,7 @@
   "name": "tajs-second-brain-monorepo",
   "version": "2.0.0",
   "private": true,
+  "packageManager": "pnpm@10.17.1",
   "scripts": {
     "dev": "pnpm --filter @second-brain/web dev",
     "build": "pnpm --filter @second-brain/web build",
