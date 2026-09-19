@@ -19,7 +19,8 @@ pytestmark = [pytest.mark.postgres, requires_postgres]
 
 
 @pytest.mark.asyncio
-async def test_real_vector_storage_filters_owner_deleted_and_stale(pg_engine, monkeypatch):
+@pytest.mark.parametrize('search_path', ['public', 'public, extensions'])
+async def test_real_vector_storage_filters_owner_deleted_and_stale(pg_engine, monkeypatch, search_path):
     owners = [str(uuid.uuid4()), str(uuid.uuid4())]
     monkeypatch.setattr(GeminiLLMProvider, '_is_unconfigured', lambda self: False)
     embedding = AsyncMock(return_value=[1.0] + [0.0] * 767)
@@ -42,9 +43,11 @@ async def test_real_vector_storage_filters_owner_deleted_and_stale(pg_engine, mo
             again = await index_record(db, owners[0], 'memory', str(records[0].id))
             assert again['unchanged'] is True
             assert embedding.await_count == 2
+            await db.execute(text("SELECT set_config('search_path', :path, true)"), {'path': search_path})
             results = await semantic_search(db, owners[0], 'retrieval architecture')
             assert [item.id for item in results] == [str(records[0].id)]
             assert results[0].search_mode == 'semantic'
+            assert results[0].score == pytest.approx(1.0)
             records[0].content = 'Changed canonical evidence'
             await db.commit()
             assert await semantic_search(db, owners[0], 'retrieval architecture') == []

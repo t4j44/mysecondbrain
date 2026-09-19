@@ -160,7 +160,10 @@ async def semantic_search(db, user_id: str, query: str, limit: int = 10,
         live.append(and_(Embedding.source_record_type == kind,
                          exists(select(model.id).where(*conditions))))
     metadata = cast(Embedding.meta, JSONB)
-    distance = Embedding.embedding.op("<=>", return_type=Float)(literal(vector, type_=Vector(768)))
+    # Migrations install pgvector in extensions; do not depend on a connection's
+    # search_path including that schema to resolve the cosine-distance operator.
+    distance = Embedding.embedding.op("OPERATOR(extensions.<=>)", return_type=Float)(
+        literal(vector, type_=Vector(768)))
     result = await db.execute(select(
         Embedding.source_record_type, Embedding.source_record_id, Embedding.document_chunk_id,
         Embedding.meta.label("metadata"), (1 - distance).label("score"),
