@@ -49,7 +49,7 @@ async def _column_types(conn: AsyncConnection, table: str) -> dict[str, str]:
     out: dict[str, str] = {}
     for name, data_type, udt_name in result.fetchall():
         # Prefer udt_name for domains/enums/vector (often USER-DEFINED in data_type).
-        out[name] = f"{data_type}|{udt_name}"
+        out[str(name)] = f"{data_type}|{udt_name}"
     return out
 
 

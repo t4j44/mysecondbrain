@@ -18,11 +18,22 @@ from app.db.schema_contract import (
     MIGRATION_FILES,
     ORM_OBSOLETE_TABLES,
 )
-from app.models.base import Base
+from app.models.base import Base, SafeArray, UUIDString
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 API_APP = REPO_ROOT / "apps" / "api" / "app"
 MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
+
+
+def test_uuid_array_normalizes_loaded_record_ids_for_asyncpg():
+    from uuid import UUID
+
+    identity = 'b7e50c8c-cd8c-4416-83ad-774780ff976a'
+    column = SafeArray(postgresql.UUID(as_uuid=False))
+    values = column.process_bind_param([UUIDString(identity), UUID(identity), None], postgresql.dialect())
+    assert values == [identity, identity, None]
+    assert all(type(item) is str for item in values[:2])
+    assert column.process_bind_param(None, postgresql.dialect()) is None
 
 
 def _python_sources() -> list[Path]:

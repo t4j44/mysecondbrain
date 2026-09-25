@@ -160,6 +160,10 @@ class SafeArray(TypeDecorator):
             return dialect.type_descriptor(JSON)
 
     def process_bind_param(self, value, dialect):
+        # asyncpg's UUID-array codec requires plain strings, not the UUIDString
+        # subclass returned by FlexibleUUID when linking existing records.
+        if value is not None and isinstance(self.item_type, PG_UUID) and not self.item_type.as_uuid:
+            return [str(item) if item is not None else None for item in value]
         return value
 
     def process_result_value(self, value, dialect):

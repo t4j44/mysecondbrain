@@ -199,7 +199,7 @@ class DocumentService:
 
         from app.utils.files import calculate_checksum
         checksum = calculate_checksum(content)
-        if self.db.bind.dialect.name == 'postgresql':
+        if self.db.get_bind().dialect.name == 'postgresql':
             await self.db.execute(text('SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))'),
                 {'key': f'upload:{self.user_id}:{checksum}'})
         existing = await self.repo.get_by_checksum(self.db, self.user_id, checksum)
