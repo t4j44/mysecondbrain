@@ -250,9 +250,11 @@ class MCPDomainTools(BetaMCPTools):
         self, person_id: str, limit: int = 20
     ) -> List[Dict[str, Any]]:
         """Retrieve interaction timeline for a specific person profile in CRM."""
+        from app.services.relationships import RelationshipService
+        await RelationshipService(self.db, self.user_id).person(str(_to_uuid(person_id)))
         try:
             interactions, _ = await InteractionsRepository.list_interactions(
-                self.db, user_id=self.uid, person_id=_to_uuid(person_id), limit=limit
+                self.db, user_id=self.uid, person_id=_to_uuid(person_id), limit=max(1, min(limit, 100))
             )
             return [_serialize_model(i, "interaction", "mcp://interactions") for i in interactions]
         except Exception:

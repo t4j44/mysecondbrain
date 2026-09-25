@@ -20,6 +20,7 @@ from app.models.entities import Interaction
 from app.schemas.network import CommitmentCreate, CommitmentResponse
 from app.services.capture import CaptureConfirm, CaptureInput, CaptureService
 from app.services.network import CommitmentService, NetworkIntelligenceService
+from app.services.relationships import RelationshipService
 
 
 class ContextQuery(BaseModel):
@@ -88,7 +89,17 @@ class BetaMCPTools:
             'date': item.date, 'location': item.location, 'project_id': item.project_id,
             'venture_id': item.venture_id, 'source_uri': f'/sources/interaction/{item.id}'} for item in history]
         result['source_uri'] = f'/sources/person/{person.id}'
+        result['relationship_context'] = await RelationshipService(self.db, self.user_id).profile(person_id)
         return jsonable_encoder(result)
+
+    async def list_followups(self, limit: int = 20):
+        return jsonable_encoder(await RelationshipService(self.db, self.user_id).followups(limit=limit))
+
+    async def find_people_who_can_help(self, query: str, limit: int = 5):
+        return await self.find_relevant_contacts(query, limit)
+
+    async def log_interaction(self, text: str = '', draft_id: str | None = None, reviewed_proposal: dict | None = None, confirmed: bool = False):
+        return await self.capture_context(text, draft_id, reviewed_proposal, confirmed)
 
     async def prepare_meeting(self, person_id: str):
         return await self.get_person_context(person_id)
@@ -136,12 +147,17 @@ def spec(name, properties, required, write=False, scopes=None):
         'create_commitment': 'Save an explicitly requested commitment; do not invent a promise.',
         'complete_commitment': 'Mark an explicitly identified commitment completed.',
         'capture_context': 'Propose a capture first. Show the proposal and obtain user confirmation before sending draft_id, reviewed_proposal and confirmed=true.',
+        'list_followups': 'List actionable follow-ups with reasons and recorded evidence.',
+        'find_people_who_can_help': 'Find potential contacts from saved evidence; never claim an unrecorded introduction path.',
+        'log_interaction': 'Propose an interaction using text; obtain user review before submitting draft_id, reviewed_proposal and confirmed=true.',
     }[name], 'required_scope': scopes[0], 'additional_scopes': list(scopes[1:]), 'write': write,
         'input_schema': {'type': 'object', 'properties': properties, 'required': required, 'additionalProperties': False}}
 
 
 STRING = {'type': 'string'}
 READ_TOOLS = [
+    spec('list_followups', {'limit': {'type': 'integer'}}, []),
+    spec('find_people_who_can_help', {'query': STRING, 'limit': {'type': 'integer'}}, ['query']),
     spec('search_document_chunks', {'query': STRING, 'limit': {'type': 'integer'}}, ['query']),
     spec('get_document_metadata', {'document_id': STRING}, ['document_id']),
     spec('get_document_section', {'document_id': STRING, 'offset': {'type': 'integer'}, 'limit': {'type': 'integer'}}, ['document_id']),
@@ -153,6 +169,7 @@ READ_TOOLS = [
     spec('get_commitments', {'person_id': STRING, 'overdue_only': {'type': 'boolean'}, 'limit': {'type': 'integer'}}, []),
 ]
 WRITE_TOOLS = [
+    spec('log_interaction', {'text': STRING, 'draft_id': STRING, 'reviewed_proposal': {'type': 'object'}, 'confirmed': {'type': 'boolean'}}, [], True, list(FINALIZE_REQUIRED_SCOPES)),
     spec('create_commitment', {'description': STRING, 'person_id': STRING, 'direction': STRING, 'due_at': STRING}, ['description'], True, [SCOPE_TASKS_WRITE]),
     spec('complete_commitment', {'commitment_id': STRING}, ['commitment_id'], True, [SCOPE_TASKS_WRITE]),
     spec('capture_context', {'text': STRING, 'draft_id': STRING, 'reviewed_proposal': {'type': 'object'}, 'confirmed': {'type': 'boolean'}}, [], True, list(FINALIZE_REQUIRED_SCOPES)),

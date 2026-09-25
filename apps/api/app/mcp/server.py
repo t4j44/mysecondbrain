@@ -573,6 +573,27 @@ async def capture_context(text: str = '', draft_id: Optional[str] = None, review
         return await domain.capture_context(text, draft_id, reviewed_proposal, confirmed)
 
 
+@mcp_server.tool(annotations=READ_ONLY)
+async def list_followups(limit: int = 20) -> list[dict[str, Any]]:
+    """List current follow-ups with reasons and evidence."""
+    owner = _authenticated_user_id(*sorted(READ_SCOPES))
+    async with rls_db_session(owner) as db:
+        return await MCPDomainTools(db=db, user_id=owner).list_followups(limit)
+
+
+@mcp_server.tool(annotations=READ_ONLY)
+async def find_people_who_can_help(query: str, limit: int = 5) -> list[dict[str, Any]]:
+    """Recommend from saved evidence. Availability and introductions need verification."""
+    return await find_relevant_contacts(query, limit)
+
+
+@mcp_server.tool(annotations=CREATES)
+async def log_interaction(text: str = '', draft_id: Optional[str] = None, reviewed_proposal: Optional[dict] = None, confirmed: bool = False) -> dict[str, Any]:
+    """Propose first; obtain user review before confirming a saved interaction."""
+    async with _write_domain(*FINALIZE_REQUIRED_SCOPES) as domain:
+        return await domain.log_interaction(text, draft_id, reviewed_proposal, confirmed)
+
+
 mcp_asgi_app = mcp_server.streamable_http_app(
     streamable_http_path="/mcp",
     json_response=True,

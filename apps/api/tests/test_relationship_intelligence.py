@@ -5,7 +5,8 @@ import pytest
 from sqlalchemy import func, select
 
 from app.ai.provider import GeminiLLMProvider
-from app.models.entities import Commitment, Interaction, RelationshipAction, Task
+from app.ai.structured import structured_answer
+from app.models.entities import Commitment, Interaction, Person, RelationshipAction, Task
 from app.services.relationships import recency
 from tests.conftest import TestingSessionLocal
 
@@ -33,6 +34,16 @@ async def test_profile_followup_outcome_replay_and_deletion(async_client, auth_h
     assert data['topics'] == ['fundraising']
     assert data['timeline'][0]['location'] == 'Agami'
     assert data['commitments'][0]['direction'] == 'owed_by_me'
+    async with TestingSessionLocal() as db:
+        owner = str((await db.get(Person, ids['person'])).user_id)
+        discussion = await structured_answer(db, owner, 'What did I discuss with Ahmed?')
+        assert ids['interaction'] in discussion['source_citations']
+        promise = await structured_answer(db, owner, 'What did I promise Ahmed?')
+        assert ids['commitment'] in promise['source_citations']
+        relevant = await structured_answer(db, owner, 'Who could help with Justor AI fundraising?')
+        assert ids['person'] in relevant['source_citations']
+        open_promises = await structured_answer(db, owner, 'show open commitments')
+        assert ids['commitment'] in open_promises['source_citations']
     home = await async_client.get('/api/v1/relationships/home', headers=auth_headers)
     assert home.status_code == 200, home.text
     suggestion = home.json()['followups'][0]

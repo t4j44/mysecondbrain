@@ -8,6 +8,7 @@ from app.schemas.knowledge import SearchResultItem
 from app.services.document_chunker import chunk_markdown
 
 STOP_WORDS = set('a an the who what where when how did do does is are was were with for from my me i to of and in on about can you have has'.split())
+STOP_WORDS.update('could would should may might help know trying enter network relevant connected tell show find looking want need'.split())
 
 
 async def perform_keyword_search(db, user_id: str, query: str, limit: int = 10,

@@ -19,7 +19,7 @@ from app.services.document_extractor import DocumentExtractor
 
 SOURCES = {
     "memory": (m.Memory, ("title", "content")),
-    "person": (m.Person, ("name", "role", "company", "notes")),
+    "person": (m.Person, ("name", "role", "company", "industry", "location", "notes", "tags")),
     "organization": (m.Organization, ("name", "description", "industry")),
     "interaction": (m.Interaction, ("title", "summary", "detailed_notes", "location")),
     "meeting": (m.Meeting, ("title", "summary", "notes", "agenda")),
