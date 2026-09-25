@@ -8,7 +8,7 @@ from sqlalchemy import String, cast, or_, select
 from app.ai.indexing import owned_record, record_text, semantic_search
 from app.ai.privacy import PrivacyBlocked
 from app.ai.retrieval import perform_keyword_search
-from app.core.errors import AIProviderError
+from app.core.errors import AIProviderError, NotFoundError
 from app.models.entities import (
     Commitment,
     EntityEdge,
@@ -56,6 +56,11 @@ async def relevant_contacts(db, owner: str, query: str, limit: int = 5) -> list[
                 (EntityEdge.target_entity_type == item.entity_type) & (EntityEdge.target_entity_id == item.id)),
         ).limit(100))).scalars()
         for edge in edges:
+            if (edge.metadata_payload or {}).get('interaction_id'):
+                try:
+                    await owned_record(db, owner, 'interaction', edge.metadata_payload['interaction_id'])
+                except NotFoundError:
+                    continue
             if edge.source_entity_type == 'person':
                 identities.add(str(edge.source_entity_id))
             if edge.target_entity_type == 'person':

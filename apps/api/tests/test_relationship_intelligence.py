@@ -6,8 +6,16 @@ from sqlalchemy import func, select
 
 from app.ai.provider import GeminiLLMProvider
 from app.ai.structured import structured_answer
-from app.models.entities import Commitment, Interaction, Person, RelationshipAction, Task
-from app.services.relationships import recency
+from app.models.entities import (
+    Commitment,
+    EntityEdge,
+    Interaction,
+    Person,
+    Project,
+    RelationshipAction,
+    Task,
+)
+from app.services.relationships import RelationshipService, recency
 from tests.conftest import TestingSessionLocal
 
 
@@ -92,3 +100,54 @@ def test_recency_is_explainable_not_a_confidence_score():
         result = recency(now - timedelta(days=days), 3, now)
         assert result['label'] == label and result['days_since'] == days
         assert 'closeness' in result['rule']
+
+
+@pytest.mark.asyncio
+async def test_explicit_links_drive_home_and_ask_without_cross_owner_connections(async_client, auth_headers, test_user_id, other_user_id, monkeypatch):
+    monkeypatch.setattr(GeminiLLMProvider, '_is_unconfigured', lambda self: True)
+    async with TestingSessionLocal() as db:
+        person = Person(user_id=test_user_id, name='Salma', last_interaction_at=datetime.now(timezone.utc) - timedelta(days=80),
+            follow_up_date=datetime.now(timezone.utc) + timedelta(days=7))
+        project = Project(user_id=test_user_id, name='Saudi Arabia market entry', status='active')
+        foreign = Project(user_id=other_user_id, name='Foreign private project', status='active')
+        db.add_all([person, project, foreign])
+        await db.commit()
+        person_id, project_id, foreign_id = str(person.id), str(project.id), str(foreign.id)
+        assert await RelationshipService(db, test_user_id).followups(person_id) == []
+    path = f'/api/v1/relationships/people/{person_id}/connections'
+    payload = {'confirmed': True, 'kind': 'project', 'record_id': project_id, 'reason': 'Salma offered to review the Saudi Arabia market plan.'}
+    assert (await async_client.post(path, headers=auth_headers, json={**payload, 'record_id': foreign_id})).status_code == 404
+    assert (await async_client.post(path, headers=auth_headers, json={**payload, 'confirmed': False})).status_code == 422
+    assert (await async_client.post(path, headers=auth_headers, json=payload)).status_code == 200
+    assert (await async_client.post(path, headers=auth_headers, json=payload)).status_code == 200
+    home = (await async_client.get('/api/v1/relationships/home', headers=auth_headers)).json()
+    assert home['projects'][0]['people'][0]['person_id'] == person_id
+    async with TestingSessionLocal() as db:
+        result = await structured_answer(db, test_user_id, 'Who is connected to Saudi Arabia?')
+        assert person_id in result['source_citations'] and project_id in result['source_citations']
+    await async_client.delete('/api/v1/people/' + person_id, headers=auth_headers)
+    async with TestingSessionLocal() as db:
+        result = await structured_answer(db, test_user_id, 'Who is connected to Saudi Arabia?')
+        assert person_id not in result['source_citations']
+
+
+@pytest.mark.asyncio
+async def test_deleted_interaction_cannot_support_a_contact_recommendation(test_user_id, monkeypatch):
+    monkeypatch.setattr(GeminiLLMProvider, '_is_unconfigured', lambda self: True)
+    async with TestingSessionLocal() as db:
+        person = Person(user_id=test_user_id, name='Salma')
+        project = Project(user_id=test_user_id, name='Saudi Arabia expansion', status='active')
+        db.add_all([person, project])
+        await db.flush()
+        interaction = Interaction(user_id=test_user_id, person_id=person.id, project_id=project.id,
+            title='Private context', summary='Recorded introduction', interaction_type='note', date=datetime.now(timezone.utc))
+        db.add(interaction)
+        await db.flush()
+        db.add(EntityEdge(user_id=test_user_id, source_entity_type='person', source_entity_id=person.id,
+            target_entity_type='project', target_entity_id=project.id, relationship_type='discussed',
+            metadata_payload={'interaction_id': str(interaction.id)}))
+        await db.commit()
+        assert str(person.id) in (await structured_answer(db, test_user_id, 'Who is connected to Saudi Arabia?'))['source_citations']
+        interaction.deleted_at = datetime.now(timezone.utc)
+        await db.commit()
+        assert not (await structured_answer(db, test_user_id, 'Who is connected to Saudi Arabia?'))['source_citations']

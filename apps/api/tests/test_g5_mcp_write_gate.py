@@ -36,7 +36,7 @@ from app.mcp.tools import MCPDomainTools
 from app.models.entities import Decision, Interaction, Memory, Profile, Project, Task
 
 EXPECTED_WRITE_TOOLS = {
-    "create_commitment", "complete_commitment", "capture_context",
+    "create_commitment", "complete_commitment", "capture_context", "log_interaction",
     "create_task",
     "update_task",
     "complete_task",

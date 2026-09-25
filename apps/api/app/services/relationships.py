@@ -126,7 +126,7 @@ class RelationshipService:
                     evidence = source(origin, 'interaction')
                 except NotFoundError:
                     continue
-            await add(kind, record_id, 'Explicit saved connection: ' + edge.relationship_type.replace('_', ' '), evidence)
+            await add(kind, record_id, (edge.metadata_payload or {}).get('reason') or 'Explicit saved connection: ' + edge.relationship_type.replace('_', ' '), evidence)
         roles = (await self.db.execute(select(PersonOrganizationRole).where(PersonOrganizationRole.user_id == self.owner,
             PersonOrganizationRole.person_id == identity, PersonOrganizationRole.deleted_at.is_(None)).order_by(PersonOrganizationRole.created_at.desc()).limit(50))).scalars().all()
         affiliations = []
@@ -166,6 +166,45 @@ class RelationshipService:
         profile['followups'] = await self.followups(identity)
         return profile
 
+    async def connect(self, person_id, kind, record_id, reason):
+        person = await self.person(person_id, lock=True)
+        record = await owned_record(self.db, self.owner, kind, str(record_id))
+        if kind == 'person' and str(record.id) == str(person.id):
+            raise ConflictError('Choose a different person to connect.')
+        edge = (await self.db.execute(select(EntityEdge).where(EntityEdge.user_id == self.owner,
+            EntityEdge.source_entity_type == 'person', EntityEdge.source_entity_id == person.id,
+            EntityEdge.target_entity_type == kind, EntityEdge.target_entity_id == record.id,
+            EntityEdge.relationship_type == 'user_confirmed'))).scalar_one_or_none()
+        if edge is None:
+            edge = EntityEdge(user_id=self.owner, source_entity_type='person', source_entity_id=person.id,
+                target_entity_type=kind, target_entity_id=record.id, relationship_type='user_confirmed')
+            self.db.add(edge)
+        edge.metadata_payload = {'reason': reason.strip(), 'confirmed': True}
+        await self.db.commit()
+        return {**source(record, kind), 'reason': reason}
+
+    async def people_for_record(self, kind, record_id):
+        await owned_record(self.db, self.owner, kind, str(record_id))
+        edges = (await self.db.execute(select(EntityEdge).where(EntityEdge.user_id == self.owner,
+            EntityEdge.source_entity_type == 'person', EntityEdge.target_entity_type == kind,
+            EntityEdge.target_entity_id == str(record_id)).limit(100))).scalars().all()
+        result, seen = [], set()
+        for edge in edges:
+            if str(edge.source_entity_id) in seen:
+                continue
+            if (edge.metadata_payload or {}).get('interaction_id'):
+                try:
+                    await owned_record(self.db, self.owner, 'interaction', edge.metadata_payload['interaction_id'])
+                except NotFoundError:
+                    continue
+            try:
+                person = await self.person(edge.source_entity_id)
+            except NotFoundError:
+                continue
+            seen.add(str(person.id))
+            result.append({**source(person, 'person'), 'reason': (edge.metadata_payload or {}).get('reason') or 'Linked through confirmed relationship context.'})
+        return result
+
     async def home(self):
         followups = await self.followups()
         recent = await self.rows(Interaction, Interaction.person_id.is_not(None), limit=12, order=Interaction.date.desc())
@@ -187,6 +226,10 @@ class RelationshipService:
                     continue
                 seen.add(str(person.id))
                 linked.append({'person_id': str(person.id), 'name': person.name, 'reason': row.summary or row.title, 'evidence': source(row, 'interaction')})
+            for person in await self.people_for_record('project', project.id):
+                if person['id'] not in seen:
+                    seen.add(person['id'])
+                    linked.append({'person_id': person['id'], 'name': person['title'], 'reason': person['reason'], 'evidence': source(project, 'project')})
             work.append({**source(project, 'project'), 'people': linked[:5]})
         meetings = await self.rows(Meeting, Meeting.start_time >= datetime.now(timezone.utc), Meeting.status != 'cancelled', limit=6, order=Meeting.start_time.asc())
         upcoming = []
@@ -220,7 +263,8 @@ class RelationshipService:
         result = []
         for person in people:
             identity = str(person.id)
-            last, count = dates.get(identity, (person.last_interaction_at, 0))
+            recorded, count = dates.get(identity, (None, 0))
+            last = max((utc(value) for value in (recorded, person.last_interaction_at) if value), default=None)
             strength = recency(last, count, now)
             candidates = []
             for item in obligations:
@@ -233,7 +277,7 @@ class RelationshipService:
                 reason += f' Due {utc(item.due_at).date()}.' if item.due_at else ' No due date recorded.'
                 candidates.append((key, reason, source(item, 'commitment'), item.due_at, str(item.id)))
             due = utc(person.follow_up_date)
-            if (due and due <= now) or (strength['days_since'] is not None and strength['days_since'] > 45):
+            if (due and due <= now) or (not due and strength['days_since'] is not None and strength['days_since'] > 45):
                 key = 'contact:' + identity + ':' + hashlib.sha256(f'{last}|{due}'.encode()).hexdigest()[:20]
                 reason = f'Follow-up was set for {due.date()}.' if due and due <= now else strength['explanation']
                 candidates.append((key, reason, source(person, 'person'), due, None))

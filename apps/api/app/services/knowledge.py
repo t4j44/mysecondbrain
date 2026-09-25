@@ -296,6 +296,8 @@ class AIService:
             structured = await structured_answer(self.db, self.user_id, prompt)
             if structured is not None:
                 self.db.add(AuditLog(user_id=self.user_id, event_type='beta_retrieval', details={'mode': 'structured'}))
+                if structured.get('source_citations'):
+                    self.db.add(AuditLog(user_id=self.user_id, event_type='relationship_ask_answered', details={'route': 'structured'}))
                 await self.db.commit()
                 return structured
         if record_ids is None:
@@ -326,6 +328,9 @@ class AIService:
             provider_used, model_used = 'local', 'none'
             synthesis = 'AI synthesis is unavailable. These are matching saved excerpts, not an AI answer:\n\n' + context
 
+        self.db.add(AuditLog(user_id=self.user_id, event_type='relationship_ask_answered',
+            details={'route': 'retrieval', 'source_count': len(rag_items)}))
+        await self.db.commit()
         return {
             "generated_text": synthesis,
             "provider_used": provider_used,
