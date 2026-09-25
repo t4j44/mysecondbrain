@@ -962,3 +962,18 @@ class AccountClosure(Base):
     error_code: Any = Column(String(100), nullable=True)
     requested_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class RelationshipAction(Base):
+    __tablename__ = "relationship_actions"
+    __table_args__ = (UniqueConstraint("user_id", "request_id", name="relationship_action_request"),)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    person_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    request_id: Any = Column(FlexibleUUID, nullable=False)
+    suggestion_key: Any = Column(Text, nullable=False)
+    action: Any = Column(String(30), nullable=False)
+    outcome: Any = Column(Text, nullable=True)
+    scheduled_at: Any = Column(DateTime(timezone=True), nullable=True)
+    receipt: Any = Column(JSONEncodedDict, default=dict, nullable=False)
+    created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)

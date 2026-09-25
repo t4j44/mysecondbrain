@@ -13,6 +13,7 @@ from app.models.entities import (
     Memory,
     Organization,
     PersonOrganizationRole,
+    RelationshipAction,
     Task,
 )
 from app.models.publication import PortfolioPublication
@@ -56,6 +57,8 @@ async def delete_person_context(db, person):
         await invalidate_drafts(db, owner, str(row.id))
     await db.execute(delete(PersonOrganizationRole).where(PersonOrganizationRole.user_id == owner,
         PersonOrganizationRole.person_id == identity))
+    await db.execute(delete(RelationshipAction).where(RelationshipAction.user_id == owner,
+        RelationshipAction.person_id == identity))
     await invalidate_drafts(db, owner, identity)
     person.metadata_payload = {}
     # BaseRepository subsequently removes the person's own vectors and graph edges.

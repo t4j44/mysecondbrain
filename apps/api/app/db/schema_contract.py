@@ -15,6 +15,7 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
     {
         "profiles",
         "account_closures",
+        "relationship_actions",
         "ventures",
         "projects",
         "tasks",
@@ -63,6 +64,7 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
 # Critical columns (name â†’ expected PostgreSQL udt/type family hints).
 # Type hints are matched loosely against information_schema / pg_catalog.
 APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
+    "relationship_actions": {"id": "uuid", "user_id": "uuid", "person_id": "uuid", "request_id": "uuid", "receipt": "jsonb", "created_at": "timestamptz"},
     "account_closures": {"user_id": "uuid", "status": "varchar", "error_code": "varchar", "requested_at": "timestamptz", "updated_at": "timestamptz"},
     "portfolio_publications": {
         "id": "uuid", "user_id": "uuid", "draft_id": "uuid",

@@ -10,6 +10,7 @@ import { ConfirmActionDialog } from '@/components/shared/confirm-action-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { formatApiError } from '@/lib/api/format-error';
 import type { Person } from '@/lib/api/domains';
+import { PersonContext } from '@/components/relationships/person-context';
 
 export default function PersonDetailPage() {
   const params = useParams();
@@ -163,6 +164,7 @@ export default function PersonDetailPage() {
         </section>
 
         <section className="lg:col-span-2">
+          <PersonContext personId={personId} />
           <div className="border border-[#301642] bg-[#0a0510] p-6 rounded-xl">
             <h2 className="text-lg font-mono text-[#00ff9d] uppercase border-b border-[#301642] pb-2 mb-4">
               Notes

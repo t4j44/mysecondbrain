@@ -10,6 +10,7 @@ from app.api.v1.endpoints import (
     network,
     pdf_analysis,
     portfolio_beta,
+    relationships,
     sources,
     system,
 )
@@ -17,6 +18,7 @@ from app.api.v1.endpoints import (
 api_router = APIRouter()
 api_router.include_router(account.router)
 api_router.include_router(capture.router)
+api_router.include_router(relationships.router)
 api_router.include_router(sources.router)
 api_router.include_router(portfolio_beta.router)
 
