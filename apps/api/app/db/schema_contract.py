@@ -16,6 +16,7 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
         "profiles",
         "account_closures",
         "relationship_actions",
+        "public_profile_claims",
         "ventures",
         "projects",
         "tasks",
@@ -64,6 +65,7 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
 # Critical columns (name â†’ expected PostgreSQL udt/type family hints).
 # Type hints are matched loosely against information_schema / pg_catalog.
 APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
+    "public_profile_claims": {"id": "uuid", "user_id": "uuid", "person_id": "uuid", "source_url": "text", "verification_state": "varchar", "researched_at": "timestamptz"},
     "relationship_actions": {"id": "uuid", "user_id": "uuid", "person_id": "uuid", "request_id": "uuid", "receipt": "jsonb", "created_at": "timestamptz"},
     "account_closures": {"user_id": "uuid", "status": "varchar", "error_code": "varchar", "requested_at": "timestamptz", "updated_at": "timestamptz"},
     "portfolio_publications": {
@@ -317,6 +319,8 @@ MIGRATION_FILES: List[str] = [
     "20260916000024_beta_publications_and_feedback.sql",
     "20260917000025_document_normalization.sql",
     "20260917000026_account_closure_and_storage.sql",
+    "20260925000027_relationship_actions.sql",
+    "20260925000028_public_profile_claims.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).

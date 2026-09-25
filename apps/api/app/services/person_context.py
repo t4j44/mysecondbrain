@@ -10,9 +10,11 @@ from app.models.entities import (
     ContentItem,
     EntityEdge,
     Interaction,
+    JobRecord,
     Memory,
     Organization,
     PersonOrganizationRole,
+    PublicProfileClaim,
     RelationshipAction,
     Task,
 )
@@ -59,6 +61,13 @@ async def delete_person_context(db, person):
         PersonOrganizationRole.person_id == identity))
     await db.execute(delete(RelationshipAction).where(RelationshipAction.user_id == owner,
         RelationshipAction.person_id == identity))
+    await db.execute(delete(PublicProfileClaim).where(PublicProfileClaim.user_id == owner,
+        PublicProfileClaim.person_id == identity))
+    sources = (await db.execute(select(JobRecord).where(JobRecord.user_id == owner,
+        JobRecord.job_type == 'public_profile_source'))).scalars().all()
+    for source in sources:
+        if (source.result_payload or {}).get('person_id') == identity:
+            await db.delete(source)
     await invalidate_drafts(db, owner, identity)
     person.metadata_payload = {}
     # BaseRepository subsequently removes the person's own vectors and graph edges.

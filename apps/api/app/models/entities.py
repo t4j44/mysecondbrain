@@ -977,3 +977,23 @@ class RelationshipAction(Base):
     scheduled_at: Any = Column(DateTime(timezone=True), nullable=True)
     receipt: Any = Column(JSONEncodedDict, default=dict, nullable=False)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+
+class PublicProfileClaim(Base):
+    __tablename__ = "public_profile_claims"
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    person_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    field: Any = Column(String(40), nullable=False)
+    value: Any = Column(Text, nullable=False)
+    source_url: Any = Column(Text, nullable=False)
+    source_type: Any = Column(String(40), nullable=False)
+    source_quote: Any = Column(Text, nullable=False)
+    researched_at: Any = Column(DateTime(timezone=True), nullable=False)
+    identity_basis: Any = Column(Text, nullable=False)
+    confidence: Any = Column(String(40), nullable=False, default='single_source')
+    confidence_reason: Any = Column(Text, nullable=False)
+    verification_state: Any = Column(String(30), nullable=False, default='proposed')
+    memory_id: Any = Column(FlexibleUUID, nullable=True)
+    created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Any = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
