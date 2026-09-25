@@ -13,20 +13,19 @@ interface CommandItem {
 }
 
 const commandLinks: CommandItem[] = [
-  { title: 'Command Center Dashboard', category: 'Command', href: '/dashboard', shortcut: 'D' },
-  { title: 'Task Execution Engine', category: 'Command', href: '/tasks', shortcut: 'T' },
-  { title: 'Venture Management', category: 'Build', href: '/ventures', shortcut: 'V' },
-  { title: 'Project Portfolio', category: 'Build', href: '/projects', shortcut: 'P' },
-  { title: 'Idea Validation Incubator', category: 'Build', href: '/ideas' },
-  { title: 'People & CRM Network', category: 'Network', href: '/people', shortcut: 'C' },
-  { title: 'Organization Directory', category: 'Network', href: '/organizations' },
-  { title: 'Meeting Intelligence & Audio', category: 'Network', href: '/meetings', shortcut: 'M' },
-  { title: 'Second Brain Memories', category: 'Network', href: '/memories', shortcut: 'B' },
-  { title: 'Life & Founder KPIs', category: 'Growth', href: '/kpis', shortcut: 'K' },
-  { title: 'Career & Venture Achievements', category: 'Growth', href: '/achievements' },
-  { title: 'AI Content Synthesis Engine', category: 'Growth', href: '/content' },
-  { title: 'Proactive AI Assistant', category: 'Intelligence', href: '/assistant', shortcut: 'A' },
-  { title: 'Operator Settings & Protocols', category: 'System', href: '/settings', shortcut: 'S' },
+  { title: 'Home', category: 'Navigate', href: '/dashboard' },
+  { title: 'Capture', category: 'Navigate', href: '/capture' },
+  { title: 'People', category: 'Navigate', href: '/people' },
+  { title: 'Work', category: 'Navigate', href: '/work' },
+  { title: 'Ask', category: 'Navigate', href: '/assistant' },
+  { title: 'Projects', category: 'Work', href: '/projects' },
+  { title: 'Ventures', category: 'Work', href: '/ventures' },
+  { title: 'Tasks', category: 'Work', href: '/tasks' },
+  { title: 'Commitments', category: 'Work', href: '/work/commitments' },
+  { title: 'Meetings', category: 'Work', href: '/meetings' },
+  { title: 'Documents', category: 'Work', href: '/documents' },
+  { title: 'Organizations', category: 'People', href: '/organizations' },
+  { title: 'Settings', category: 'Navigate', href: '/settings' },
 ];
 
 export function CommandMenu() {
@@ -92,7 +91,7 @@ export function CommandMenu() {
       >
         <span className="inline-flex items-center">
           <Terminal className="mr-2 h-3.5 w-3.5 text-[#00ff9d]" />
-          <span>Search OS & commands...</span>
+          <span>Find a page...</span>
         </span>
         <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-[#1d0e2e] px-1.5 text-[10px] font-mono font-medium opacity-100">
           <span className="text-xs">⌘</span>K
@@ -115,7 +114,7 @@ export function CommandMenu() {
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0); }}
                 onKeyDown={handleInputKeyDown}
-                placeholder="Type a command or jump to feature domain..."
+                placeholder="Find people, work or settings..."
                 className="flex-1 bg-transparent text-sm font-sans text-[#f7f4ea] placeholder:text-muted-foreground focus:outline-none"
               />
               <span className="text-[10px] font-mono uppercase bg-[#251238] text-muted-foreground px-2 py-0.5 rounded border border-border">
@@ -126,7 +125,7 @@ export function CommandMenu() {
             <div className="max-h-80 overflow-y-auto p-2 space-y-1">
               {filteredItems.length === 0 ? (
                 <div className="py-12 text-center font-mono text-xs text-muted-foreground">
-                  [ 404: No matching command or venture domain located ]
+                  No matching pages.
                 </div>
               ) : (
                 filteredItems.map((item, index) => {
@@ -164,7 +163,7 @@ export function CommandMenu() {
 
             <div className="border-t border-border px-4 py-2 bg-[#050208] flex items-center justify-between text-[11px] font-mono text-muted-foreground">
               <span>Use ↑↓ arrows to navigate</span>
-              <span className="text-[#00ff9d]">Taj’s Second Brain OS // Command Shell</span>
+              <span className="text-[#00ff9d]">Second Brain</span>
             </div>
           </div>
         </div>

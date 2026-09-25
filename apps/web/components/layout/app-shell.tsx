@@ -1,16 +1,14 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { TopBar } from './top-bar';
 import { MobileBottomBar } from './mobile-bottom-bar';
-import { QuickCaptureModal } from '../capture/quick-capture-modal';
-import { WorkSessionModal } from '../session/work-session-modal';
 import { BetaNotice } from '../shared/beta-notice';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const [quickCaptureOpen, setQuickCaptureOpen] = React.useState(false);
-  const [sessionModalOpen, setSessionModalOpen] = React.useState(false);
+  const router = useRouter();
 
   // Global hotkey listeners for ADHD speed
   React.useEffect(() => {
@@ -25,19 +23,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if (!isInput) {
         if (e.key === 'q' || e.key === 'Q' || e.key === 'c' || e.key === 'C') {
           e.preventDefault();
-          setQuickCaptureOpen(true);
+          router.push('/capture');
         }
       }
 
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'c' || e.key === 'C')) {
         e.preventDefault();
-        setQuickCaptureOpen(true);
+        router.push('/capture');
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [router]);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
@@ -52,12 +50,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Desktop Persistent Sidebar */}
       <Sidebar
         className="hidden md:flex"
-        onOpenQuickCapture={() => setQuickCaptureOpen(true)}
+        onOpenQuickCapture={() => router.push('/capture')}
       />
 
       {/* Main Content Workspace Column */}
       <div className="flex flex-1 flex-col min-w-0">
-        <TopBar onOpenQuickCapture={() => setQuickCaptureOpen(true)} />
+        <TopBar onOpenQuickCapture={() => router.push('/capture')} />
         <BetaNotice />
         <main
           id="main-content"
@@ -68,19 +66,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Mobile Sticky Bottom Navigation */}
-      <MobileBottomBar onOpenQuickCapture={() => setQuickCaptureOpen(true)} />
-
-      {/* Global Quick Capture Modal */}
-      <QuickCaptureModal
-        isOpen={quickCaptureOpen}
-        onClose={() => setQuickCaptureOpen(false)}
-      />
-
-      {/* Global Work Session Finalizer Modal */}
-      <WorkSessionModal
-        isOpen={sessionModalOpen}
-        onClose={() => setSessionModalOpen(false)}
-      />
+      <MobileBottomBar onOpenQuickCapture={() => router.push('/capture')} />
     </div>
   );
 }

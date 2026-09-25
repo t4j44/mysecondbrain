@@ -1,83 +1,19 @@
 'use client';
 
-import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Bot, Plus, Users, CheckSquare } from 'lucide-react';
+import { primaryNavigation, isPrimaryActive } from '@/lib/navigation';
 
-interface MobileBottomBarProps {
-  onOpenQuickCapture: () => void;
-}
-
+interface MobileBottomBarProps { onOpenQuickCapture: () => void }
 export function MobileBottomBar(_props: MobileBottomBarProps) {
   const pathname = usePathname();
-
-  const navItems = [
-    {
-      title: 'Home',
-      href: '/dashboard',
-      icon: LayoutDashboard,
-      isActive: pathname === '/dashboard' || pathname === '/',
-    },
-    {
-      title: 'Ask',
-      href: '/assistant',
-      icon: Bot,
-      isActive: pathname === '/assistant',
-    },
-    {
-      title: 'Capture',
-      href: '/capture',
-      isActive: pathname === '/capture',
-      icon: Plus,
-    },
-    {
-      title: 'People',
-      href: '/people',
-      icon: Users,
-      isActive: pathname.startsWith('/people') || pathname.startsWith('/organizations') || pathname.startsWith('/meetings'),
-    },
-    {
-      title: 'Work',
-      href: '/tasks',
-      icon: CheckSquare,
-      isActive: pathname.startsWith('/tasks') || pathname.startsWith('/projects') || pathname.startsWith('/ventures'),
-    },
-  ];
-
-  return (
-    <nav
-      aria-label="Mobile Primary Navigation"
-      className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-[#0a0510]/95 backdrop-blur-xl border-t border-[#251238] px-2 py-1.5 safe-area-pb"
-    >
-      <div className="flex items-center justify-around max-w-md mx-auto">
-        {navItems.map((item, index) => {
-          const Icon = item.icon;
-          const active = item.isActive;
-
-          return (
-            <Link
-              key={item.href || index}
-              href={item.href!}
-              className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all ${
-                active
-                  ? 'text-[#00ff9d]'
-                  : 'text-muted-foreground hover:text-[#f7f4ea] active:scale-95'
-              }`}
-            >
-              <div className="relative">
-                <Icon className={`h-5 w-5 ${active ? 'text-[#00ff9d]' : 'text-muted-foreground'}`} />
-                {active && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-[#00ff9d] shadow-[0_0_6px_#00ff9d]" />
-                )}
-              </div>
-              <span className={`text-[10px] font-sans mt-1 ${active ? 'font-bold text-[#00ff9d]' : 'font-medium'}`}>
-                {item.title}
-              </span>
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
-  );
+  return <nav aria-label="Mobile Primary Navigation" className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-1 py-1.5 backdrop-blur-xl safe-area-pb md:hidden">
+    <div className="mx-auto grid max-w-md grid-cols-5">{primaryNavigation.map(item => {
+      const active = isPrimaryActive(item.href, pathname); const Icon = item.icon;
+      return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined}
+        className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 text-xs ${active ? 'text-primary' : 'text-muted-foreground'} ${item.title === 'Capture' ? 'bg-primary/10 font-semibold' : ''}`}>
+        <Icon className="h-5 w-5" /><span>{item.title}</span>
+      </Link>;
+    })}</div>
+  </nav>;
 }
