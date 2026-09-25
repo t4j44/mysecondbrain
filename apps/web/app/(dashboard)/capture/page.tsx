@@ -12,6 +12,7 @@ type Proposal = {
   venture_name: string | null; role: string | null; where_met: string | null;
   when_met: string | null; summary: string; commitment: string | null;
   due_at: string | null; direction: 'owed_by_me' | 'owed_to_me' | 'unspecified';
+  topics: string[];
 };
 type Draft = { draft_id: string; proposal: Proposal; mode: string };
 
@@ -24,7 +25,8 @@ export default function CapturePage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [saved, setSaved] = useState(false);
-  const fields: [keyof Proposal, string][] = [
+  const [records, setRecords] = useState<{ type: string; id: string }[]>([]);
+  const fields: [Exclude<keyof Proposal, 'topics'>, string][] = [
     ['person_name', 'Person'], ['organization_name', 'Organization'], ['role', 'Role'],
     ['where_met', 'Where you met'], ['project_name', 'Existing project'],
     ['venture_name', 'Existing venture'], ['commitment', 'Commitment'],
@@ -63,10 +65,15 @@ export default function CapturePage() {
           {people.map(person => <option key={person.id} value={person.id}>{person.name}{person.company ? ` · ${person.company}` : ''} · {person.id.slice(0, 8)}</option>)}
         </select><p className="text-sm text-muted-foreground">Choose a record if multiple contacts share this name.</p>
       </label>
+      <p className="text-sm text-muted-foreground">Existing identity facts are kept. Review company changes on the person’s profile. Dates such as “Friday” need your confirmation below.</p>
       <div className="grid gap-4 sm:grid-cols-2">{fields.map(([key, label]) => <label key={key} className="space-y-1 text-sm">
         <span>{label}</span><input className="min-h-11 w-full rounded border bg-background px-3" value={draft.proposal[key] || ''}
           onChange={event => setDraft({ ...draft, proposal: { ...draft.proposal, [key]: event.target.value || null } })} />
       </label>)}</div>
+      <label className="block space-y-1"><span>Topics discussed (comma separated)</span><input className="min-h-11 w-full rounded border bg-background px-3"
+        value={(draft.proposal.topics || []).join(', ')} onChange={event => setDraft({ ...draft, proposal: { ...draft.proposal, topics: event.target.value.split(',').slice(0, 12) } })} /></label>
+      <label className="block space-y-1"><span>When you met (your device timezone)</span><input type="datetime-local" className="min-h-11 rounded border bg-background px-3"
+        value={localDateTime(draft.proposal.when_met)} onChange={event => setDraft({ ...draft, proposal: { ...draft.proposal, when_met: event.target.value ? new Date(event.target.value).toISOString() : null } })} /></label>
       <label className="block space-y-1"><span>Summary</span><textarea rows={3} className="w-full rounded border bg-background p-3"
         value={draft.proposal.summary} onChange={event => setDraft({ ...draft, proposal: { ...draft.proposal, summary: event.target.value } })} /></label>
       <label className="block space-y-1"><span>Who made the commitment?</span><select className="min-h-11 w-full rounded border bg-background px-3"
@@ -74,13 +81,22 @@ export default function CapturePage() {
         <option value="unspecified">Not specified</option><option value="owed_by_me">I did — also create a task</option><option value="owed_to_me">They did</option>
       </select></label>
       <label className="block space-y-1"><span>Due date and time (your device timezone)</span><input type="datetime-local" className="min-h-11 rounded border bg-background px-3"
+        value={localDateTime(draft.proposal.due_at)}
         onChange={event => setDraft({ ...draft, proposal: { ...draft.proposal, due_at: event.target.value ? new Date(event.target.value).toISOString() : null } })} /></label>
       <button disabled={busy || !draft.proposal.summary.trim()} className="min-h-11 rounded-lg bg-primary px-5 text-primary-foreground disabled:opacity-50"
         onClick={() => run(async () => {
-          await api.post(`/capture/${draft.draft_id}/confirm`, { confirmed: true, proposal: draft.proposal, person_id: personId || null });
+          const result = await api.post<{records: {type: string; id: string}[]}>(`/capture/${draft.draft_id}/confirm`, { confirmed: true, proposal: draft.proposal, person_id: personId || null });
+          setRecords(result.records);
           setText(''); setDraft(null); setPersonId(''); setSource('manual'); setSaved(true); setMessage('Saved. Your context and confirmed connections are ready. Search indexing runs separately.');
         })}>Confirm and save</button>
     </section>}
     {message && <p role={saved ? 'status' : 'alert'} className="rounded border p-3">{message}</p>}
+    {saved && <nav aria-label="Saved context" className="flex flex-wrap gap-4">{records.map(record => <Link key={record.id} className="underline" href={record.type === 'person' ? `/people/${record.id}` : `/sources/${record.type}/${record.id}`}>Open {record.type}</Link>)}</nav>}
   </div>;
+}
+
+function localDateTime(value: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }

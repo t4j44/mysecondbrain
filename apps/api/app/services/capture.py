@@ -3,9 +3,9 @@
 import json
 from datetime import datetime, timezone
 from typing import Literal
-from uuid import UUID
+from uuid import UUID, uuid5
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 
 from app.ai.privacy import PrivacyBlocked, private_ai_scope
@@ -45,6 +45,15 @@ class CaptureProposal(BaseModel):
     commitment: str | None = Field(default=None, max_length=1000)
     due_at: AwareDatetime | None = None
     direction: Literal["owed_by_me", "owed_to_me", "unspecified"] = "unspecified"
+    topics: list[str] = Field(default_factory=list, max_length=12)
+
+    @field_validator("topics")
+    @classmethod
+    def clean_topics(cls, values):
+        topics = list(dict.fromkeys(value.strip().casefold() for value in values if value.strip()))
+        if any(len(value) > 80 for value in topics):
+            raise ValueError("Topics must be at most 80 characters.")
+        return topics
 
 
 class CaptureConfirm(BaseModel):
@@ -134,9 +143,9 @@ class CaptureService:
         interaction = Interaction(user_id=self.user_id, person_id=person.id if person else None,
             title=p.summary[:255], summary=p.summary, detailed_notes=source["source_text"],
             date=p.when_met or datetime.now(timezone.utc), location=p.where_met,
-            interaction_type="note", **links)
+            interaction_type="note", meta={"topics": p.topics, "capture_id": draft_id}, **links)
         memory = Memory(user_id=self.user_id, title=p.summary[:255], content=source["source_text"],
-                        meta={"capture_id": draft_id, "source": source["source"]},
+                        meta={"capture_id": draft_id, "source": source["source"], "topics": p.topics},
                         linked_person_id=person.id if person else None,
                         linked_venture_id=venture.id if venture else None,
                         related_people=[person.id] if person else [],
@@ -176,6 +185,23 @@ class CaptureService:
                 self.db.add(task)
                 await self.db.flush()
                 records.append(("task", task))
+                self.db.add(EntityEdge(user_id=self.user_id, source_entity_type="task",
+                    source_entity_id=task.id, target_entity_type="commitment", target_entity_id=commitment.id,
+                    relationship_type="fulfills", metadata_payload={"capture_id": draft_id}))
+        if person:
+            # Topics describe this recorded discussion, not an inferred personal trait.
+            for topic in p.topics:
+                self.db.add(EntityEdge(user_id=self.user_id, source_entity_type="person",
+                    source_entity_id=person.id, target_entity_type="topic",
+                    target_entity_id=str(uuid5(UUID(self.user_id), "topic:" + topic)),
+                    relationship_type="discussed", metadata_payload={"label": topic,
+                        "interaction_id": str(interaction.id), "capture_id": draft_id}))
+            for kind, record in records:
+                if kind != "person":
+                    self.db.add(EntityEdge(user_id=self.user_id, source_entity_type="person",
+                        source_entity_id=person.id, target_entity_type=kind, target_entity_id=record.id,
+                        relationship_type="recorded_context", metadata_payload={"capture_id": draft_id,
+                            "interaction_id": str(interaction.id), "confirmed": True}))
         for kind, record in records:
             if kind != "interaction":
                 self.db.add(EntityEdge(user_id=self.user_id, source_entity_type="interaction",
