@@ -211,7 +211,7 @@ class RelationshipService:
         people_ids = {str(row.person_id) for row in recent}
         people = await self.rows(Person, Person.id.in_(people_ids), limit=100)
         names = {str(p.id): p.name for p in people}
-        projects = await self.rows(Project, Project.status.in_(['active', 'planning']), limit=6, order=Project.updated_at.desc())
+        projects = await self.rows(Project, Project.status.in_(['active', 'planned']), limit=6, order=Project.updated_at.desc())
         work = []
         for project in projects:
             connections = await self.rows(Interaction, Interaction.project_id == project.id, Interaction.person_id.is_not(None), limit=30, order=Interaction.date.desc())
