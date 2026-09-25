@@ -10,10 +10,20 @@ export default function SourcePage() {
   const [source, setSource] = useState<{ title: string; text: string; updated_at: string } | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [people, setPeople] = useState<{id: string; title: string; uri: string; reason: string}[]>([]);
+  const [connectionError, setConnectionError] = useState('');
   useEffect(() => {
     let active = true;
     api.get<{ title: string; text: string; updated_at: string }>(`/sources/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`)
       .then(data => { if (active) setSource(data); }).catch(error => { if (active) setMessage(error.message); });
+    return () => { active = false; };
+  }, [kind, id]);
+  useEffect(() => {
+    setPeople([]); setConnectionError('');
+    if (!['project', 'venture', 'meeting', 'document', 'organization', 'person', 'task', 'commitment'].includes(kind)) return;
+    let active = true;
+    api.get<{id: string; title: string; uri: string; reason: string}[]>(`/relationships/records/${encodeURIComponent(kind)}/${encodeURIComponent(id)}/people`)
+      .then(rows => { if (active) setPeople(rows); }).catch(() => { if (active) setConnectionError('Related people could not be loaded.'); });
     return () => { active = false; };
   }, [kind, id]);
   return <article className="mx-auto max-w-3xl space-y-5">
@@ -29,5 +39,7 @@ export default function SourcePage() {
         finally { setBusy(false); }
       }}>Retry search indexing</button></> : !message && <p role="status">Loading source…</p>}
     {message && <p role="status">{message}</p>}
+    {!!people.length && <section className="space-y-3 rounded-xl border p-4"><h2 className="text-xl font-semibold">Connected people</h2>{people.map(person => <div key={person.id}><Link className="underline" href={person.uri}>{person.title}</Link><p className="mt-1 text-sm text-muted-foreground">{person.reason}</p></div>)}</section>}
+    {connectionError && <p role="alert" className="text-sm">{connectionError}</p>}
   </article>;
 }

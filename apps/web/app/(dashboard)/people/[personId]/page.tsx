@@ -164,7 +164,7 @@ export default function PersonDetailPage() {
         </section>
 
         <section className="lg:col-span-2">
-          <PersonContext personId={personId} />
+          <PersonContext personId={personId} onProfileChanged={fetchPerson} />
           <div className="border border-[#301642] bg-[#0a0510] p-6 rounded-xl">
             <h2 className="text-lg font-mono text-[#00ff9d] uppercase border-b border-[#301642] pb-2 mb-4">
               Notes

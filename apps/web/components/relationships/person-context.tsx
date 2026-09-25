@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { api } from '@/lib/api/browser-client';
 import { displayDate, type Profile } from '@/lib/relationships';
 import { FollowupCard } from './followup-card';
+import { EnrichmentPanel } from './enrichment-panel';
+import { ConnectionEditor } from './connection-editor';
 
-export function PersonContext({personId}: {personId: string}) {
+export function PersonContext({personId, onProfileChanged}: {personId: string; onProfileChanged?: () => void}) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState('');
   const load = useCallback(async () => {
@@ -30,8 +32,10 @@ export function PersonContext({personId}: {personId: string}) {
     </section>
     <section className={section}><h2 className="text-xl font-semibold">Work and connections</h2>{profile.related.filter(item => !['interaction', 'memory', 'task', 'commitment'].includes(item.kind)).map(item => <div key={`${item.kind}:${item.id}`}><Link className="font-medium underline" href={item.uri}>{item.title}</Link><span className="ml-2 text-xs text-slate-400">{item.kind}</span><p className="mt-1 text-sm text-slate-400">{item.reason} <Link className="underline" href={item.evidence.uri}>Evidence</Link></p></div>)}{!profile.related.length && <p className="text-sm text-slate-400">No explicit connections yet. Link a project or venture when capturing your next conversation.</p>}
       {!!profile.affiliations.length && <div><h3 className="font-medium">Company history</h3>{profile.affiliations.map((role, index) => <p className="mt-2 text-sm" key={`${role.id}:${index}`}><Link className="underline" href={role.uri}>{role.title}</Link>{role.role ? ` · ${role.role}` : ''} · {role.current ? 'Current recorded affiliation' : 'Previous affiliation'}</p>)}</div>}
+      <ConnectionEditor personId={personId} onChanged={load} />
     </section>
     <section className={section}><div className="flex flex-wrap justify-between gap-3"><h2 className="text-xl font-semibold">Relationship timeline</h2><Link className="text-sm underline" href="/capture">Record a conversation</Link></div>{!!profile.topics.length && <p className="text-sm text-slate-400">Topics discussed: {profile.topics.join(', ')}</p>}{profile.timeline.map(item => <article className="border-l-2 border-[#301642] pl-4" key={item.id}><time className="text-xs text-slate-400">{displayDate(item.date)}{item.location ? ` · ${item.location}` : ''}</time><p className="my-2 whitespace-pre-wrap text-sm">{item.summary || item.title}</p><Link className="text-xs underline" href={item.uri}>Open interaction</Link></article>)}{!profile.timeline.length && <p className="text-sm text-slate-400">No interactions recorded.</p>}</section>
     <p className="text-xs text-slate-400">{profile.limits}</p>
+    <EnrichmentPanel personId={personId} onChanged={() => { void load(); onProfileChanged?.(); }} />
   </div>;
 }

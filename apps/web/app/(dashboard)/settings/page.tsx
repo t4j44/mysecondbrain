@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api/browser-client';
+import { BetaActivity } from '@/components/relationships/beta-activity';
 export default function SettingsOverviewPage() {
   const [counts, setCounts] = useState<Record<string, number> | null>(null);
   useEffect(() => { api.get<{ counts: Record<string, number> }>('/beta/value').then(value => setCounts(value.counts)).catch(() => setCounts(null)); }, []);
@@ -15,6 +16,7 @@ export default function SettingsOverviewPage() {
       <p className="mt-2">{counts.capture_confirmed} captures saved · {counts.beta_retrieval} searches · {counts.beta_source_opened} source checks</p>
       <p className="mt-1 text-sm text-muted-foreground">Activity counts help you reflect on use. They do not prove answer accuracy or time saved.</p>
     </section>}
+    <BetaActivity />
     <form className="space-y-4 rounded-xl border p-4" onSubmit={async event => {
       event.preventDefault(); setBusy(true); setMessage('');
       try { await api.post('/beta/feedback', { outcome, note }); setNote(''); setMessage('Feedback saved privately. Thank you for testing.'); }

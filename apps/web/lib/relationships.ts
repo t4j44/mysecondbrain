@@ -12,6 +12,7 @@ export type Profile = {
   followups: Followup[]; limits: string;
 };
 export type HomeData = {
+  activation: {counts: Record<string, number>; targets: Record<string, number>; activated: boolean; first_activated_at: string | null; successful_actions_last_7_days: number; definition: string; success_definition: string};
   followups: Followup[];
   meetings: (Evidence & {date: string; people: Evidence[]})[];
   projects: (Evidence & {people: {person_id: string; name: string; reason: string; evidence: Evidence}[]})[];
