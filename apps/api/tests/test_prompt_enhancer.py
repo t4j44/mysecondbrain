@@ -112,7 +112,7 @@ async def test_personal_context_is_bounded_and_marked_untrusted(monkeypatch):
 
     result = await PromptEnhancerService().enhance(
         text="help me plan my startup launch",
-        use_context if False else "full",
+        mode="full",
         context_items=context,
     )
 
