@@ -177,14 +177,20 @@ async def enhance_prompt(
     mode: str = "full",
     compression: str = "safe",
     target: str = "auto",
+    use_context: bool = False,
+    context_query: Optional[str] = None,
+    context_limit: int = 5,
 ) -> dict[str, Any]:
-    """Improve grammar, clarity, structure and token efficiency without executing the prompt."""
+    """Improve a prompt and optionally add bounded, relevant Second Brain context."""
     async with _domain(SCOPE_CONTENT_DRAFT) as domain:
         return await domain.enhance_prompt(
             text=text,
             mode=mode,
             compression=compression,
             target=target,
+            use_context=use_context,
+            context_query=context_query,
+            context_limit=context_limit,
         )
 
 
