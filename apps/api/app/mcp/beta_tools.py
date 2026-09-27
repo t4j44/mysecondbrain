@@ -103,6 +103,8 @@ class BetaMCPTools:
         mode: str = "full",
         compression: str = "safe",
         target: str = "auto",
+        framework: str = "auto",
+        role: str | None = None,
         use_context: bool = False,
         context_query: str | None = None,
         context_limit: int = 5,
@@ -120,6 +122,8 @@ class BetaMCPTools:
             mode=mode,
             compression=compression,
             target=target,
+            framework=framework,
+            role=role,
             context_items=context_items,
         )
 
@@ -178,7 +182,7 @@ def spec(name, properties, required, write=False, scopes=None):
         'list_followups': 'List actionable follow-ups with reasons and recorded evidence.',
         'find_people_who_can_help': 'Find potential contacts from saved evidence; never claim an unrecorded introduction path.',
         'log_interaction': 'Propose an interaction using text; obtain user review before submitting draft_id, reviewed_proposal and confirmed=true.',
-        'enhance_prompt': 'Rewrite a prompt for grammar, clarity, structure and token efficiency; optionally retrieve a small amount of relevant Second Brain context before rewriting.',
+        'enhance_prompt': 'Rewrite a prompt using role-aware prompt engineering, standard frameworks, grammar/clarity improvements and token efficiency; optionally retrieve bounded relevant Second Brain context.',
     }[name], 'required_scope': scopes[0], 'additional_scopes': list(scopes[1:]), 'write': write,
         'input_schema': {'type': 'object', 'properties': properties, 'required': required, 'additionalProperties': False}}
 
@@ -190,6 +194,8 @@ READ_TOOLS = [
         'mode': {'type': 'string', 'enum': ['grammar', 'improve', 'structure', 'compress', 'full'], 'default': 'full'},
         'compression': {'type': 'string', 'enum': ['safe', 'balanced', 'maximum'], 'default': 'safe'},
         'target': {'type': 'string', 'enum': ['auto', 'chatgpt', 'claude', 'gemini', 'cursor', 'other'], 'default': 'auto'},
+        'framework': {'type': 'string', 'enum': ['auto', 'rtf', 'costar', 'risen', 'none'], 'default': 'auto'},
+        'role': {'type': 'string', 'maxLength': 200},
         'use_context': {'type': 'boolean', 'default': False},
         'context_query': {'type': 'string', 'maxLength': 500},
         'context_limit': {'type': 'integer', 'minimum': 1, 'maximum': 8, 'default': 5},
