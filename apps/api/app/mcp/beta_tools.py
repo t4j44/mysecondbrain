@@ -14,12 +14,14 @@ from app.core.errors import AIProviderError
 from app.mcp.security import (
     FINALIZE_REQUIRED_SCOPES,
     READ_SCOPES,
+    SCOPE_CONTENT_DRAFT,
     SCOPE_TASKS_WRITE,
 )
 from app.models.entities import Interaction
 from app.schemas.network import CommitmentCreate, CommitmentResponse
 from app.services.capture import CaptureConfirm, CaptureInput, CaptureService
 from app.services.network import CommitmentService, NetworkIntelligenceService
+from app.services.prompt_enhancer import PromptEnhancerService
 from app.services.relationships import RelationshipService
 
 
@@ -95,6 +97,36 @@ class BetaMCPTools:
     async def list_followups(self, limit: int = 20):
         return jsonable_encoder(await RelationshipService(self.db, self.user_id).followups(limit=limit))
 
+    async def enhance_prompt(
+        self,
+        text: str,
+        mode: str = "full",
+        compression: str = "safe",
+        target: str = "auto",
+        framework: str = "auto",
+        role: str | None = None,
+        use_context: bool = False,
+        context_query: str | None = None,
+        context_limit: int = 5,
+    ):
+        """Improve a prompt and optionally inject bounded, relevant Second Brain context."""
+        context_items = []
+        if use_context:
+            query = (context_query or text).strip()
+            context_items = await self.search_context(
+                query=query,
+                limit=max(1, min(context_limit, 8)),
+            )
+        return await PromptEnhancerService().enhance(
+            text=text,
+            mode=mode,
+            compression=compression,
+            target=target,
+            framework=framework,
+            role=role,
+            context_items=context_items,
+        )
+
     async def find_people_who_can_help(self, query: str, limit: int = 5):
         return await self.find_relevant_contacts(query, limit)
 
@@ -150,12 +182,24 @@ def spec(name, properties, required, write=False, scopes=None):
         'list_followups': 'List actionable follow-ups with reasons and recorded evidence.',
         'find_people_who_can_help': 'Find potential contacts from saved evidence; never claim an unrecorded introduction path.',
         'log_interaction': 'Propose an interaction using text; obtain user review before submitting draft_id, reviewed_proposal and confirmed=true.',
+        'enhance_prompt': 'Rewrite a prompt using role-aware prompt engineering, standard frameworks, grammar/clarity improvements and token efficiency; optionally retrieve bounded relevant Second Brain context.',
     }[name], 'required_scope': scopes[0], 'additional_scopes': list(scopes[1:]), 'write': write,
         'input_schema': {'type': 'object', 'properties': properties, 'required': required, 'additionalProperties': False}}
 
 
 STRING = {'type': 'string'}
 READ_TOOLS = [
+    spec('enhance_prompt', {
+        'text': {'type': 'string', 'minLength': 1, 'maxLength': 20000},
+        'mode': {'type': 'string', 'enum': ['grammar', 'improve', 'structure', 'compress', 'full'], 'default': 'full'},
+        'compression': {'type': 'string', 'enum': ['safe', 'balanced', 'maximum'], 'default': 'safe'},
+        'target': {'type': 'string', 'enum': ['auto', 'chatgpt', 'claude', 'gemini', 'cursor', 'other'], 'default': 'auto'},
+        'framework': {'type': 'string', 'enum': ['auto', 'rtf', 'costar', 'risen', 'none'], 'default': 'auto'},
+        'role': {'type': 'string', 'maxLength': 200},
+        'use_context': {'type': 'boolean', 'default': False},
+        'context_query': {'type': 'string', 'maxLength': 500},
+        'context_limit': {'type': 'integer', 'minimum': 1, 'maximum': 8, 'default': 5},
+    }, ['text'], False, [SCOPE_CONTENT_DRAFT]),
     spec('list_followups', {'limit': {'type': 'integer'}}, []),
     spec('find_people_who_can_help', {'query': STRING, 'limit': {'type': 'integer'}}, ['query']),
     spec('search_document_chunks', {'query': STRING, 'limit': {'type': 'integer'}}, ['query']),

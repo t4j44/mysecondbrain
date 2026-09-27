@@ -172,6 +172,37 @@ async def get_calendar(limit: int = 20) -> list[dict[str, Any]]:
 
 
 @mcp_server.tool(annotations=DRAFT_ONLY)
+async def enhance_prompt(
+    text: str,
+    mode: str = "full",
+    compression: str = "safe",
+    target: str = "auto",
+    framework: str = "auto",
+    role: Optional[str] = None,
+    use_context: bool = False,
+    context_query: Optional[str] = None,
+    context_limit: int = 5,
+) -> dict[str, Any]:
+    """Improve a prompt with role-aware frameworks and optional bounded Second Brain context."""
+    required_scopes = [SCOPE_CONTENT_DRAFT]
+    if use_context:
+        required_scopes.append(SCOPE_MEMORY_READ)
+    owner = _authenticated_user_id(*required_scopes)
+    async with rls_db_session(owner) as db:
+        return await MCPDomainTools(db=db, user_id=owner).enhance_prompt(
+            text=text,
+            mode=mode,
+            compression=compression,
+            target=target,
+            framework=framework,
+            role=role,
+            use_context=use_context,
+            context_query=context_query,
+            context_limit=context_limit,
+        )
+
+
+@mcp_server.tool(annotations=DRAFT_ONLY)
 async def generate_linkedin_post(
     topic: str, style_tone: Optional[str] = "executive"
 ) -> dict[str, Any]:

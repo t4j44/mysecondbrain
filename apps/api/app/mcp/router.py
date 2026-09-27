@@ -542,6 +542,20 @@ async def invoke_mcp_tool(
         )
         await admin_db.commit()
 
+    # Contextual prompt enhancement can read private memory, so require memory-read only
+    # when the caller explicitly enables context. Plain grammar/structure use stays draft-only.
+    if payload.tool == "enhance_prompt" and bool((payload.arguments or {}).get("use_context")):
+        try:
+            verify_scope(sec_ctx.granted_scopes, SCOPE_MEMORY_READ)
+        except MCPScopeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    f"MCP credential lacks required capability scope '{SCOPE_MEMORY_READ}' "
+                    "for contextual prompt enhancement."
+                ),
+            ) from exc
+
     # finalize_work_session spans five domains, so every one of their write scopes must be
     # granted before it can run.
     for extra_scope in tool_spec.get("additional_scopes", []):
