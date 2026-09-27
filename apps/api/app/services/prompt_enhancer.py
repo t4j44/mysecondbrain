@@ -32,9 +32,9 @@ class PromptEnhancerService:
     async def enhance(
         self,
         text: str,
-        mode: PromptMode = "full",
-        compression: CompressionLevel = "safe",
-        target: PromptTarget = "auto",
+        mode: str = "full",
+        compression: str = "safe",
+        target: str = "auto",
     ) -> dict:
         request = PromptEnhanceRequest(
             text=text,
