@@ -103,13 +103,24 @@ class BetaMCPTools:
         mode: str = "full",
         compression: str = "safe",
         target: str = "auto",
+        use_context: bool = False,
+        context_query: str | None = None,
+        context_limit: int = 5,
     ):
-        """Improve a prompt without executing it."""
+        """Improve a prompt and optionally inject bounded, relevant Second Brain context."""
+        context_items = []
+        if use_context:
+            query = (context_query or text).strip()
+            context_items = await self.search_context(
+                query=query,
+                limit=max(1, min(context_limit, 8)),
+            )
         return await PromptEnhancerService().enhance(
             text=text,
             mode=mode,
             compression=compression,
             target=target,
+            context_items=context_items,
         )
 
     async def find_people_who_can_help(self, query: str, limit: int = 5):
@@ -167,7 +178,7 @@ def spec(name, properties, required, write=False, scopes=None):
         'list_followups': 'List actionable follow-ups with reasons and recorded evidence.',
         'find_people_who_can_help': 'Find potential contacts from saved evidence; never claim an unrecorded introduction path.',
         'log_interaction': 'Propose an interaction using text; obtain user review before submitting draft_id, reviewed_proposal and confirmed=true.',
-        'enhance_prompt': 'Rewrite a prompt for grammar, clarity, structure and optional token compression without executing the prompt.',
+        'enhance_prompt': 'Rewrite a prompt for grammar, clarity, structure and token efficiency; optionally retrieve a small amount of relevant Second Brain context before rewriting.',
     }[name], 'required_scope': scopes[0], 'additional_scopes': list(scopes[1:]), 'write': write,
         'input_schema': {'type': 'object', 'properties': properties, 'required': required, 'additionalProperties': False}}
 
@@ -179,6 +190,9 @@ READ_TOOLS = [
         'mode': {'type': 'string', 'enum': ['grammar', 'improve', 'structure', 'compress', 'full'], 'default': 'full'},
         'compression': {'type': 'string', 'enum': ['safe', 'balanced', 'maximum'], 'default': 'safe'},
         'target': {'type': 'string', 'enum': ['auto', 'chatgpt', 'claude', 'gemini', 'cursor', 'other'], 'default': 'auto'},
+        'use_context': {'type': 'boolean', 'default': False},
+        'context_query': {'type': 'string', 'maxLength': 500},
+        'context_limit': {'type': 'integer', 'minimum': 1, 'maximum': 8, 'default': 5},
     }, ['text'], False, [SCOPE_CONTENT_DRAFT]),
     spec('list_followups', {'limit': {'type': 'integer'}}, []),
     spec('find_people_who_can_help', {'query': STRING, 'limit': {'type': 'integer'}}, ['query']),
