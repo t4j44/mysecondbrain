@@ -184,8 +184,12 @@ async def enhance_prompt(
     context_limit: int = 5,
 ) -> dict[str, Any]:
     """Improve a prompt with role-aware frameworks and optional bounded Second Brain context."""
-    async with _domain(SCOPE_CONTENT_DRAFT) as domain:
-        return await domain.enhance_prompt(
+    required_scopes = [SCOPE_CONTENT_DRAFT]
+    if use_context:
+        required_scopes.append(SCOPE_MEMORY_READ)
+    owner = _authenticated_user_id(*required_scopes)
+    async with rls_db_session(owner) as db:
+        return await MCPDomainTools(db=db, user_id=owner).enhance_prompt(
             text=text,
             mode=mode,
             compression=compression,
