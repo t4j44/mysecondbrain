@@ -172,6 +172,23 @@ async def get_calendar(limit: int = 20) -> list[dict[str, Any]]:
 
 
 @mcp_server.tool(annotations=DRAFT_ONLY)
+async def enhance_prompt(
+    text: str,
+    mode: str = "full",
+    compression: str = "safe",
+    target: str = "auto",
+) -> dict[str, Any]:
+    """Improve grammar, clarity, structure and token efficiency without executing the prompt."""
+    async with _domain(SCOPE_CONTENT_DRAFT) as domain:
+        return await domain.enhance_prompt(
+            text=text,
+            mode=mode,
+            compression=compression,
+            target=target,
+        )
+
+
+@mcp_server.tool(annotations=DRAFT_ONLY)
 async def generate_linkedin_post(
     topic: str, style_tone: Optional[str] = "executive"
 ) -> dict[str, Any]:
