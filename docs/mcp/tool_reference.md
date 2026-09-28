@@ -51,6 +51,15 @@
 
 ## 2. Generative Content & Workflow Drafting Tools
 
+### `enhance_prompt`
+
+Rewrite a supplied instruction for user review without executing or saving it.
+Plain use requires `mcp:content:draft`; optional contextual use additionally requires
+`mcp:memory:read`. Defaults to no private retrieval. Supports five editing modes,
+RTF/CO-STAR/RISEN/none, an optional role, three compression levels and light target
+guidance. Returns the draft, approximate token counts and minimal source references.
+See [complete inputs, privacy boundary and examples](prompt_intelligence.md).
+
 > [!IMPORTANT]
 > All drafting tools operate strictly in non-destructive mode. They synthesize underlying founder data into high-quality textual structures containing verifiable citation hyperlinks and explicitly require human acceptance before any external publishing occurs.
 

@@ -1,7 +1,7 @@
 """Official MCP SDK server mounted into the unified FastAPI process."""
 
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Optional, cast
+from typing import Annotated, Any, AsyncGenerator, Optional, cast
 
 from mcp.server import MCPServer
 from mcp.server.auth.middleware.auth_context import get_access_token
@@ -9,7 +9,7 @@ from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
-from pydantic import AnyHttpUrl
+from pydantic import AnyHttpUrl, Field, StrictBool
 
 from app.core.config import settings
 from app.dependencies.database import admin_db_session, rls_db_session
@@ -34,6 +34,13 @@ from app.mcp.security import (
 )
 from app.mcp.tools import MCPDomainTools
 from app.repositories.mcp import MCPCredentialRepository
+from app.services.prompt_enhancer import (
+    CompressionLevel,
+    PromptFramework,
+    PromptMode,
+    PromptTarget,
+    validate_request,
+)
 
 
 class DatabaseTokenVerifier(TokenVerifier):
@@ -172,6 +179,33 @@ async def get_calendar(limit: int = 20) -> list[dict[str, Any]]:
     """List the authenticated user's upcoming meetings."""
     async with _domain(SCOPE_CALENDAR_READ) as domain:
         return await domain.get_calendar(limit=limit)
+
+
+@mcp_server.tool(annotations=DRAFT_ONLY)
+async def enhance_prompt(
+    text: str,
+    mode: PromptMode = 'full',
+    compression: CompressionLevel = 'safe',
+    target: PromptTarget = 'auto',
+    framework: PromptFramework = 'auto',
+    role: str | None = None,
+    use_context: StrictBool = False,
+    context_query: str | None = None,
+    context_limit: Annotated[int, Field(strict=True, ge=1, le=8)] = 5,
+) -> dict[str, Any]:
+    """Rewrite a prompt for review; never execute it or save records.
+
+    Requires mcp:content:draft. Optional use_context also requires mcp:memory:read.
+    By default no private records are retrieved. Context is limited to eight items.
+    """
+    user_id = _authenticated_user_id(SCOPE_CONTENT_DRAFT)
+    request = validate_request(dict(text=text, mode=mode, compression=compression,
+        target=target, framework=framework, role=role, use_context=use_context,
+        context_query=context_query, context_limit=context_limit))
+    if request.use_context:
+        _authenticated_user_id(SCOPE_MEMORY_READ)
+    async with rls_db_session(user_id) as db:
+        return await MCPDomainTools(db=db, user_id=user_id).enhance_prompt(**request.model_dump())
 
 
 @mcp_server.tool(annotations=DRAFT_ONLY)

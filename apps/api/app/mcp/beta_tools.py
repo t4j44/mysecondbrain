@@ -14,12 +14,19 @@ from app.core.errors import AIProviderError
 from app.mcp.security import (
     FINALIZE_REQUIRED_SCOPES,
     READ_SCOPES,
+    SCOPE_CONTENT_DRAFT,
     SCOPE_TASKS_WRITE,
 )
 from app.models.entities import Interaction
 from app.schemas.network import CommitmentCreate, CommitmentResponse
 from app.services.capture import CaptureConfirm, CaptureInput, CaptureService
 from app.services.network import CommitmentService, NetworkIntelligenceService
+from app.services.prompt_context import retrieve_prompt_context
+from app.services.prompt_enhancer import (
+    PromptEnhanceRequest,
+    PromptEnhancerService,
+    validate_request,
+)
 from app.services.relationships import RelationshipService
 
 
@@ -31,6 +38,14 @@ class ContextQuery(BaseModel):
 class BetaMCPTools:
     db: AsyncSession
     user_id: str
+
+    async def enhance_prompt(self, **arguments):
+        request = validate_request(arguments)
+        context = []
+        if request.use_context and request.mode != 'grammar':
+            context = await retrieve_prompt_context(self.db, self.user_id,
+                request.context_query or request.text[:500], request.context_limit)
+        return await PromptEnhancerService().enhance(request, owner=self.user_id, context_items=context)
 
     async def search_context(self, query: str, limit: int = 10):
         request = ContextQuery(query=query, limit=limit)
@@ -135,6 +150,7 @@ class BetaMCPTools:
 def spec(name, properties, required, write=False, scopes=None):
     scopes = scopes or sorted(READ_SCOPES)
     return {'name': name, 'description': {
+        'enhance_prompt': 'Rewrite a prompt for user review only; never execute it. Requires mcp:content:draft; use_context=true also requires mcp:memory:read. No private retrieval by default.',
         'find_relevant_contacts': 'Suggest contacts only from saved context and relationship links, with evidence.',
         'search_document_chunks': 'Retrieve a bounded set of relevant document excerpts.',
         'get_document_section': 'Read a page of document sections; never returns the full document by default.',
@@ -156,6 +172,7 @@ def spec(name, properties, required, write=False, scopes=None):
 
 STRING = {'type': 'string'}
 READ_TOOLS = [
+    spec('enhance_prompt', PromptEnhanceRequest.model_json_schema()['properties'], ['text'], scopes=[SCOPE_CONTENT_DRAFT]),
     spec('list_followups', {'limit': {'type': 'integer'}}, []),
     spec('find_people_who_can_help', {'query': STRING, 'limit': {'type': 'integer'}}, ['query']),
     spec('search_document_chunks', {'query': STRING, 'limit': {'type': 'integer'}}, ['query']),

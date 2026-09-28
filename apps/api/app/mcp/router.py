@@ -31,6 +31,7 @@ from app.mcp.security import (
     verify_scope,
 )
 from app.mcp.tools import MCPDomainTools
+from app.services.prompt_enhancer import validate_request
 
 router = APIRouter(tags=["MCP Streamable HTTP Server"])
 
@@ -559,6 +560,14 @@ async def invoke_mcp_tool(
             ) from exc
 
     args = payload.arguments or {}
+    if payload.tool == 'enhance_prompt':
+        request = validate_request(args)
+        if request.use_context:
+            try:
+                verify_scope(sec_ctx.granted_scopes, SCOPE_MEMORY_READ)
+            except MCPScopeError as exc:
+                raise HTTPException(status_code=403, detail='Contextual prompt rewriting requires mcp:memory:read.') from exc
+        args = request.model_dump()
     result: Any = None
 
     if tool_spec.get("write"):

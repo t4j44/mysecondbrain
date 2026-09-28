@@ -61,6 +61,13 @@ silently broadened. Keep secrets in the client's secret manager. Do not commit t
 
 ## Staging acceptance
 
+For [Prompt Intelligence](prompt_intelligence.md), request and approve
+`mcp:content:draft`. Add `mcp:memory:read` only when contextual rewriting is needed.
+`enhance_prompt` defaults to no private retrieval and never executes the rewritten
+task. A contextual draft may include relevant saved facts; review it before use.
+Existing connections need renewed consent for additional scopes. After testing,
+revoke the connection and verify that the tool can no longer be called.
+
 Run `apps/web/e2e/v15-context.spec.ts` using the runbook's two synthetic users.
 It covers browser consent, HTTP token exchange, scoped reads, explicitly approved session
 save/retry/retrieval, original source/timezone, revocation and rejection. Merely collecting

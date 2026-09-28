@@ -6,13 +6,13 @@ import { oauthApi } from '@/lib/api/browser-client';
 
 type Details = {client_name: string; client_id: string; redirect_uri: string; scopes: string[]; resource: string};
 const descriptions: Record<string, string> = {
-  'mcp:people:read': 'Read your contacts and organizations', 'mcp:memory:read': 'Read saved notes and context',
+  'mcp:people:read': 'Read your contacts and organizations', 'mcp:memory:read': 'Read saved notes and context, including relevant people, projects, events and document excerpts when you request contextual prompt rewriting',
   'mcp:projects:read': 'Read projects and ventures', 'mcp:tasks:read': 'Read tasks',
   'mcp:relationships:read': 'Read relationship history', 'mcp:calendar:read': 'Read saved meetings',
   'mcp:sessions:write': 'Save AI work sessions', 'mcp:memory:write': 'Create or update memories',
   'mcp:people:write': 'Create or update people', 'mcp:tasks:write': 'Create or update tasks',
   'mcp:decisions:write': 'Save decisions', 'mcp:projects:write': 'Create or update projects',
-  'mcp:content:draft': 'Generate content drafts', offline_access: 'Stay connected with rotating refresh tokens (up to 30 days)',
+  'mcp:content:draft': 'Generate content drafts and rewrite prompts for review; no publishing or task execution', offline_access: 'Stay connected with rotating refresh tokens (up to 30 days)',
 };
 
 export default function ConsentPage() {
