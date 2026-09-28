@@ -44,6 +44,9 @@ Thumbs.db
 
 .test-tmp/
 
+# Regenerable graphify parser cache; graph.json/report remain intentional outputs.
+graphify-out/cache/
+
 # Private database backup artifacts
 backups/
 *.dump

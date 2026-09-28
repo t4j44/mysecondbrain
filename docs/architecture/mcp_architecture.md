@@ -1,5 +1,8 @@
 # Model Context Protocol (MCP) Server Architecture - Taj's Second Brain
 
+> Historical proposal, superseded by [the implemented MCP architecture](../mcp/architecture.md).
+> The current server is mounted in FastAPI at `/mcp`; standalone-server and client-compatibility claims below are not release evidence.
+
 Version: 1.0  
 Status: Approved & Implementation-Ready  
 Author: Agent 1 — Architecture and Contracts Agent  

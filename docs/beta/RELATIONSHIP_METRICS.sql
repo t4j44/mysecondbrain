@@ -5,10 +5,11 @@ WITH activity AS (
  FROM public.audit_logs
  WHERE event_type IN ('capture_confirmed','beta_retrieval','beta_source_opened',
    'relationship_home_view','relationship_ask_answered','relationship_action_completed',
-   'relationship_action_scheduled','relationship_action_dismissed')
+   'relationship_action_scheduled','relationship_action_dismissed','context_capture_confirmed',
+   'intent_search_performed','outreach_confirmed_sent','mcp_session_recorded')
 ), success AS (
  SELECT user_id, date_trunc('week', created_at AT TIME ZONE 'UTC') AS week, count(*) AS actions
- FROM public.relationship_actions WHERE action='completed' GROUP BY 1,2
+ FROM public.relationship_actions WHERE action IN ('completed','sent') GROUP BY 1,2
 ), served AS (
  SELECT date_trunc('week', created_at AT TIME ZONE 'UTC') AS week,
  count(DISTINCT (user_id, request_id)) AS suggestions
@@ -38,5 +39,16 @@ WITH latest AS (
 
 -- Current private graph density, not historical lifetime totals.
 SELECT (SELECT count(*) FROM public.people WHERE deleted_at IS NULL AND archived_at IS NULL) AS people,
- (SELECT count(*) FROM public.entity_edges) AS explicit_connections,
+ (SELECT count(*) FROM public.entity_edges WHERE valid_to IS NULL) AS explicit_connections,
  (SELECT count(*) FROM public.interactions WHERE deleted_at IS NULL AND archived_at IS NULL) AS interactions;
+
+-- V1.5 funnel: events are observations, opened links are not sent messages.
+-- Counts are not unique users, delivery receipts, revenue or testimonial permission.
+SELECT date_trunc('week', created_at AT TIME ZONE 'UTC') AS week, event_type,
+ count(*) AS occurrences, count(DISTINCT user_id) AS users
+FROM public.audit_logs WHERE event_type IN (
+ 'context_capture_started','context_capture_confirmed','business_card_capture_confirmed',
+ 'moment_saved','intent_search_performed','intent_result_opened','relationship_suggestion_opened',
+ 'outreach_draft_created','outreach_whatsapp_opened','outreach_email_opened',
+ 'outreach_confirmed_sent','mcp_session_recorded','mcp_oauth_connected','mcp_oauth_revoked')
+GROUP BY 1,2 ORDER BY 1 DESC,2;

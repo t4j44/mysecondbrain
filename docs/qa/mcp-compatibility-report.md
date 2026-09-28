@@ -1,5 +1,8 @@
 # Model Context Protocol (MCP) Compatibility Report
 
+> Historical report. Use [current client setup](../mcp/client_setup.md) and [V1.5 release evidence](../beta/V1_5_RELEASE.md).
+> The current transport is Streamable HTTP at `/mcp`; actual hosted external-client compatibility is still unverified. The claims below do not certify V1.5.
+
 **Server Implementation:** FastMCP SDK (`apps/api/mcp_server.py`)  
 **Transport Protocol:** Server-Sent Events (SSE) & Stdio  
 **Target Clients:** Claude Desktop, ChatGPT Custom GPTs, Gemini CLI  

@@ -1,29 +1,43 @@
-# MCP Scopes & Capability Taxonomy
+# MCP authorization and scopes — V1.5
 
-## Purpose & Least Privilege Philosophy
-Taj's Second Brain adopts a strict least-privilege capability architecture for Model Context Protocol interactions. Every external AI client key is assigned a specific set of granular authorization scopes upon creation or rotation. Any attempt to access a tool or resource outside these granted boundaries triggers an immediate JSON-RPC `-32002` exception and logs an automated security violation in `public.audit_logs`.
+OAuth is authorization-code + PKCE S256, with Supabase browser sign-in and explicit
+consent. All tool calls derive the owner from the verified token. They check scopes
+before running shared services under PostgreSQL row-level security (RLS).
 
-## Granular Scope Matrix
+| Permission | Capability |
+|---|---|
+| `mcp:people:read` | Contacts and organizations |
+| `mcp:memory:read` | Memories |
+| `mcp:projects:read` | Projects and ventures |
+| `mcp:tasks:read` | Tasks |
+| `mcp:relationships:read` | Relationship history |
+| `mcp:calendar:read` | Saved meetings |
+| All six read scopes | Cross-domain context/document retrieval and relevant contacts |
+| `mcp:tasks:write` | Create/update tasks |
+| `mcp:memory:write` | Save memories |
+| `mcp:people:write` | Create/update contacts |
+| `mcp:projects:write` | Create/update projects |
+| `mcp:decisions:write` | Save decisions |
+| `mcp:sessions:write` | Save session records |
+| `mcp:content:draft` | Prepare content drafts; no publishing or messaging |
+| `offline_access` | Rotate refresh tokens until grant expiry; does not grant tool access |
 
-| Capability Scope | Tool Access Grant | Resource URI Access Grant | Description & Risk Profile |
-| :--- | :--- | :--- | :--- |
-| `mcp:people:read` | `search_people` | `mcp://people/{id}` | Read contacts, companies, executive titles, and CRM notes. |
-| `mcp:memory:read` | `search_memory` | `mcp://memory/{id}` | Access internal reflections, strategic ideas, and founder insights. |
-| `mcp:projects:read` | `get_projects` | `mcp://projects/active`, `mcp://portfolio/case-studies` | View active ventures, milestones, and strategic initiatives. |
-| `mcp:tasks:read` | `get_tasks` | `mcp://tasks/pending` | Query operational TODO action items and execution deliverables. |
-| `mcp:calendar:read` | `get_calendar` | `mcp://calendar/today` | Fetch upcoming meetings, participant lists, and agendas. |
-| `mcp:relationship_history:read` | `get_relationship_history` | *N/A* | Traverse historical meeting logs and interaction takeaways with a contact. |
-| `mcp:content:draft` | `generate_linkedin_post` | *N/A* | Synthesize founder memories into executive LinkedIn post drafts. |
-| `mcp:case_study:draft` | `generate_case_study` | *N/A* | Generate executive STAR career case study prototypes from project data. |
-| `mcp:weekly_review:draft` | `generate_weekly_review` | *N/A* | Aggregate completed tasks and reflections into a weekly retrospective draft. |
+`finalize_work_session`, reviewed capture and interaction finalization require the
+session, task, decision, memory and people write scopes together because they can
+create those related records atomically. Missing any permission fails closed.
+OAuth offers granular scopes only; it never offers `mcp:all`, `*`, or broad write scopes.
+Legacy keys retain their existing compatibility rules in `app/mcp/security.py`.
 
-## Group & Wildcard Super-Scopes
-For trusted local developer tools or founder-administered environments, group scopes simplify credential configuration while preserving functional categorization:
-* `mcp:read`: Authorizes all 6 read-only exploratory scopes and resource URI handlers.
-* `mcp:draft`: Authorizes all 3 content drafting and synthesis generators.
-* `mcp:all` or `*`: Complete access to all MCP tools, drafting engines, and resources.
+Only requested scopes can be approved. Token exchange cannot change code scopes;
+refresh can narrow scopes but cannot increase them. Tokens are bound to this issuer,
+resource, owner and client. Exact redirect matching, one-use codes and PKCE prevent
+code theft/replay. Revoked/expired grants and closed accounts fail every access check.
+OAuth vault tables are server-only; owners may read their own connection metadata.
+Raw token, code, request and client-secret values are hashed at rest and omitted from exports.
 
-## Scope Violation Auditing
-When an unauthorized scope invocation occurs:
-1. Execution is cleanly blocked prior to touching any domain services or databases.
-2. An audit entry (`mcp.security.scope_violation`) is written to `public.audit_logs` capturing the attempted client name, assigned scopes, requested scope, tool name, and timestamp.
+OAuth authorizes the selected capabilities; it does not certify every AI-generated
+write as fact. Important changes still follow review and explicit confirmation in the
+client workflow. Existing identities are not silently changed on a create/deduplicate
+call. Ambiguous identities require selection, and partial project names do not auto-link.
+External AI clients have separate data policies; access to approved private context
+must be a deliberate user choice. No tool sends WhatsApp/email messages.
