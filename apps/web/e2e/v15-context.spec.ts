@@ -65,21 +65,28 @@ test.describe('V1.5 personal context acceptance', () => {
     } finally { await foreign.close(); }
   });
 
-  test('OAuth consent, scoped MCP read and revocation work through hosted HTTP', async ({page, request}) => {
+  test('OAuth consent, session save/retry/retrieval and revocation work through hosted HTTP', async ({page, request}) => {
     const origin = process.env.NEXT_PUBLIC_API_BASE_URL!.replace(/\/api\/v1\/?$/, '');
     const resource = origin + '/mcp';
     const callback = 'https://synthetic-client.invalid/callback';
+    const scopes = ['people','memory','projects','tasks','relationships','calendar'].map(kind => `mcp:${kind}:read`)
+      .concat(['sessions','tasks','decisions','memory','people'].map(kind => `mcp:${kind}:write`));
     const registered = await request.post(origin + '/oauth/register', {data:{client_name:'Synthetic staging acceptance',
-      redirect_uris:[callback], token_endpoint_auth_method:'none', grant_types:['authorization_code','refresh_token'], response_types:['code']}});
+      redirect_uris:[callback], scope:scopes.join(' '), token_endpoint_auth_method:'none', grant_types:['authorization_code','refresh_token'], response_types:['code']}});
     expect(registered.status()).toBe(201);
     const client = await registered.json();
     const verifier = randomBytes(32).toString('base64url');
     const authorized = await request.get(origin + '/oauth/authorize', {maxRedirects:0, params:{
-      client_id:client.client_id, redirect_uri:callback, response_type:'code', resource,
+      client_id:client.client_id, redirect_uri:callback, response_type:'code', resource, scope:scopes.join(' '),
       code_challenge:createHash('sha256').update(verifier).digest('base64url'), code_challenge_method:'S256', state:'synthetic'}});
     expect(authorized.status()).toBe(302);
     await page.route(callback + '**', route => route.fulfill({body:'Synthetic OAuth return'}));
     await page.goto(authorized.headers().location);
+    for (const scope of scopes.filter(value => value.endsWith(':write'))) {
+      const choice = page.locator('label').filter({hasText:scope}).getByRole('checkbox');
+      await expect(choice).not.toBeChecked();
+      await choice.check();
+    }
     await page.getByRole('button', {name:'Approve selected access'}).click();
     await page.waitForURL(callback + '**');
     const code = new URL(page.url()).searchParams.get('code')!;
@@ -94,6 +101,29 @@ test.describe('V1.5 personal context acceptance', () => {
     const result = await retrieved.json();
     expect(result.error).toBeUndefined();
     expect(result.result.isError).not.toBe(true);
+    const marker = uniqueId('SyntheticMcpSession').replace(/-/g, '');
+    const session = {provider:'synthetic_staging_client', session_reference:marker, client_request_id:marker,
+      title:marker, summary:`Synthetic approved session ${marker}. Tested source provenance.`,
+      occurred_at:'2026-09-01T09:30:00+06:00', event_timezone:'Asia/Dhaka'};
+    async function call(name: string, args: Record<string, unknown>) {
+      const response = await request.post(resource, {headers,data:{jsonrpc:'2.0',id:2,method:'tools/call',params:{name,arguments:args}}});
+      expect(response.status()).toBe(200);
+      const value = await response.json();
+      expect(value.error).toBeUndefined();
+      expect(value.result.isError).not.toBe(true);
+      return value.result;
+    }
+    const savedResult = await call('finalize_work_session', session);
+    const saved = savedResult.structuredContent || JSON.parse(savedResult.content[0].text);
+    const replayResult = await call('finalize_work_session', {...session,client_request_id:marker + 'retry'});
+    const replay = replayResult.structuredContent || JSON.parse(replayResult.content[0].text);
+    expect(replay.idempotent_replayed).toBe(true);
+    expect(replay.context_event_id).toBe(saved.context_event_id);
+    expect(JSON.stringify(await call('search_context', {query:marker,limit:10}))).toContain(marker);
+    await page.goto('/sources/context_event/' + saved.context_event_id);
+    await page.getByText('Read original text', {exact:true}).click();
+    await expect(page.getByText(session.summary, {exact:true}).first()).toBeVisible();
+    await expect(page.getByText('Asia/Dhaka', {exact:false}).first()).toBeVisible();
     expect((await request.post(origin + '/oauth/revoke', {form:{client_id:client.client_id,token:token.access_token}})).status()).toBe(200);
     expect((await request.post(resource, {headers,data:rpc})).status()).toBe(401);
   });

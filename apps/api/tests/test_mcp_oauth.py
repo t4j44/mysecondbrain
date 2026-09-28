@@ -9,7 +9,15 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
 from app.main import app
-from app.mcp.oauth_provider import DEFAULT_SCOPES, SCOPES, digest, issuer, now, oauth_provider, resource
+from app.mcp.oauth_provider import (
+    DEFAULT_SCOPES,
+    SCOPES,
+    digest,
+    issuer,
+    now,
+    oauth_provider,
+    resource,
+)
 from app.mcp.server import mcp_server
 from app.models.entities import Memory
 from app.models.oauth import OAuthClient, OAuthCode, OAuthGrant, OAuthTokenRecord
