@@ -25,6 +25,17 @@ test_engine = create_async_engine(
 TestingSessionLocal = async_sessionmaker(test_engine, expire_on_commit=False, class_=AsyncSession)
 
 
+@pytest.fixture
+def fresh_mcp_transport(monkeypatch):
+    """The SDK permits one lifespan per transport instance, as in a real process."""
+    from app.mcp.server import create_mcp_transport, mcp_server
+    original = mcp_server.session_manager
+    transport = create_mcp_transport()
+    monkeypatch.setattr(app.routes[-1], 'app', transport)
+    yield
+    mcp_server._lowlevel_server._session_manager = original
+
+
 # Override the database dependency for unit tests. SQLite has no roles, GUCs or RLS, so the
 # isolated in-memory database is the tenant boundary here; real RLS is proven only by the
 # postgres integration suite in tests/integration/.

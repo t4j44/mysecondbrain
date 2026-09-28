@@ -68,7 +68,7 @@ async def ai_generate_content(
     service: AIService = Depends(get_ai_service),
     _user: AuthenticatedUser = Depends(get_current_user),
 ):
-    res = await service.generate_content_with_rag(payload.prompt, payload.context_record_ids)
+    res = await service.generate_content_with_rag(payload.prompt, payload.context_record_ids, payload.timezone)
     return AIContentGenerateResponse(**res)
 
 

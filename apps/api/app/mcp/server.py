@@ -43,6 +43,9 @@ class DatabaseTokenVerifier(TokenVerifier):
         self.repo = MCPCredentialRepository()
 
     async def verify_token(self, token: str) -> AccessToken | None:
+        if token.startswith('sb_oauth_'):
+            from app.mcp.oauth_provider import oauth_provider
+            return await oauth_provider.load_access_token(token)
         # System operation: matching a key requires scanning credentials across profiles.
         async with admin_db_session(reason="mcp_token_verification") as db:
             verified = await self.repo.verify_api_key(db, token)
@@ -472,6 +475,8 @@ async def finalize_work_session(
     venture: Optional[str] = None,
     project: Optional[str] = None,
     title: Optional[str] = None,
+    occurred_at: Optional[str] = None,
+    event_timezone: str = 'UTC',
 ) -> dict[str, Any]:
     """
     Finalize an AI work session: extract objective, research, findings, decisions and their
@@ -501,6 +506,8 @@ async def finalize_work_session(
             project_hint=project,
             title=title,
             extraction=extracted["extraction"],
+            occurred_at=occurred_at,
+            event_timezone=event_timezone,
             **fields,
         )
 
@@ -594,16 +601,17 @@ async def log_interaction(text: str = '', draft_id: Optional[str] = None, review
         return await domain.log_interaction(text, draft_id, reviewed_proposal, confirmed)
 
 
-mcp_asgi_app = mcp_server.streamable_http_app(
-    streamable_http_path="/mcp",
-    json_response=True,
-    stateless_http=True,
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=True,
-        allowed_hosts=settings.MCP_ALLOWED_HOSTS,
-        allowed_origins=settings.CORS_ORIGINS,
-    ),
-)
+def create_mcp_transport():
+    return mcp_server.streamable_http_app(
+        streamable_http_path="/mcp", json_response=True, stateless_http=True,
+        transport_security=TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=settings.MCP_ALLOWED_HOSTS, allowed_origins=settings.CORS_ORIGINS,
+        ),
+    )
+
+
+mcp_asgi_app = create_mcp_transport()
 
 __all__ = ["mcp_asgi_app", "mcp_server"]
 

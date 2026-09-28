@@ -6,13 +6,16 @@ from pgvector.sqlalchemy import Vector as PGVector
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
+    Index,
     Integer,
     Numeric,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -940,6 +943,12 @@ class PortfolioEvidence(Base):
 
 class EntityEdge(Base):
     __tablename__ = "entity_edges"
+    __table_args__ = (
+        CheckConstraint('valid_to IS NULL OR valid_from IS NULL OR valid_to >= valid_from', name='entity_edge_window'),
+        Index('uq_entity_edge_current', 'user_id', 'source_entity_type', 'source_entity_id',
+              'target_entity_type', 'target_entity_id', 'relationship_type', unique=True,
+              postgresql_where=text('valid_to IS NULL'), sqlite_where=text('valid_to IS NULL')),
+    )
 
     id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
     user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
@@ -949,9 +958,63 @@ class EntityEdge(Base):
     target_entity_id: Any = Column(FlexibleUUID, nullable=False, index=True)
     relationship_type: Any = Column(Text, nullable=False, index=True)
     weight: Any = Column(Numeric, default=1.0, nullable=False)
+    occurred_at: Any = Column(DateTime(timezone=True), nullable=True)
+    valid_from: Any = Column(DateTime(timezone=True), nullable=True)
+    valid_to: Any = Column(DateTime(timezone=True), nullable=True)
+    source_event_id: Any = Column(FlexibleUUID, nullable=True)
+    recorded_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    confidence: Any = Column(Numeric, default=1.0, nullable=False)
     metadata_payload: Any = Column("metadata", JSONEncodedDict, default=dict)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
+
+
+class ContextEvent(Base):
+    __tablename__ = 'context_events'
+    __table_args__ = (UniqueConstraint('user_id', 'idempotency_key', name='context_events_replay'),)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    event_type: Any = Column(Text, nullable=False)
+    title: Any = Column(Text, nullable=False)
+    summary: Any = Column(Text)
+    occurred_at: Any = Column(DateTime(timezone=True), nullable=False)
+    recorded_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Any = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+    timezone: Any = Column(Text, default='UTC', nullable=False)
+    source_type: Any = Column(Text, nullable=False)
+    source_provider: Any = Column(Text)
+    source_external_id: Any = Column(Text)
+    idempotency_key: Any = Column(Text)
+    raw_text: Any = Column(Text)
+    raw_payload: Any = Column(JSONEncodedDict, default=dict, nullable=False)
+    extraction_version: Any = Column(Text)
+    person_id: Any = Column(FlexibleUUID)
+    venture_id: Any = Column(FlexibleUUID)
+    project_id: Any = Column(FlexibleUUID)
+    privacy_class: Any = Column(Text, default='private', nullable=False)
+    metadata_payload: Any = Column('metadata', JSONEncodedDict, default=dict, nullable=False)
+    deleted_at: Any = Column(DateTime(timezone=True))
+    created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+
+class ContextMedia(Base):
+    __tablename__ = 'context_media'
+    __table_args__ = (UniqueConstraint('user_id', 'request_id', name='context_media_replay'),)
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    event_id: Any = Column(FlexibleUUID)
+    draft_id: Any = Column(FlexibleUUID)
+    request_id: Any = Column(FlexibleUUID, nullable=False)
+    kind: Any = Column(Text, nullable=False)
+    storage_path: Any = Column(Text, nullable=False)
+    thumbnail_path: Any = Column(Text, nullable=False)
+    mime_type: Any = Column(Text, nullable=False)
+    size_bytes: Any = Column(Integer, nullable=False)
+    width: Any = Column(Integer, nullable=False)
+    height: Any = Column(Integer, nullable=False)
+    thumbnail_bytes: Any = Column(Integer, nullable=False)
+    content_hash: Any = Column(Text, nullable=False)
+    created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
 
 class AccountClosure(Base):

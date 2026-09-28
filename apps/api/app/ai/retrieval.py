@@ -4,6 +4,7 @@ import re
 from sqlalchemy import String, cast, func, or_, select
 
 from app.ai.indexing import SOURCES, record_text
+from app.models.entities import ContextEvent
 from app.schemas.knowledge import SearchResultItem
 from app.services.document_chunker import chunk_markdown
 
@@ -26,6 +27,8 @@ async def perform_keyword_search(db, user_id: str, query: str, limit: int = 10,
                       or_(*(func.lower(cast(col, String)).contains(word, autoescape=True) for col in columns for word in words))]
         if hasattr(model, 'archived_at'):
             conditions.append(model.archived_at.is_(None))
+        if kind == 'context_event':
+            conditions.append(ContextEvent.privacy_class == 'private')
         rows = (await db.execute(select(model).where(*conditions).order_by(model.updated_at.desc()).limit(100))).scalars()
         for record in rows:
             content = record_text(record, kind)

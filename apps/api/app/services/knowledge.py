@@ -290,10 +290,10 @@ class AIService:
         return {"query": query, "results": results, "total_matches": len(results)}
 
     async def generate_content_with_rag(
-        self, prompt: str, record_ids: Optional[List[str]] = None
+        self, prompt: str, record_ids: Optional[List[str]] = None, device_timezone: Optional[str] = None
     ) -> dict:
         if not record_ids:
-            structured = await structured_answer(self.db, self.user_id, prompt)
+            structured = await structured_answer(self.db, self.user_id, prompt, device_timezone)
             if structured is not None:
                 self.db.add(AuditLog(user_id=self.user_id, event_type='beta_retrieval', details={'mode': 'structured'}))
                 if structured.get('source_citations'):

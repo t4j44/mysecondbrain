@@ -8,6 +8,7 @@ from app.jobs.index_queue import delete_index, queue_index
 from app.models.entities import (
     Commitment,
     ContentItem,
+    ContextEvent,
     EntityEdge,
     Interaction,
     JobRecord,
@@ -43,6 +44,18 @@ async def invalidate_drafts(db, owner, person_id):
 async def delete_person_context(db, person):
     owner, identity = str(person.user_id), str(person.id)
     now = datetime.now(timezone.utc)
+    from app.services.context_events import delete_event
+    events = (await db.execute(select(ContextEvent).where(ContextEvent.user_id == owner,
+        ContextEvent.person_id == identity, ContextEvent.deleted_at.is_(None)))).scalars().all()
+    linked_events = (await db.execute(select(EntityEdge.source_event_id).where(EntityEdge.user_id == owner,
+        EntityEdge.target_entity_type == 'person', EntityEdge.target_entity_id == identity,
+        EntityEdge.source_event_id.is_not(None)))).scalars().all()
+    event_ids = {str(e.id) for e in events} | {str(e) for e in linked_events}
+    for event_id in event_ids:
+        event = (await db.execute(select(ContextEvent).where(ContextEvent.user_id == owner,
+            ContextEvent.id == event_id, ContextEvent.deleted_at.is_(None)))).scalar_one_or_none()
+        if event:
+            await delete_event(db, owner, event_id)
     linked = []
     for model, columns in ((Interaction, [Interaction.person_id]),
                            (Commitment, [Commitment.from_person_id, Commitment.to_person_id]),
@@ -101,9 +114,10 @@ async def correct_person_context(db, person, changes):
         db.add(PersonOrganizationRole(user_id=owner, person_id=identity, organization_id=organization.id,
             role=person.role, is_primary=True, relationship_type='employee'))
         queue_index(db, organization)
-    await db.execute(delete(EntityEdge).where(EntityEdge.user_id == owner,
+    await db.execute(update(EntityEdge).where(EntityEdge.user_id == owner,
         EntityEdge.relationship_type == 'current_affiliation',
-        EntityEdge.source_entity_type == 'person', EntityEdge.source_entity_id == identity))
+        EntityEdge.source_entity_type == 'person', EntityEdge.source_entity_id == identity,
+        EntityEdge.valid_to.is_(None)).values(valid_to=datetime.now(timezone.utc)))
     if organization:
         db.add(EntityEdge(user_id=owner, source_entity_type='person', source_entity_id=identity,
             target_entity_type='organization', target_entity_id=organization.id,

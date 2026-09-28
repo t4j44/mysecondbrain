@@ -113,10 +113,15 @@ class RelationshipService:
         for item in history:
             for kind in ('project', 'venture', 'meeting'):
                 await add(kind, getattr(item, kind + '_id', None), 'Linked to a recorded interaction.', source(item, 'interaction'))
-        edges = (await self.db.execute(select(EntityEdge).where(EntityEdge.user_id == self.owner,
+        edges = (await self.db.execute(select(EntityEdge).where(EntityEdge.user_id == self.owner, EntityEdge.valid_to.is_(None),
             or_((EntityEdge.source_entity_type == 'person') & (EntityEdge.source_entity_id == identity),
                 (EntityEdge.target_entity_type == 'person') & (EntityEdge.target_entity_id == identity))).order_by(EntityEdge.created_at.desc()).limit(150))).scalars().all()
         for edge in edges:
+            if edge.source_event_id:
+                try:
+                    await owned_record(self.db, self.owner, 'context_event', str(edge.source_event_id))
+                except NotFoundError:
+                    continue
             kind, record_id = (edge.target_entity_type, edge.target_entity_id) if edge.source_entity_type == 'person' and str(edge.source_entity_id) == identity else (edge.source_entity_type, edge.source_entity_id)
             # Ignore obsolete capture-derived edges after source interaction deletion.
             evidence = source(person, 'person')
@@ -164,6 +169,8 @@ class RelationshipService:
         if history:
             profile['brief'].append({'text': 'Last discussion: ' + (history[0].summary or history[0].title), 'evidence': source(history[0], 'interaction')})
         profile['followups'] = await self.followups(identity)
+        from app.services.context_events import event_list
+        profile['moments'] = await event_list(self.db, self.owner, person_id=identity)
         return profile
 
     async def connect(self, person_id, kind, record_id, reason):
@@ -171,7 +178,7 @@ class RelationshipService:
         record = await owned_record(self.db, self.owner, kind, str(record_id))
         if kind == 'person' and str(record.id) == str(person.id):
             raise ConflictError('Choose a different person to connect.')
-        edge = (await self.db.execute(select(EntityEdge).where(EntityEdge.user_id == self.owner,
+        edge = (await self.db.execute(select(EntityEdge).where(EntityEdge.user_id == self.owner, EntityEdge.valid_to.is_(None),
             EntityEdge.source_entity_type == 'person', EntityEdge.source_entity_id == person.id,
             EntityEdge.target_entity_type == kind, EntityEdge.target_entity_id == record.id,
             EntityEdge.relationship_type == 'user_confirmed'))).scalar_one_or_none()
@@ -185,11 +192,16 @@ class RelationshipService:
 
     async def people_for_record(self, kind, record_id):
         await owned_record(self.db, self.owner, kind, str(record_id))
-        edges = (await self.db.execute(select(EntityEdge).where(EntityEdge.user_id == self.owner,
+        edges = (await self.db.execute(select(EntityEdge).where(EntityEdge.user_id == self.owner, EntityEdge.valid_to.is_(None),
             EntityEdge.source_entity_type == 'person', EntityEdge.target_entity_type == kind,
             EntityEdge.target_entity_id == str(record_id)).limit(100))).scalars().all()
         result, seen = [], set()
         for edge in edges:
+            if edge.source_event_id:
+                try:
+                    await owned_record(self.db, self.owner, 'context_event', str(edge.source_event_id))
+                except NotFoundError:
+                    continue
             if str(edge.source_entity_id) in seen:
                 continue
             if (edge.metadata_payload or {}).get('interaction_id'):
@@ -301,6 +313,8 @@ class RelationshipService:
         if suggestion['commitment_id']:
             commitment = await owned_record(self.db, self.owner, 'commitment', suggestion['commitment_id'])
             text += ' ' + ('I wanted to check in about: ' if commitment.direction != 'owed_by_me' else 'Following up on my promise: ') + commitment.description
+        self.db.add(AuditLog(user_id=self.owner, event_type='outreach_draft_created', target_entity='person', target_id=person.id, details={}))
+        await self.db.commit()
         return {'draft': text + '\n\n[Add your update or question before sending.]', 'evidence': suggestion['evidence'],
                 'notice': 'Editable draft only. Nothing has been sent.'}
 
@@ -318,6 +332,12 @@ class RelationshipService:
         now = datetime.now(timezone.utc)
         receipt: dict[str, Any] = {'action': payload.action, 'person_id': str(person.id), 'records': []}
         if payload.action == 'completed':
+            from app.services.context_events import create_event, event_link
+            event, _ = await create_event(self.db, self.owner, key='followup:' + str(payload.request_id),
+                event_type='relationship_contact', title='Follow-up outcome', summary=(payload.outcome or '').strip(),
+                raw_text=(payload.outcome or '').strip(), occurred_at=now, source_type='user_confirmed_outcome',
+                person_id=person.id, metadata_payload={'self_reported': True})
+            receipt['context_event_id'] = str(event.id)
             interaction = Interaction(user_id=self.owner, person_id=person.id, interaction_type='note',
                 title='Follow-up outcome', summary=(payload.outcome or '').strip(), date=now,
                 meta={'relationship_action_request': str(payload.request_id)})
@@ -326,6 +346,7 @@ class RelationshipService:
             self.db.add_all([interaction, memory])
             await self.db.flush()
             for kind, record in [('interaction', interaction), ('memory', memory)]:
+                await event_link(self.db, event, kind, record.id)
                 queue_index(self.db, record)
                 receipt['records'].append(source(record, kind))
                 self.db.add(EntityEdge(user_id=self.owner, source_entity_type='person', source_entity_id=person.id,

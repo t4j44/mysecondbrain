@@ -4,6 +4,7 @@ from app.api.v1.endpoints import (
     account,
     ai_portfolio,
     capture,
+    context_events,
     founder,
     knowledge,
     mcp,
@@ -18,6 +19,7 @@ from app.api.v1.endpoints import (
 api_router = APIRouter()
 api_router.include_router(account.router)
 api_router.include_router(capture.router)
+api_router.include_router(context_events.router)
 api_router.include_router(relationships.router)
 api_router.include_router(sources.router)
 api_router.include_router(portfolio_beta.router)

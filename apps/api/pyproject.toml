@@ -30,6 +30,7 @@ dependencies = [
     "tzdata>=2025.2",
     "google-genai>=0.1.1",
     "pypdf>=4.0.0",
+    "pillow>=12.0.0,<13.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]

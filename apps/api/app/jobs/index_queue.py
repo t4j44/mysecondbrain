@@ -7,7 +7,7 @@ KINDS = {"memories": "memory", "people": "person", "organizations": "organizatio
          "interactions": "interaction", "meetings": "meeting", "projects": "project",
          "tasks": "task", "commitments": "commitment", "ventures": "venture",
          "achievements": "achievement", "work_sessions": "work_session",
-         "evidence_items": "evidence", "decisions": "decision"}
+         "evidence_items": "evidence", "decisions": "decision", "context_events": "context_event"}
 
 
 def queue_index(db, record):

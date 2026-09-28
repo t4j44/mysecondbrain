@@ -59,12 +59,23 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
         "portfolio_publications",
         "beta_feedback",
         "entity_edges",
+        "context_events",
+        "context_media",
+        "mcp_oauth_clients",
+        "mcp_oauth_requests",
+        "mcp_oauth_grants",
+        "mcp_oauth_codes",
+        "mcp_oauth_tokens",
     }
 )
 
 # Critical columns (name â†’ expected PostgreSQL udt/type family hints).
 # Type hints are matched loosely against information_schema / pg_catalog.
 APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
+    "context_events": {"id": "uuid", "user_id": "uuid", "event_type": "text", "occurred_at": "timestamptz", "recorded_at": "timestamptz", "timezone": "text", "raw_payload": "jsonb", "privacy_class": "text", "deleted_at": "timestamptz"},
+    "context_media": {"id": "uuid", "user_id": "uuid", "event_id": "uuid", "draft_id": "uuid", "request_id": "uuid", "storage_path": "text", "thumbnail_path": "text", "size_bytes": "int4"},
+    "mcp_oauth_grants": {"id": "uuid", "user_id": "uuid", "scopes": "jsonb", "issuer": "text", "resource": "text", "expires_at": "timestamptz", "revoked_at": "timestamptz"},
+    "mcp_oauth_tokens": {"token_hash": "text", "user_id": "uuid", "grant_id": "uuid", "kind": "text", "scopes": "jsonb", "expires_at": "timestamptz", "consumed_at": "timestamptz"},  # nosec B105 - SQL type names
     "public_profile_claims": {"id": "uuid", "user_id": "uuid", "person_id": "uuid", "source_url": "text", "verification_state": "varchar", "researched_at": "timestamptz"},
     "relationship_actions": {"id": "uuid", "user_id": "uuid", "person_id": "uuid", "request_id": "uuid", "receipt": "jsonb", "created_at": "timestamptz"},
     "account_closures": {"user_id": "uuid", "status": "varchar", "error_code": "varchar", "requested_at": "timestamptz", "updated_at": "timestamptz"},
@@ -321,10 +332,14 @@ MIGRATION_FILES: List[str] = [
     "20260917000026_account_closure_and_storage.sql",
     "20260925000027_relationship_actions.sql",
     "20260925000028_public_profile_claims.sql",
+    "20260927000029_context_events.sql",
+    "20260927000030_outreach_receipts.sql",
+    "20260927000031_mcp_oauth.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).
-RLS_POLICY_EXEMPT_TABLES: FrozenSet[str] = frozenset({"integration_tokens", "account_closures"})
+RLS_POLICY_EXEMPT_TABLES: FrozenSet[str] = frozenset({"integration_tokens", "account_closures",
+    "mcp_oauth_clients", "mcp_oauth_requests", "mcp_oauth_codes", "mcp_oauth_tokens"})
 
 
 def type_matches(actual: str, expected_pattern: str) -> bool:

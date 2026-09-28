@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from app.ai.provider import GeminiLLMProvider
 from app.models.entities import (
     Commitment,
+    ContextEvent,
     EntityEdge,
     Interaction,
     JobRecord,
@@ -37,14 +38,14 @@ async def test_review_capture_atomic_replay_and_owner_boundary(async_client, aut
     replay = await async_client.post(path, headers=auth_headers, json=payload)
     assert replay.json() == saved.json()
     async with TestingSessionLocal() as db:
-        for model in (Person, Organization, Interaction, Memory, Commitment, Task):
+        for model in (Person, Organization, Interaction, Memory, Commitment, Task, ContextEvent):
             assert await db.scalar(select(func.count()).select_from(model)) == 1
         edges = (await db.execute(select(EntityEdge))).scalars().all()
         assert any(e.source_entity_type == 'task' and e.target_entity_type == 'commitment' and e.relationship_type == 'fulfills' for e in edges)
         topics = [e for e in edges if e.target_entity_type == 'topic']
         assert len(topics) == 1 and topics[0].metadata_payload['label'] == 'fundraising'
         assert (await db.scalar(select(Interaction))).meta['topics'] == ['fundraising']
-        assert await db.scalar(select(func.count()).select_from(JobRecord).where(JobRecord.job_type == 'index_record')) == 6
+        assert await db.scalar(select(func.count()).select_from(JobRecord).where(JobRecord.job_type == 'index_record')) == 7
     source = next(record for record in saved.json()['records'] if record['type'] == 'memory')
     source_path = f"/api/v1/sources/memory/{source['id']}"
     assert (await async_client.get(source_path, headers=auth_headers)).status_code == 200

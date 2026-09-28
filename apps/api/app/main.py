@@ -11,6 +11,7 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import logger, setup_logging
 from app.dependencies.database import admin_db_session, verify_database_ready
+from app.mcp.oauth_routes import router as oauth_router
 from app.mcp.router import router as mcp_http_router
 from app.mcp.server import mcp_asgi_app, mcp_server
 from app.middleware import (
@@ -73,6 +74,9 @@ app.add_middleware(
 
 # Register API v1 Domain Module Routers
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(oauth_router)
+
+
 
 # Mount MCP Streamable HTTP Application at /mcp (ADR-013)
 app.include_router(mcp_http_router, prefix="/mcp")

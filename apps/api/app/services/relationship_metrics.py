@@ -36,7 +36,7 @@ async def activation(db, owner):
         db.add(AuditLog(user_id=owner, event_type='relationship_activated', details={'definition': 1}))
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     successes = await db.scalar(select(func.count()).select_from(RelationshipAction).where(RelationshipAction.user_id == owner,
-        RelationshipAction.action == 'completed', RelationshipAction.created_at >= cutoff))
+        RelationshipAction.action.in_(['completed', 'sent']), RelationshipAction.created_at >= cutoff))
     return {'counts': counts, 'targets': targets, 'activated': activated, 'first_activated_at': first_activation,
         'successful_actions_last_7_days': successes,
         'definition': 'Five people, three recorded interactions, one project, one commitment and one Ask response with supporting evidence.',
@@ -75,6 +75,11 @@ async def private_activity(db, owner):
             'followups_completed': kinds.count('relationship_action_completed'),
             'suggestions_served': kinds.count('relationship_suggestion_served'),
             'ask_answers': kinds.count('relationship_ask_answered')})
+        weeks[-1]['context_funnel'] = {name: kinds.count(name) for name in (
+            'context_capture_started', 'context_capture_confirmed', 'business_card_capture_confirmed',
+            'moment_saved', 'intent_search_performed', 'intent_result_opened', 'relationship_suggestion_opened',
+            'outreach_draft_created', 'outreach_whatsapp_opened', 'outreach_email_opened',
+            'outreach_confirmed_sent', 'mcp_session_recorded', 'mcp_oauth_connected', 'mcp_oauth_revoked')}
     willingness = await db.scalar(select(AuditLog.event_type).where(AuditLog.user_id == owner,
         AuditLog.event_type.in_(['willingness_to_pay_yes', 'willingness_to_pay_no', 'willingness_to_pay_unsure']))
         .order_by(AuditLog.timestamp.desc()).limit(1))

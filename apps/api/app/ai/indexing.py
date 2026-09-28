@@ -18,6 +18,7 @@ from app.services.document_chunker import CHUNKING_VERSION, chunk_markdown
 from app.services.document_extractor import DocumentExtractor
 
 SOURCES = {
+    "context_event": (m.ContextEvent, ("title", "summary", "occurred_at", "timezone", "source_type", "source_provider")),
     "memory": (m.Memory, ("title", "content")),
     "person": (m.Person, ("name", "role", "company", "industry", "location", "notes", "tags")),
     "organization": (m.Organization, ("name", "description", "industry")),
@@ -54,6 +55,8 @@ async def owned_record(db, user_id: str, kind: str, record_id: str):
     ]
     if hasattr(model, "archived_at"):
         clauses.append(model.archived_at.is_(None))
+    if kind == 'context_event':
+        clauses.append(m.ContextEvent.privacy_class == 'private')
     result = await db.execute(select(model).where(*clauses))
     record = result.scalar_one_or_none()
     if record is None:
@@ -157,6 +160,8 @@ async def semantic_search(db, user_id: str, query: str, limit: int = 10,
                       model.user_id == Embedding.user_id, model.deleted_at.is_(None)]
         if hasattr(model, "archived_at"):
             conditions.append(model.archived_at.is_(None))
+        if kind == 'context_event':
+            conditions.append(m.ContextEvent.privacy_class == 'private')
         live.append(and_(Embedding.source_record_type == kind,
                          exists(select(model.id).where(*conditions))))
     metadata = cast(Embedding.meta, JSONB)
@@ -180,7 +185,10 @@ async def semantic_search(db, user_id: str, query: str, limit: int = 10,
         key = (kind, str(row["document_chunk_id"]) if kind == "document" else identity)
         if key in seen:
             continue
-        record = await owned_record(db, user_id, kind, identity)
+        try:
+            record = await owned_record(db, user_id, kind, identity)
+        except NotFoundError:
+            continue
         metadata = row["metadata"]
         if metadata.get("source_fingerprint") != fingerprint(record_text(record, kind)):
             continue

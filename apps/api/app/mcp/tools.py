@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.pagination import PaginationParams
@@ -16,6 +16,7 @@ from app.jobs.index_queue import queue_index
 from app.mcp.beta_tools import BetaMCPTools
 from app.models.entities import (
     AuditLog,
+    ContextEvent,
     Decision,
     Interaction,
     Memory,
@@ -170,7 +171,7 @@ class MCPDomainTools(BetaMCPTools):
                 event_type=event_type,
                 target_entity=target_entity,
                 target_id=str(target_id),
-                details=details,
+                details={key: value for key, value in details.items() if key in {'records_created', 'deduplicated', 'status'}},
                 timestamp=datetime.now(timezone.utc),
                 request_id=request_id,
             )
@@ -470,35 +471,23 @@ class MCPDomainTools(BetaMCPTools):
         """
         try:
             # Deduplication Check
-            stmt = select(Person).where(Person.user_id == self.uid, Person.deleted_at.is_(None))
+            stmt = select(Person).where(Person.user_id == self.uid, Person.deleted_at.is_(None), Person.archived_at.is_(None))
             res = await self.db.execute(stmt)
             existing_people = list(res.scalars().all())
 
             clean_name = name.strip()
             clean_email = email.strip().lower() if email else None
 
-            matched: Optional[Person] = None
-            for p in existing_people:
-                if clean_email and p.email and p.email.strip().lower() == clean_email:
-                    matched = p
-                    break
-                if p.name and p.name.strip().lower() == clean_name.lower():
-                    matched = p
-                    break
+            email_matches = [p for p in existing_people if clean_email and p.email and p.email.strip().lower() == clean_email]
+            name_matches = [p for p in existing_people if p.name and p.name.strip().lower() == clean_name.lower()]
+            matches = email_matches or name_matches
+            if len(matches) > 1 or (matches and clean_email and matches[0].email and matches[0].email.strip().lower() != clean_email):
+                raise ValueError('Ambiguous person identity. Choose an existing person explicitly before updating context.')
+            matched = matches[0] if matches else None
 
             if matched:
-                # Merge tags and metadata
-                merged_tags = list(set((matched.tags or []) + (tags or [])))
-                matched.tags = merged_tags
-                if role and not matched.role:
-                    matched.role = role
-                if company and not matched.company:
-                    matched.company = company
-                if notes and notes not in (matched.notes or ""):
-                    matched.notes = (matched.notes or "") + f"\n{notes}".strip()
-                matched.updated_at = datetime.now(timezone.utc)
-                await self.db.flush()
-                await self.db.refresh(matched)
+                # Matching never silently changes canonical identity facts. The explicit
+                # update_person tool remains the reviewed path for those changes.
                 await self._emit_audit(
                     "mcp.person.deduplicated_matched",
                     "person",
@@ -835,6 +824,8 @@ class MCPDomainTools(BetaMCPTools):
         unresolved_questions: Optional[List[str]] = None,
         commitments: Optional[List[str]] = None,
         extraction: Optional[Dict[str, Any]] = None,
+        occurred_at: Optional[str] = None,
+        event_timezone: str = 'UTC',
     ) -> Dict[str, Any]:
         """
         Low-friction, comprehensive Work Intelligence session finalizer.
@@ -844,7 +835,18 @@ class MCPDomainTools(BetaMCPTools):
         try:
             # 1. Idempotency Check
             idempotency_key = client_request_id or session_reference or conversation_reference
+            if self.db.bind.dialect.name == 'postgresql':
+                await self.db.execute(text('SELECT pg_advisory_xact_lock(hashtextextended(:key, 29))'),
+                    {'key': f'{self.user_id}:mcp-finalize'})
             if idempotency_key:
+                aliases = {value for value in (client_request_id, session_reference, conversation_reference) if value}
+                erased = await self.db.scalar(select(ContextEvent.id).where(
+                    ContextEvent.user_id == self.user_id, ContextEvent.source_type == 'mcp',
+                    ContextEvent.deleted_at.is_not(None), or_(
+                        ContextEvent.idempotency_key.in_(['mcp:' + value for value in aliases]),
+                        ContextEvent.source_external_id.in_(aliases))))
+                if erased:
+                    raise ValueError('This session was deleted. Use a new session reference for new context.')
                 stmt = select(Interaction).where(
                     Interaction.user_id == self.uid,
                     Interaction.interaction_type == "work_session",
@@ -854,15 +856,14 @@ class MCPDomainTools(BetaMCPTools):
                 existing_sessions = list(res.scalars().all())
                 for s in existing_sessions:
                     s_meta = s.meta if isinstance(s.meta, dict) else {}
-                    if (
-                        s_meta.get("client_request_id") == idempotency_key
-                        or s_meta.get("session_reference") == idempotency_key
-                        or s_meta.get("conversation_reference") == idempotency_key
-                    ):
+                    incoming_keys = {value for value in (client_request_id, session_reference, conversation_reference) if value}
+                    stored_keys = {s_meta.get(key) for key in ('client_request_id', 'session_reference', 'conversation_reference')}
+                    if incoming_keys.intersection(stored_keys):
                         return {
                             "status": "finalized",
                             "idempotent_replayed": True,
                             "session_id": str(s.id),
+                            "context_event_id": s_meta.get('context_event_id'),
                             "session_grounding": f"mcp://sessions/{s.id}",
                             "message": "Idempotent request: Work session already finalized.",
                             "resolved_context": s_meta.get("resolved_context", {}),
@@ -964,23 +965,15 @@ class MCPDomainTools(BetaMCPTools):
 
             # Match Project
             stmt_proj = select(Project).where(
-                Project.user_id == self.user_id, Project.deleted_at.is_(None)
+                Project.user_id == self.user_id, Project.deleted_at.is_(None), Project.archived_at.is_(None)
             )
             res_proj = await self.db.execute(stmt_proj)
             user_projects = list(res_proj.scalars().all())
 
             if proj_hint:
                 clean_p_hint = str(proj_hint).strip().lower()
-                matched_proj = next(
-                    (
-                        p
-                        for p in user_projects
-                        if p.name.strip().lower() == clean_p_hint
-                        or clean_p_hint in p.name.strip().lower()
-                        or p.name.strip().lower() in clean_p_hint
-                    ),
-                    None,
-                )
+                matching_projects = [p for p in user_projects if p.name.strip().lower() == clean_p_hint]
+                matched_proj = matching_projects[0] if len(matching_projects) == 1 else None
                 if matched_proj:
                     resolved_project_id = str(matched_proj.id)
                     resolved_project_name = matched_proj.name
@@ -997,23 +990,15 @@ class MCPDomainTools(BetaMCPTools):
 
             # Match Venture
             stmt_vent = select(Venture).where(
-                Venture.user_id == self.user_id, Venture.deleted_at.is_(None)
+                Venture.user_id == self.user_id, Venture.deleted_at.is_(None), Venture.archived_at.is_(None)
             )
             res_vent = await self.db.execute(stmt_vent)
             user_ventures = list(res_vent.scalars().all())
 
             if vent_hint:
                 clean_v_hint = str(vent_hint).strip().lower()
-                matched_vent = next(
-                    (
-                        v
-                        for v in user_ventures
-                        if v.name.strip().lower() == clean_v_hint
-                        or v.slug.strip().lower() == clean_v_hint
-                        or clean_v_hint in v.name.strip().lower()
-                    ),
-                    None,
-                )
+                matching_ventures = [v for v in user_ventures if v.name.strip().lower() == clean_v_hint or (v.slug or '').strip().lower() == clean_v_hint]
+                matched_vent = matching_ventures[0] if len(matching_ventures) == 1 else None
                 if matched_vent:
                     resolved_venture_id = str(matched_vent.id)
                     resolved_venture_name = matched_vent.name
@@ -1027,10 +1012,29 @@ class MCPDomainTools(BetaMCPTools):
                     )
 
             # 4. Create Canonical Session Interaction Record
+            from app.services.context_events import create_event, event_link, validate_timezone
+            event_time = _parse_iso_date(occurred_at) if occurred_at else datetime.now(timezone.utc)
+            if event_time is None or event_time.tzinfo is None:
+                raise ValueError('occurred_at must include its timezone offset.')
+            validate_timezone(event_timezone)
+            # Only known original input fields are retained. Derived extraction remains
+            # on the session and its records; it never replaces this original input.
+            allowed = {'summary', 'title', 'objective', 'work_completed', 'research', 'findings',
+                       'decisions', 'rationale', 'rejected_alternatives', 'tasks', 'people_mentioned',
+                       'organizations_mentioned', 'commitments', 'evidence', 'source_references',
+                       'artifacts', 'skills_demonstrated', 'unresolved_questions'}
+            original_payload = {key: value for key, value in (session_payload or {}).items() if key in allowed}
+            event, _ = await create_event(self.db, self.user_id, key='mcp:' + str(idempotency_key or uuid.uuid4()),
+                event_type='ai_session', title=resolved_title[:500], summary=raw_summary[:4000] or resolved_objective[:4000],
+                raw_text=raw_summary, raw_payload=original_payload, occurred_at=event_time, timezone=event_timezone,
+                source_type='mcp', source_provider=provider or 'mcp_client', source_external_id=session_reference or conversation_reference,
+                metadata_payload={'time_basis': 'provided' if occurred_at else 'recorded_time'},
+                project_id=resolved_project_id, venture_id=resolved_venture_id, extraction_version='session-v1.5')
             session_id = uuid.uuid4()
             session_uri = f"mcp://sessions/{session_id}"
 
             session_meta: Dict[str, Any] = {
+                'context_event_id': str(event.id),
                 "client_request_id": idempotency_key,
                 "session_reference": session_reference or conversation_reference,
                 "conversation_reference": conversation_reference,
@@ -1062,7 +1066,7 @@ class MCPDomainTools(BetaMCPTools):
                 title=resolved_title,
                 summary=raw_summary,
                 detailed_notes=raw_summary,
-                date=datetime.now(timezone.utc),
+                date=event_time,
                 key_takeaways=resolved_findings,
                 commitments=[
                     c if isinstance(c, str) else str(c) for c in resolved_commitments
@@ -1075,6 +1079,7 @@ class MCPDomainTools(BetaMCPTools):
             self.db.add(session_record)
             await self.db.flush()
             queue_index(self.db, session_record)
+            await event_link(self.db, event, 'interaction', session_id)
 
             # 5. Extract & Create Canonical Decisions
             created_decisions: List[Dict[str, Any]] = []
@@ -1196,6 +1201,16 @@ class MCPDomainTools(BetaMCPTools):
 
             # 8. Create Finding / Lesson Memories
             created_memories: List[Dict[str, Any]] = []
+            if not resolved_findings:
+                mem = Memory(user_id=self.uid, title=resolved_title[:255],
+                    content=raw_summary or resolved_objective or 'No session summary provided.',
+                    related_projects=[resolved_project_id] if resolved_project_id else [],
+                    linked_venture_id=_to_uuid(resolved_venture_id), source=f'work_session:{session_id}',
+                    meta={'context_event_id': str(event.id), 'origin_session_id': str(session_id)})
+                self.db.add(mem)
+                await self.db.flush()
+                queue_index(self.db, mem)
+                created_memories.append(_serialize_model(mem, 'memory', 'mcp://memory'))
             for finding_text in resolved_findings:
                 if not finding_text:
                     continue
@@ -1229,15 +1244,16 @@ class MCPDomainTools(BetaMCPTools):
                     user_id=self.user_id,
                     title=c_title,
                     project_name=resolved_project_name or resolved_title,
-                    role="Founder / Lead Engineer",
+                    role="Not specified; review before publication",
                     problem_statement=c_problem,
                     solution_details="\n".join(f"- {w}" for w in resolved_work_completed) or "Work session deliverables.",
-                    metrics_impact="\n".join(f"- {f}" for f in resolved_findings) or "Validated solution.",
+                    metrics_impact="\n".join(f"- {f}" for f in resolved_findings) or "No verified impact recorded.",
                     skills_demonstrated=resolved_skills,
                     is_ai_generated=True,
                 )
                 self.db.add(case_study)
                 await self.db.flush()
+                await event_link(self.db, event, 'portfolio_case_study', case_study.id)
                 queue_index(self.db, case_study)
                 staged_portfolio.append(
                     {
@@ -1281,6 +1297,14 @@ class MCPDomainTools(BetaMCPTools):
             }
 
             # Update session meta with finalized summary
+            for kind, rows in [('decision', created_decisions), ('task', created_tasks),
+                               ('person', created_people), ('memory', created_memories)]:
+                for row in rows:
+                    await event_link(self.db, event, kind, row['id'],
+                        derived=kind != 'person' and not row.get('deduplicated', False))
+            self.db.add(AuditLog(user_id=self.user_id, event_type='mcp_session_recorded',
+                target_entity='context_event', target_id=event.id, details={'record_count': sum(len(rows) for rows in
+                    (created_decisions, created_tasks, created_people, created_memories))}))
             session_meta["created_records"] = created_summary
             session_meta["extracted_intelligence"] = extracted_intel
             session_meta["resolved_context"] = resolved_ctx
@@ -1308,6 +1332,7 @@ class MCPDomainTools(BetaMCPTools):
             return {
                 "status": "finalized",
                 "idempotent_replayed": False,
+                "context_event_id": str(event.id),
                 "session_id": str(session_id),
                 "session_grounding": session_uri,
                 "resolved_context": resolved_ctx,

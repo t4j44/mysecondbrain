@@ -174,7 +174,7 @@ async def test_mcp_writes_are_exposed_truthfully_and_still_fail_closed(
     for write_tool in write_tools:
         assert hasattr(MCPDomainTools, write_tool)
 
-    info = await async_client.get("/mcp")
+    info = await async_client.get("/mcp/info")
     assert info.status_code == 200
     body = info.json()
     assert body["write_tools_status"] == "EXPOSED_SCOPE_ENFORCED"

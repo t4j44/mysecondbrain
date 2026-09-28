@@ -11,7 +11,7 @@ from tests.conftest import TestingSessionLocal
 
 
 @pytest.mark.asyncio
-async def test_official_transport_initialize_search_scope_and_revoke(test_user_id, other_user_id):
+async def test_official_transport_initialize_search_scope_and_revoke(test_user_id, other_user_id, fresh_mcp_transport):
     repo = MCPCredentialRepository()
     async with TestingSessionLocal() as db:
         key = await repo.create_credential(db, test_user_id, 'Beta protocol test', scopes=sorted(READ_SCOPES))

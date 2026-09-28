@@ -3,7 +3,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import String, cast, or_, select
+from sqlalchemy import String, cast, func, or_, select
 
 from app.ai.indexing import owned_record, record_text, semantic_search
 from app.ai.privacy import PrivacyBlocked
@@ -20,17 +20,17 @@ from app.models.entities import (
 
 
 async def relevant_contacts(db, owner: str, query: str, limit: int = 5) -> list[dict]:
-    kinds = ['person', 'interaction', 'project', 'organization', 'venture', 'meeting', 'commitment', 'document', 'memory', 'task']
+    kinds = ['person', 'context_event', 'interaction', 'project', 'organization', 'venture', 'meeting', 'commitment', 'document', 'memory', 'task']
+    literal = await perform_keyword_search(db, owner, query, 20, kinds)
     try:
         evidence = await semantic_search(db, owner, query, 20, kinds)
     except (AIProviderError, PrivacyBlocked):
         evidence = []
-    literal = await perform_keyword_search(db, owner, query, 20, kinds)
     evidence = list({(item.entity_type, item.id): item for item in [*evidence, *literal]}.values())
     candidates: dict[str, list[Any]] = {}
     for item in evidence:
         identities = {item.id} if item.entity_type == 'person' else set()
-        if item.entity_type in ('interaction', 'task', 'commitment', 'memory'):
+        if item.entity_type in ('context_event', 'interaction', 'task', 'commitment', 'memory'):
             record = await owned_record(db, owner, item.entity_type, item.id)
             for field in ('person_id', 'from_person_id', 'to_person_id', 'linked_person_id'):
                 if getattr(record, field, None):
@@ -51,11 +51,16 @@ async def relevant_contacts(db, owner: str, query: str, limit: int = 5) -> list[
                 PersonOrganizationRole.user_id == owner, PersonOrganizationRole.organization_id == item.id,
                 PersonOrganizationRole.deleted_at.is_(None), PersonOrganizationRole.ended_at.is_(None),
             ).limit(100))).scalars())
-        edges = (await db.execute(select(EntityEdge).where(EntityEdge.user_id == owner,
+        edges = (await db.execute(select(EntityEdge).where(EntityEdge.user_id == owner, EntityEdge.valid_to.is_(None),
             or_((EntityEdge.source_entity_type == item.entity_type) & (EntityEdge.source_entity_id == item.id),
                 (EntityEdge.target_entity_type == item.entity_type) & (EntityEdge.target_entity_id == item.id)),
         ).limit(100))).scalars()
         for edge in edges:
+            if edge.source_event_id:
+                try:
+                    await owned_record(db, owner, 'context_event', str(edge.source_event_id))
+                except NotFoundError:
+                    continue
             if (edge.metadata_payload or {}).get('interaction_id'):
                 try:
                     await owned_record(db, owner, 'interaction', edge.metadata_payload['interaction_id'])
@@ -71,7 +76,16 @@ async def relevant_contacts(db, owner: str, query: str, limit: int = 5) -> list[
         return []
     people = (await db.execute(select(Person).where(Person.user_id == owner, Person.id.in_(candidates),
         Person.deleted_at.is_(None), Person.archived_at.is_(None)).order_by(Person.name))).scalars()
+    people = list(people)
+    people.sort(key=lambda person: (-len(candidates[str(person.id)]), person.name))
+    last_dates = dict((await db.execute(select(Interaction.person_id, func.max(Interaction.date)).where(
+        Interaction.user_id == owner, Interaction.person_id.in_([p.id for p in people]),
+        Interaction.deleted_at.is_(None), Interaction.archived_at.is_(None)).group_by(Interaction.person_id))).all())
     return [{'person_id': str(person.id), 'name': person.name, 'recorded_role': person.role,
+             'company': person.company, 'last_interaction': last_dates.get(person.id) or person.last_interaction_at,
+             'relationship_context': (person.metadata_payload or {}).get('where_met'),
+             'suggested_action': 'Review the evidence, then ask whether this is relevant to them.',
+             'confidence': 'Recorded overlap; interest, ability and availability are not verified.',
              'basis': 'Potential fit from saved records; confirm relevance and availability.',
              'evidence': [{'id': item.id, 'kind': item.entity_type, 'title': item.title,
                  'excerpt': item.snippet, 'uri': f'/sources/{item.entity_type}/{item.id}'}
@@ -79,7 +93,11 @@ async def relevant_contacts(db, owner: str, query: str, limit: int = 5) -> list[
             for person in people][:max(1, min(limit, 20))]
 
 
-async def structured_answer(db, owner: str, prompt: str) -> dict | None:
+async def structured_answer(db, owner: str, prompt: str, device_timezone=None) -> dict | None:
+    from app.ai.temporal import temporal_answer
+    temporal_result = await temporal_answer(db, owner, prompt, device_timezone)
+    if temporal_result is not None:
+        return temporal_result
     from app.ai.relationship_queries import relationship_answer
     relationship_result = await relationship_answer(db, owner, prompt)
     if relationship_result is not None:

@@ -18,7 +18,8 @@ from app.models.entities import AccountClosure, Profile
 from app.models.publication import PortfolioPublication
 
 EXCLUDED = {"account_closures", "integration_tokens", "jobs", "sync_jobs", "export_jobs", "export_items",
-            "exports", "embedding_jobs", "embeddings", "memory_embeddings"}
+            "exports", "embedding_jobs", "embeddings", "memory_embeddings",
+            "mcp_oauth_clients", "mcp_oauth_requests", "mcp_oauth_codes", "mcp_oauth_tokens"}
 
 
 async def schema_tables(db):
@@ -48,7 +49,10 @@ async def portable_export(db, owner):
         column = table.c.get('user_id') if table.name != 'profiles' else table.c.get('id')
         if column is None:
             continue
-        rows = (await db.execute(select(table).where(column == owner).limit(100001))).mappings().all()
+        query = select(table).where(column == owner)
+        if 'deleted_at' in table.c:
+            query = query.where(table.c.deleted_at.is_(None))
+        rows = (await db.execute(query.limit(100001))).mappings().all()
         if len(rows) > 100000:
             raise AppError('Export exceeds the beta limit; contact support for a complete export.', status_code=413)
         result[table.name] = [public_value(dict(row)) for row in rows]

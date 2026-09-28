@@ -229,6 +229,7 @@ class SearchResultResponse(BaseModel):
 
 class AIContentGenerateRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=4000)
+    timezone: Optional[str] = Field(default=None, max_length=100)
     context_record_ids: List[str] = []
     tone: str = "professional"
     output_format: str = "markdown"

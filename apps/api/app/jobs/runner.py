@@ -87,6 +87,8 @@ async def queue_worker() -> None:
             from app.services.account import process_closures
             await process_closures()
             async with admin_db_session(reason='queue_poll') as db:
+                from app.services.context_media import expire_draft_media
+                await expire_draft_media(db)
                 now = datetime.now(timezone.utc)
                 jobs = (await db.execute(select(JobRecord).where(
                     JobRecord.job_type.in_(RUNNABLE),

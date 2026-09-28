@@ -376,6 +376,8 @@ MCP_WRITE_TOOLS_MANIFEST: List[Dict[str, Any]] = [
             "properties": {
                 "provider": {"type": "string", "default": "mcp_client"},
                 "session_reference": {"type": "string"},
+                "occurred_at": {"type": "string", "format": "date-time"},
+                "event_timezone": {"type": "string", "default": "UTC"},
                 "client_request_id": {"type": "string"},
                 "summary": {"type": "string"},
                 "session_payload": {"type": "object"},
@@ -393,7 +395,7 @@ MCP_WRITE_TOOLS_MANIFEST.extend(WRITE_TOOLS)
 MCP_ALL_TOOLS: List[Dict[str, Any]] = MCP_TOOLS_MANIFEST + MCP_WRITE_TOOLS_MANIFEST
 
 
-@router.get("", summary="MCP Server Capabilities & Protocol Info")
+@router.get("/info", summary="MCP Server Capabilities & Protocol Info")
 async def mcp_server_info():
     return {
         "status": "online",

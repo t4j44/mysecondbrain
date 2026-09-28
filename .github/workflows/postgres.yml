@@ -31,6 +31,10 @@ jobs:
       - run: python scripts/db/bootstrap_migrations.py
       - run: pytest apps/api/tests/integration -q -o addopts='' --junitxml=postgres-results.xml
       - run: python scripts/check_test_evidence.py postgres-results.xml
+      - name: Prove seeded V1 to V1.5 upgrade
+        env:
+          RUN_ISOLATED_UPGRADE_PROOF: '1'
+        run: python scripts/db/verify_v15_upgrade.py
       - name: Install PostgreSQL recovery client
         run: |
           sudo apt-get update
@@ -47,3 +51,4 @@ jobs:
           path: |
             postgres-results.xml
             restore-results.xml
+            upgrade-results.xml

@@ -52,7 +52,7 @@ async def test_mcp_credentials_rest_endpoints(
     assert list_data[0]["credential_id"] == cred_id
 
     # 3. Test /mcp status and tools list
-    mcp_info = await async_client.get("/mcp")
+    mcp_info = await async_client.get("/mcp/info")
     assert mcp_info.status_code == 200
     assert mcp_info.json()["status"] == "online"
 
