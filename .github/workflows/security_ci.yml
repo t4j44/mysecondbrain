@@ -70,6 +70,9 @@ jobs:
           pnpm --filter @second-brain/web lint
           pnpm --filter @second-brain/web typecheck
           pnpm --filter @second-brain/web test
+          # Collect browser tests without credentials to catch invalid suite configuration.
+          # This is not hosted E2E evidence; the separate staging workflow runs the flows.
+          pnpm --filter @second-brain/web test:e2e --list
 
       - name: Run Frontend Build
         env:

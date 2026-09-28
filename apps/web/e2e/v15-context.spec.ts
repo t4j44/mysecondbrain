@@ -3,8 +3,9 @@ import { test, expect } from '@playwright/test';
 import { getPrimaryE2EUser, getSecondaryE2EUser, hasSupabasePublicConfig } from './helpers/credentials';
 import { loginViaUi, uniqueId } from './helpers/ui';
 
+test.use({trace: 'off'}); // OAuth tokens and private media must not enter trace archives.
+
 test.describe('V1.5 personal context acceptance', () => {
-  test.use({trace: 'off'}); // OAuth tokens and private media must not enter trace archives.
   test.skip(!getPrimaryE2EUser() || !hasSupabasePublicConfig(), 'Requires isolated staging and a synthetic test account.');
 
   test('card plus moment persists, explicit outreach outcome is retrievable, and another user is denied', async ({page, browser}) => {
