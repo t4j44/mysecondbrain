@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api/browser-client';
 import type { Followup } from '@/lib/relationships';
+import { OutreachControls } from './outreach-controls';
 
 export function FollowupCard({item, onChanged}: {item: Followup; onChanged: () => void}) {
   const [mode, setMode] = useState<'draft' | 'scheduled' | 'completed' | 'dismissed' | null>(null);
@@ -28,7 +29,7 @@ export function FollowupCard({item, onChanged}: {item: Followup; onChanged: () =
     <div className="flex flex-wrap items-center justify-between gap-2"><Link className="text-lg font-semibold underline-offset-4 hover:underline" href={`/people/${item.person_id}`}>{item.name}</Link><span className="rounded-full bg-muted px-2 py-1 text-xs">{item.recency.label}</span></div>
     <p>{item.why_now}</p>{item.context && <p className="text-sm text-muted-foreground">{item.context}</p>}
     <p className="text-sm">{item.suggested_action}</p>
-    <Link className="inline-block text-sm underline" href={item.evidence.uri}>View recorded context</Link>
+    <Link className="inline-block text-sm underline" href={item.evidence.uri} onClick={() => { void api.post(`/relationships/people/${item.person_id}/observations`, {event: 'relationship_suggestion_opened'}).catch(() => undefined); }}>View recorded context</Link>
     <div className="flex flex-wrap gap-2">
       <button className={button} disabled={busy} onClick={async () => {
         setBusy(true); setError(''); setMode('draft'); request.current = null;
@@ -38,7 +39,7 @@ export function FollowupCard({item, onChanged}: {item: Followup; onChanged: () =
       }}>Draft message</button>
       {(['scheduled', 'completed', 'dismissed'] as const).map(action => <button className={button} disabled={busy} key={action} onClick={() => { setMode(action); setError(''); request.current = null; }}>{({scheduled: 'Schedule', completed: 'Mark completed', dismissed: 'Dismiss'})[action]}</button>)}
     </div>
-    {mode === 'draft' && <div className="space-y-2"><label className="block">Review your draft<textarea aria-label="Follow-up draft" className="mt-2 w-full rounded border bg-background p-3" rows={5} value={draft} onChange={event => setDraft(event.target.value)} /></label><p className="text-sm text-muted-foreground">Copy and send this yourself after reviewing it. Nothing has been sent.</p></div>}
+    {mode === 'draft' && <div className="space-y-2"><label className="block">Review your draft<textarea aria-label="Follow-up draft" className="mt-2 w-full rounded border bg-background p-3" rows={5} value={draft} onChange={event => setDraft(event.target.value)} /></label><OutreachControls personId={item.person_id} draft={draft} onChanged={onChanged} /></div>}
     {mode && mode !== 'draft' && <div className="space-y-3 border-t pt-3">
       {mode === 'completed' && <label className="block">What actually happened?<textarea aria-label="Follow-up outcome" className="mt-2 w-full rounded border bg-background p-3" maxLength={2000} rows={3} value={outcome} onChange={event => setOutcome(event.target.value)} placeholder="Sent the deck. Ahmed offered an introduction next week." /></label>}
       {mode === 'completed' && item.commitment_id && <p className="text-sm">This will complete the promise and its linked task, then save your outcome as relationship history.</p>}

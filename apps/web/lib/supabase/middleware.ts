@@ -12,6 +12,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/callback',
   '/pricing',
   '/widget',
+  '/oauth/consent',
 ]);
 
 export function isPublic(pathname: string): boolean {

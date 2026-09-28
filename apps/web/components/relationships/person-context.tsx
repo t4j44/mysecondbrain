@@ -7,6 +7,7 @@ import { displayDate, type Profile } from '@/lib/relationships';
 import { FollowupCard } from './followup-card';
 import { EnrichmentPanel } from './enrichment-panel';
 import { ConnectionEditor } from './connection-editor';
+import { PrivatePhoto } from './private-photo';
 
 export function PersonContext({personId, onProfileChanged}: {personId: string; onProfileChanged?: () => void}) {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -35,6 +36,13 @@ export function PersonContext({personId, onProfileChanged}: {personId: string; o
       <ConnectionEditor personId={personId} onChanged={load} />
     </section>
     <section className={section}><div className="flex flex-wrap justify-between gap-3"><h2 className="text-xl font-semibold">Relationship timeline</h2><Link className="text-sm underline" href="/capture">Record a conversation</Link></div>{!!profile.topics.length && <p className="text-sm text-slate-400">Topics discussed: {profile.topics.join(', ')}</p>}{profile.timeline.map(item => <article className="border-l-2 border-[#301642] pl-4" key={item.id}><time className="text-xs text-slate-400">{displayDate(item.date)}{item.location ? ` · ${item.location}` : ''}</time><p className="my-2 whitespace-pre-wrap text-sm">{item.summary || item.title}</p><Link className="text-xs underline" href={item.uri}>Open interaction</Link></article>)}{!profile.timeline.length && <p className="text-sm text-slate-400">No interactions recorded.</p>}</section>
+    {!!profile.moments?.length && <section className={section}><h2 className="text-xl font-semibold">Moments and context</h2>{profile.moments.map(moment => <article key={moment.id} className="space-y-3 border-l-2 pl-4">
+      <time className="text-sm text-slate-400">{displayDate(moment.occurred_at)} · {moment.timezone}</time><p className="whitespace-pre-wrap">{moment.summary || moment.title}</p>
+      {moment.metadata.location && <p className="text-sm">{moment.metadata.location}</p>}
+      <div className="flex flex-wrap gap-3">{moment.media.map(photo => <PrivatePhoto key={photo.id} {...photo} />)}</div>
+      <p className="text-xs text-slate-400">Source: {moment.source_type} · Saved {displayDate(moment.recorded_at)}</p>
+      <Link className="text-sm underline" href={`/sources/context_event/${moment.id}`}>Open source</Link>
+    </article>)}</section>}
     <p className="text-xs text-slate-400">{profile.limits}</p>
     <EnrichmentPanel personId={personId} onChanged={() => { void load(); onProfileChanged?.(); }} />
   </div>;

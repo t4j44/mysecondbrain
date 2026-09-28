@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api/browser-client';
 import { env } from '@/lib/env';
+import { OAuthConnections } from '@/components/relationships/oauth-connections';
 type Credential = { credential_id: string; client_name: string; key_prefix: string; status: string; scopes: string[] };
 export default function AIAccessPage() {
   const [items, setItems] = useState<Credential[]>([]); const [name, setName] = useState('');
@@ -15,7 +16,9 @@ export default function AIAccessPage() {
   return <div className="max-w-2xl space-y-5"><h1 className="text-2xl font-semibold">AI assistant access</h1>
     <p>MCP lets compatible AI tools retrieve the same saved context. Create a separate key for each client. Retrieved information is then subject to that client&apos;s data policy.</p>
     <p className="break-all">Streamable HTTP endpoint: <code>{endpoint}</code></p>
-    <p>Use a client that supports a custom bearer token. Configure its Authorization header with your key. Native hosted connectors may require OAuth and are not verified in this beta.</p>
+    <OAuthConnections />
+    <h2 className="text-xl font-semibold">Legacy bearer keys</h2>
+    <p>For clients that support a custom bearer token, configure their Authorization header with a separate key. These keys are managed separately from OAuth connections.</p>
     <form className="space-y-3 rounded-xl border p-4" onSubmit={event => { event.preventDefault(); run(async () => {
       const result = await api.post<Credential & { plaintext_key: string }>('/mcp/credentials', {
         client_name: name, client_type: 'streamable_http', scopes: canWrite ? ['mcp:read', 'mcp:write'] : ['mcp:read'],

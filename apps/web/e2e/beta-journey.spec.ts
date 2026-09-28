@@ -28,14 +28,14 @@ test.describe('Closed beta capture, retrieve, act and share', () => {
     const followup = page.getByRole('article').filter({has: page.getByRole('button', {name: 'Mark completed'})}).first();
     await followup.getByRole('button', {name: 'Draft message'}).click();
     await expect(followup.getByLabel('Follow-up draft')).toBeVisible();
-    await expect(followup.getByText(/Nothing has been sent/)).toBeVisible();
+    await expect(followup.getByText(/Opening it does not record a send/)).toBeVisible();
     await followup.getByRole('button', {name: 'Mark completed'}).click();
     await expect(followup.getByRole('button', {name: 'Confirm outcome'})).toBeDisabled();
     await followup.getByLabel('Follow-up outcome').fill(`Sent the ${marker} demo and recorded a response.`);
     await followup.getByRole('button', {name: 'Confirm outcome'}).click();
-    await expect(page.getByText(`Sent the ${marker} demo and recorded a response.`, {exact: true})).toBeVisible();
+    await expect(page.getByText(`Sent the ${marker} demo and recorded a response.`, {exact: true}).first()).toBeVisible();
     await page.reload();
-    await expect(page.getByText(`Sent the ${marker} demo and recorded a response.`, {exact: true})).toBeVisible();
+    await expect(page.getByText(`Sent the ${marker} demo and recorded a response.`, {exact: true}).first()).toBeVisible();
     await page.goto('/tasks');
     await expect(page.getByTestId('task-row').filter({ hasText: `Send ${marker} demo` })).toBeVisible();
     await page.reload();

@@ -19,7 +19,8 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
-  const redirectUrl = searchParams.get('redirect') || '/dashboard';
+  const requestedRedirect = searchParams.get('redirect') || '/dashboard';
+  const redirectUrl = requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//') && !requestedRedirect.includes('\\') ? requestedRedirect : '/dashboard';
 
   const {
     register,

@@ -3,6 +3,7 @@ export type Recency = {label: string; days_since: number | null; interaction_cou
 export type Followup = {key: string; person_id: string; name: string; why_now: string; context: string; suggested_action: string; evidence: Evidence; due_at: string | null; commitment_id: string | null; recency: Recency};
 export type Related = Evidence & {reason: string; evidence: Evidence};
 export type Profile = {
+  moments?: {id: string; title: string; summary: string; occurred_at: string; recorded_at: string; timezone: string; source_type: string; metadata: {location?: string}; media: {id: string; kind: string}[]}[];
   person: Evidence & {name: string; role: string | null; company: string | null; notes: string | null; email: string | null; phone: string | null; linkedin_url: string | null; where_met: string | null; when_met: string | null; industry: string | null; location: string | null; relationship_type: string};
   first_interaction: string | null; last_interaction: string | null; recency: Recency;
   timeline: (Evidence & {date: string; summary: string | null; location: string | null; topics: string[]})[];

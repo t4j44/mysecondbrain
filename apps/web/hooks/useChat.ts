@@ -127,6 +127,7 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
           body: JSON.stringify({
             query: messageText,
             prompt: messageText,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
             messages: currentMessagesState.filter(
               (m) => m.id !== assistantMessageId && m.status !== 'error'
             ),

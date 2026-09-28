@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api/browser-client';
+import { EventDetails } from '@/components/relationships/event-details';
 
 export default function SourcePage() {
   const { kind, id } = useParams<{ kind: string; id: string }>();
@@ -31,6 +32,7 @@ export default function SourcePage() {
     <h1 className="text-2xl font-semibold">{source?.title || 'Source record'}</h1>
     {source ? <><p className="text-sm text-muted-foreground">Private record · Updated {new Date(source.updated_at).toLocaleString()}</p>
       <div className="whitespace-pre-wrap break-words rounded-xl border p-5">{source.text}</div>
+      {kind === 'context_event' && <EventDetails id={id} onDeleted={() => { setSource(null); setMessage('Context deleted. Search access is removed and photo erasure is queued.'); }} />}
       <button className="min-h-11 rounded border px-4" disabled={busy} onClick={async () => {
         setBusy(true); try {
           await api.post(`/sources/${encodeURIComponent(kind)}/${encodeURIComponent(id)}/index`);

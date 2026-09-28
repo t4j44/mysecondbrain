@@ -60,6 +60,7 @@ export class FastApiClient {
       }
 
       const contentType = response.headers.get('content-type');
+      if (response.ok && contentType?.startsWith('image/')) return await response.blob() as T;
       let data: any;
       if (contentType && contentType.includes('application/json')) {
         data = await response.json();

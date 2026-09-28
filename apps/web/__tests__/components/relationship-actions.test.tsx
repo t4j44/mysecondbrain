@@ -38,7 +38,7 @@ describe('Approved relationship actions', () => {
     await waitFor(() => expect(screen.getByLabelText('Follow-up draft')).toHaveValue('Hi Ahmed, checking in about the deck.'));
     expect(post).toHaveBeenCalledWith('/relationships/people/synthetic-person/draft', {suggestion_key: item.key});
     expect(changed).not.toHaveBeenCalled();
-    expect(screen.getByText(/Nothing has been sent/)).toBeInTheDocument();
+    expect(screen.getByText(/Opening it does not record a send/)).toBeInTheDocument();
   });
   it('dismissal is reviewed and keeps the underlying promise', () => {
     render(<FollowupCard item={item} onChanged={() => {}} />);
