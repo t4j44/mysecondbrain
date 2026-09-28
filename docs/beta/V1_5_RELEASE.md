@@ -6,18 +6,20 @@ Date: September 28, 2026. This is the final pre-pilot feature expansion. Further
 
 - Starting SHA: `9cf7ea0e4791bcc06dfa75d52e150aa63062d181`.
 - Branch: `codex/personal-context-v1-5`.
-- Candidate/final tested SHA and CI links: pending the release-branch gates below.
+- Verified application SHA: `f760f4583f8002dd8564fc0110f77506c2e88564`.
+- [Security & Quality CI](https://github.com/t4j44/mysecondbrain/actions/runs/36394223243): PASS. [PostgreSQL upgrade and recovery CI](https://github.com/t4j44/mysecondbrain/actions/runs/36394223233): PASS, both on that exact SHA.
+- The release-report commit following that SHA changes documentation only; `git rev-parse HEAD` identifies the final checkout revision. Deploy a revision with passing CI and compare both hosted service SHAs.
 - No merge, hosted migration, production deployment or promotion performed.
 
 | Required state | Result | Evidence needed |
 | --- | --- | --- |
-| CODE COMPLETE | Pending final CI | Implementation and local checks exist; exact-revision CI, PostgreSQL upgrade and restore must pass. |
+| CODE COMPLETE | YES, within the documented V1.5 cut line | Exact-revision quality CI, PostgreSQL upgrade/restore and local component checks pass. Hosted acceptance is a separate gate. |
 | STAGING VERIFIED | NO | Both hosted service SHAs, two-account authenticated E2E and provider checks remain unverified. |
 | DOGFOOD READY | NO | Hosted V1 then V1.5 acceptance must pass first. |
 | PRIVATE BETA READY | NO | Staging acceptance and seven-day dogfood evidence required before 10–15 testers. |
 | PRODUCTION VERIFIED | NO | No production promotion or verification performed. |
 
-Safe to deploy into isolated staging: pending CI and a reviewed staging migration ledger/backup. Safe to promote production: **NO**. Ready for 10 private testers: **NO**.
+Safe to deploy into isolated staging: **YES**, after confirming the isolated target, reviewing its migration ledger and taking a backup. Safe to promote production: **NO**. Ready for 10 private testers: **NO**.
 
 ## Schema, backend and frontend changes
 
@@ -49,25 +51,26 @@ Fourteen private event counters cover capture, card/moment, intent, evidence ope
 
 | Gate | Latest observed result |
 | --- | --- |
-| Backend full local suite | 257 passed before three additional cases/late changes; final full CI pending. |
+| Backend full suite | 260 passed in CI on the verified application SHA; 25 warnings, no failed or skipped tests. |
 | V1.5 backend focused suite | 28 passed across event/media/outreach, temporal/finalizer and OAuth tests. |
-| Frontend unit suite | 22 passed across 8 files. |
+| Frontend unit suite | 22 passed across 8 files in exact-revision CI. |
 | Ruff / mypy / Bandit | PASS; mypy checked 154 source files. |
-| Frontend lint / TypeScript | PASS. |
-| Production frontend build | PASS with build-only mock public configuration; no hosted connection proved. |
+| Frontend lint / TypeScript | PASS in exact-revision CI. |
+| Production frontend build | PASS in exact-revision CI with build-only mock public configuration; no hosted connection proved. |
 | Synthetic component browser QA | 12 checks passed: Home, Capture, Person Context and OAuth consent at 320, 390 and 1440 px; no page errors or horizontal overflow. Real components with mocked API/session, not hosted E2E. |
-| PostgreSQL / seeded V1 upgrade / dump-restore | Pending candidate CI. Added owner RLS, foreign-owner references, server-only OAuth vault and real pgvector event checks. |
+| PostgreSQL / seeded V1 upgrade / dump-restore | PASS on the verified application SHA: 43 + 43 + 43 passed, zero skips/failures. [CI run](https://github.com/t4j44/mysecondbrain/actions/runs/36394223233). Three separate executions of the same integration suite, not 129 distinct cases. |
+| Browser suite collection | PASS: 26 desktop/mobile/public cases collected without credentials. This is configuration validation, not browser test execution. |
 | Hosted two-account desktop/mobile E2E | NOT RUN. Automated V1.5 acceptance cases added; staging accounts/access unavailable. Missing/skipped evidence must fail the gate. |
 
 Local UI evidence is in the ignored `.test-tmp/v15-ui` folder. It uses clearly labelled synthetic data and never sends a message. The user-interface fixture does not prove hosted auth, Gemini quality, Supabase Storage or physical-device behavior.
 
-The CI database gate must bootstrap all 31 migrations, upgrade seeded V1 data through 29–31 and execute the integration suite again after real dump/restore. Old V1 PostgreSQL evidence does not certify these changes. No skipped test is a passed release gate.
+The CI database gate bootstrapped all 31 migrations, upgraded seeded V1 data through 29–31 and executed the integration suite again after real dump/restore. Old V1 PostgreSQL evidence was not reused to certify these changes. No skipped test is a passed release gate.
 
 ## Hosted exclusions, blockers and next action
 
 Not tested against hosted services: actual Vercel/Render revisions/readiness; two-user authenticated Capture/RAG/outcome flow; hosted Supabase RLS/Storage erasure; live Gemini free-tier quota/quality; external AI OAuth clients; Google Drive/Calendar token refresh/retries; public portfolio publication/revocation regression; hosted restore; physical phones. No real users, testimonials or usage claims have been invented.
 
-Staging access and two synthetic accounts were promised but have not been verified. After exact-revision CI passes, the highest-priority next step is **deploy that tested revision to isolated staging and execute [the runbook acceptance](RUNBOOK.md#v15-staging-acceptance)**. Then complete seven days of dogfood before inviting 10–15 testers. A paid Gemini decision is not a gate.
+Staging access and two synthetic accounts were promised but have not been verified. The available GitHub connector cannot inspect environment variables/secrets, so this report does not claim those hosted settings are absent. The highest-priority next step is **deploy the tested revision to isolated staging and execute [the runbook acceptance](RUNBOOK.md#v15-staging-acceptance)**. Then complete seven days of dogfood before inviting 10–15 testers. A paid Gemini decision is not a gate.
 
 ## Repository housekeeping
 

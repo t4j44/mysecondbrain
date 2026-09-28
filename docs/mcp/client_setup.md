@@ -62,7 +62,9 @@ silently broadened. Keep secrets in the client's secret manager. Do not commit t
 ## Staging acceptance
 
 Run `apps/web/e2e/v15-context.spec.ts` using the runbook's two synthetic users.
-It covers browser consent, HTTP token exchange, an MCP read, revocation and rejection.
+It covers browser consent, HTTP token exchange, scoped reads, explicitly approved session
+save/retry/retrieval, original source/timezone, revocation and rejection. Merely collecting
+the test suite is not evidence these hosted flows passed.
 Then test ChatGPT and Claude themselves: connect, read only owned synthetic evidence,
 explicitly permit writes, finalize a session with a stable request ID, retry, retrieve
 from the other AI client, and revoke. Record client version, date and deployed SHA;
