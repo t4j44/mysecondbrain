@@ -62,6 +62,22 @@ async def prepare_database():
         await conn.run_sync(Base.metadata.drop_all)
 
 
+@pytest.fixture(autouse=True)
+def isolate_http_rate_limit_state():
+    """Each test is independent; requests inside a test retain real throttling.
+
+    The shared ASGI app survives database resets. On fast CI runners unrelated
+    tests otherwise share one IP counter and fail based on execution speed.
+    """
+    from app.middleware.rate_limiting import RateLimitingMiddleware
+
+    middleware = app.middleware_stack
+    while middleware is not None:
+        if isinstance(middleware, RateLimitingMiddleware):
+            middleware.tracker.clear()
+        middleware = getattr(middleware, 'app', None)
+
+
 @pytest_asyncio.fixture
 async def async_client() -> AsyncGenerator[AsyncClient, None]:
     transport = ASGITransport(app=app)
