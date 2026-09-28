@@ -835,7 +835,7 @@ class MCPDomainTools(BetaMCPTools):
         try:
             # 1. Idempotency Check
             idempotency_key = client_request_id or session_reference or conversation_reference
-            if self.db.bind.dialect.name == 'postgresql':
+            if self.db.get_bind().dialect.name == 'postgresql':
                 await self.db.execute(text('SELECT pg_advisory_xact_lock(hashtextextended(:key, 29))'),
                     {'key': f'{self.user_id}:mcp-finalize'})
             if idempotency_key:
