@@ -1,4 +1,5 @@
 """Migration 34: email contact dates are owner-only, owner-referenced and removed with their parents."""
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
@@ -44,7 +45,7 @@ async def mail(pg_engine):
 
 def row(ids, **overrides):
     return {'user': ids['owner'], 'integration': ids['integration'], 'person': ids['person'],
-            'sent': '2026-10-01T10:00:00+00', 'received': None, **overrides}
+            'sent': datetime(2026, 10, 1, 10, tzinfo=timezone.utc), 'received': None, **overrides}
 
 
 async def save(pg_engine, params):
