@@ -3,6 +3,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.ai.capsule import MAX_CAPSULES, Capsule
+
 
 # --- MEMORIES SCHEMAS (Task 18) ---
 class MemoryCreate(BaseModel):
@@ -233,6 +235,7 @@ class AIContentGenerateRequest(BaseModel):
     context_record_ids: List[str] = []
     tone: str = "professional"
     output_format: str = "markdown"
+    conversation: List[Capsule] = Field(default_factory=list, max_length=MAX_CAPSULES * 2)
 
 
 class AIContentGenerateResponse(BaseModel):
@@ -241,6 +244,7 @@ class AIContentGenerateResponse(BaseModel):
     model_used: str
     source_citations: List[str] = []
     citations: List[Dict[str, str]] = []
+    capsule: Optional[Dict[str, Any]] = None
 
 
 class AICoverletterRequest(BaseModel):

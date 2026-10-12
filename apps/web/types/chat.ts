@@ -6,6 +6,13 @@ export interface Citation {
   snippet?: string;
 }
 
+/** A question and its answer reduced to the few facts a follow-up needs. Built by the server, kept on this device. */
+export interface Capsule {
+  question: string;
+  answer: string;
+  sources: { entity_type: string; title: string }[];
+}
+
 export type MessageRole = 'user' | 'assistant' | 'system';
 export type MessageStatus = 'optimistic' | 'thinking' | 'streaming' | 'completed' | 'error';
 
@@ -18,6 +25,7 @@ export interface ChatMessage {
   isThinking?: boolean;
   thinkingText?: string;
   citations?: Citation[];
+  capsule?: Capsule;
   error?: string;
 }
 

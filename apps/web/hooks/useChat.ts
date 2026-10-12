@@ -1,9 +1,24 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { env } from '@/lib/env';
-import { ChatMessage, UseChatOptions, UseChatHelpers, Citation } from '../types/chat';
+import { ChatMessage, UseChatOptions, UseChatHelpers, Citation, Capsule } from '../types/chat';
+
+const MAX_CAPSULES = 4;
+
+export function isCapsule(value: unknown): value is Capsule {
+  const item = value as Capsule | null;
+  return !!item && typeof item.question === 'string' && typeof item.answer === 'string' && Array.isArray(item.sources);
+}
+
+/** The newest few capsules from finished answers; the full transcript is never uploaded. */
+export function recentCapsules(messages: ChatMessage[]): Capsule[] {
+  return messages
+    .filter((message) => message.role === 'assistant' && message.status === 'completed' && isCapsule(message.capsule))
+    .slice(-MAX_CAPSULES)
+    .map((message) => message.capsule as Capsule);
+}
 
 /**
  * Custom hook `useChat` for managing real-time AI conversation streams.
@@ -27,6 +42,8 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
   const [error, setError] = useState<Error | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const messagesRef = useRef<ChatMessage[]>(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -77,11 +94,10 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
         citations: [],
       };
 
-      let currentMessagesState: ChatMessage[] = [];
-      setMessages((prev) => {
-        currentMessagesState = [...prev, userMessage, pendingAssistantMessage];
-        return currentMessagesState;
-      });
+      // Read before queueing the new messages: state updaters run lazily, so a value
+      // captured inside one may not exist yet when the request body is built.
+      const conversation = recentCapsules(messagesRef.current);
+      setMessages((prev) => [...prev, userMessage, pendingAssistantMessage]);
 
       setIsLoading(true);
       setIsThinking(true);
@@ -128,9 +144,7 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
             query: messageText,
             prompt: messageText,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-            messages: currentMessagesState.filter(
-              (m) => m.id !== assistantMessageId && m.status !== 'error'
-            ),
+            conversation,
             ...body,
           }),
           signal: abortController.signal,
@@ -149,6 +163,7 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
           const finalMessage: ChatMessage = {
             ...pendingAssistantMessage, content: result.generated_text,
             status: 'completed', isThinking: false, citations: result.citations || [],
+            capsule: isCapsule(result.capsule) ? result.capsule : undefined,
           };
           setMessages(prev => prev.map(message => message.id === assistantMessageId ? finalMessage : message));
           setIsThinking(false);
