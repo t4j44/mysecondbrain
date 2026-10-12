@@ -8,6 +8,15 @@ from pydantic import AwareDatetime, BaseModel, Field, model_validator
 from sqlalchemy import func, or_, select
 
 from app.ai.indexing import SOURCES, owned_record
+from app.ai.message_draft import (
+    MAX_FACT_CHARS,
+    MAX_STYLE_EXAMPLES,
+    DraftFacts,
+    clip,
+    first_name_of,
+    write_draft,
+)
+from app.ai.provider import get_llm_provider
 from app.core.errors import ConflictError, NotFoundError
 from app.jobs.index_queue import queue_index
 from app.models.crm import Relationship
@@ -304,19 +313,65 @@ class RelationshipService:
         result.sort(key=lambda item: (utc(item['due_at']) or now, item['name'], item['key']))
         return result[:max(1, min(limit, 100))]
 
+    async def _draft_facts(self, person, why_now=None, commitment=None):
+        """Only the owner's own saved records; the drafter may state nothing beyond these lines."""
+        identity = str(person.id)
+        detail = ', '.join(str(x) for x in (person.role, person.company) if x)
+        lines = [clip(f'Recipient: {person.name}' + (f' ({detail})' if detail else ''), MAX_FACT_CHARS)]
+        where = (person.metadata_payload or {}).get('where_met')
+        if where:
+            lines.append(clip(f'You met at: {where}', MAX_FACT_CHARS))
+        if why_now:
+            lines.append(clip(f'Why you are writing now: {why_now}', MAX_FACT_CHARS))
+        if commitment is not None:
+            lines.append(clip(('You promised: ' if commitment.direction == 'owed_by_me' else 'They promised you: ')
+                              + commitment.description, MAX_FACT_CHARS))
+        recent = await self.rows(Interaction, Interaction.person_id == identity, limit=3, order=Interaction.date.desc())
+        for item in recent:
+            when = utc(item.date).date().isoformat() if item.date else 'undated'
+            lines.append(clip(f'Past contact ({when}): ' + ' '.join(x for x in (item.title, item.summary) if x), MAX_FACT_CHARS))
+        last = max((utc(item.date) for item in recent if item.date), default=None)
+        days = (datetime.now(timezone.utc) - last).days if last else None
+        if days is not None:
+            lines.append(f'You last spoke {days} days ago.')
+        return DraftFacts(first_name=first_name_of(person.name), lines=lines,
+            commitment=commitment.description if commitment is not None else None,
+            commitment_owed_by_me=commitment is not None and commitment.direction == 'owed_by_me',
+            long_silence=days is not None and days > 45)
+
+    async def _style_examples(self, person_id):
+        """The user's own recently reviewed messages, newest first, this person's before others'."""
+        rows = (await self.db.execute(select(RelationshipAction).where(RelationshipAction.user_id == self.owner,
+            RelationshipAction.action == 'opened').order_by(RelationshipAction.created_at.desc()).limit(30))).scalars().all()
+        mine, others, seen = [], [], set()
+        for row in rows:
+            text = (row.outcome or '').strip()
+            if not text or (row.receipt or {}).get('deleted') or text in seen:
+                continue
+            seen.add(text)
+            (mine if str(row.person_id) == str(person_id) else others).append(text)
+        return (mine + others)[:MAX_STYLE_EXAMPLES]
+
+    async def _compose(self, person, why_now=None, commitment=None):
+        facts = await self._draft_facts(person, why_now, commitment)
+        result = await write_draft(get_llm_provider('gemini'), facts, await self._style_examples(person.id))
+        self.db.add(AuditLog(user_id=self.owner, event_type='outreach_draft_created', target_entity='person',
+            target_id=person.id, details={'source': result.source}))
+        await self.db.commit()
+        notice = ('Written from your saved context. Editable draft only. Nothing has been sent.' if result.source == 'ai' else
+            'Simple draft because AI drafting was unavailable. Add your own update. Nothing has been sent.')
+        return {'draft': result.text, 'source': result.source, 'needs_edit': result.needs_edit, 'notice': notice}
+
     async def draft(self, person_id, key):
         person = await self.person(person_id)
         suggestion = next((item for item in await self.followups(person_id, 100) if item['key'] == key), None)
         if not suggestion:
             raise ConflictError('This suggestion changed. Refresh the relationship context.')
-        text = f'Hi {person.name}, I wanted to follow up on our last conversation.'
-        if suggestion['commitment_id']:
-            commitment = await owned_record(self.db, self.owner, 'commitment', suggestion['commitment_id'])
-            text += ' ' + ('I wanted to check in about: ' if commitment.direction != 'owed_by_me' else 'Following up on my promise: ') + commitment.description
-        self.db.add(AuditLog(user_id=self.owner, event_type='outreach_draft_created', target_entity='person', target_id=person.id, details={}))
-        await self.db.commit()
-        return {'draft': text + '\n\n[Add your update or question before sending.]', 'evidence': suggestion['evidence'],
-                'notice': 'Editable draft only. Nothing has been sent.'}
+        commitment = await owned_record(self.db, self.owner, 'commitment', suggestion['commitment_id']) if suggestion['commitment_id'] else None
+        return {**await self._compose(person, suggestion['why_now'], commitment), 'evidence': suggestion['evidence']}
+
+    async def person_draft(self, person_id):
+        return await self._compose(await self.person(person_id))
 
     async def act(self, person_id, payload: FollowupActionInput):
         person = await self.person(person_id, lock=True)

@@ -40,6 +40,13 @@ describe('Approved relationship actions', () => {
     expect(changed).not.toHaveBeenCalled();
     expect(screen.getByText(/Opening it does not record a send/)).toBeInTheDocument();
   });
+  it('tells the user whether the draft was written from context or is a plain fallback', async () => {
+    post.mockResolvedValue({draft: 'Hi Ahmed, how have you been?', notice: 'Simple draft because AI drafting was unavailable. Add your own update. Nothing has been sent.'});
+    render(<FollowupCard item={item} onChanged={() => {}} />);
+    fireEvent.click(screen.getByRole('button', {name: 'Draft message'}));
+    expect(await screen.findByText(/Simple draft because AI drafting was unavailable/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Follow-up draft')).toHaveValue('Hi Ahmed, how have you been?');
+  });
   it('dismissal is reviewed and keeps the underlying promise', () => {
     render(<FollowupCard item={item} onChanged={() => {}} />);
     fireEvent.click(screen.getByRole('button', {name: 'Dismiss'}));

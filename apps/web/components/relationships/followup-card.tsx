@@ -9,6 +9,7 @@ import { OutreachControls } from './outreach-controls';
 export function FollowupCard({item, onChanged}: {item: Followup; onChanged: () => void}) {
   const [mode, setMode] = useState<'draft' | 'scheduled' | 'completed' | 'dismissed' | null>(null);
   const [draft, setDraft] = useState('');
+  const [note, setNote] = useState('');
   const [outcome, setOutcome] = useState('');
   const [date, setDate] = useState('');
   const [busy, setBusy] = useState(false);
@@ -33,13 +34,13 @@ export function FollowupCard({item, onChanged}: {item: Followup; onChanged: () =
     <div className="flex flex-wrap gap-2">
       <button className={button} disabled={busy} onClick={async () => {
         setBusy(true); setError(''); setMode('draft'); request.current = null;
-        try { const result = await api.post<{draft: string}>(`/relationships/people/${item.person_id}/draft`, {suggestion_key: item.key}); setDraft(result.draft); }
+        try { const result = await api.post<{draft: string; notice?: string}>(`/relationships/people/${item.person_id}/draft`, {suggestion_key: item.key}); setDraft(result.draft); setNote(result.notice ?? ''); }
         catch (error) { setError(error instanceof Error ? error.message : 'Could not draft.'); }
         finally { setBusy(false); }
       }}>Draft message</button>
       {(['scheduled', 'completed', 'dismissed'] as const).map(action => <button className={button} disabled={busy} key={action} onClick={() => { setMode(action); setError(''); request.current = null; }}>{({scheduled: 'Schedule', completed: 'Mark completed', dismissed: 'Dismiss'})[action]}</button>)}
     </div>
-    {mode === 'draft' && <div className="space-y-2"><label className="block">Review your draft<textarea aria-label="Follow-up draft" className="mt-2 w-full rounded border bg-background p-3" rows={5} value={draft} onChange={event => setDraft(event.target.value)} /></label><OutreachControls personId={item.person_id} draft={draft} onChanged={onChanged} /></div>}
+    {mode === 'draft' && <div className="space-y-2"><label className="block">Review your draft<textarea aria-label="Follow-up draft" className="mt-2 w-full rounded border bg-background p-3" rows={5} value={draft} onChange={event => setDraft(event.target.value)} /></label>{note && <p className="text-sm text-muted-foreground">{note}</p>}<OutreachControls personId={item.person_id} draft={draft} onChanged={onChanged} /></div>}
     {mode && mode !== 'draft' && <div className="space-y-3 border-t pt-3">
       {mode === 'completed' && <label className="block">What actually happened?<textarea aria-label="Follow-up outcome" className="mt-2 w-full rounded border bg-background p-3" maxLength={2000} rows={3} value={outcome} onChange={event => setOutcome(event.target.value)} placeholder="Sent the deck. Ahmed offered an introduction next week." /></label>}
       {mode === 'completed' && item.commitment_id && <p className="text-sm">This will complete the promise and its linked task, then save your outcome as relationship history.</p>}

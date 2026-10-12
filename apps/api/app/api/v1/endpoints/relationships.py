@@ -37,10 +37,7 @@ async def intent(payload: IntentInput, user: AuthenticatedUser = Depends(get_cur
 
 @router.post('/people/{person_id}/outreach/draft')
 async def reconnect_draft(person_id: UUID, user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
-    person = await RelationshipService(db, user.id).person(person_id)
-    db.add(AuditLog(user_id=user.id, event_type='outreach_draft_created', target_entity='person', target_id=person.id, details={}))
-    await db.commit()
-    return {'draft': f'Hi {person.name}, I’d like to reconnect. [Add your context and question before sending.]'}
+    return await RelationshipService(db, user.id).person_draft(person_id)
 
 
 class ObservationInput(BaseModel):

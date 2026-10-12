@@ -16,6 +16,7 @@ export function IntentPeople() {
   const [error, setError] = useState('');
   const [selected, setSelected] = useState('');
   const [draft, setDraft] = useState('');
+  const [note, setNote] = useState('');
   return <section className="space-y-4 rounded-xl border p-4 sm:p-6">
     <h2 className="text-xl font-semibold">Who in your network may help?</h2>
     <form className="flex flex-wrap gap-3" onSubmit={async event => {
@@ -33,11 +34,11 @@ export function IntentPeople() {
       <p className="text-sm text-muted-foreground">{person.confidence}</p><p className="text-sm">{person.suggested_action}</p>
       <button className="min-h-11 rounded-lg border px-3" disabled={busy} onClick={async () => {
         setBusy(true); setError('');
-        try { const result = await api.post<{draft: string}>(`/relationships/people/${person.person_id}/outreach/draft`); setSelected(person.person_id); setDraft(result.draft); }
+        try { const result = await api.post<{draft: string; notice?: string}>(`/relationships/people/${person.person_id}/outreach/draft`); setSelected(person.person_id); setDraft(result.draft); setNote(result.notice ?? ''); }
         catch (error) { setError(error instanceof Error ? error.message : 'Could not prepare draft.'); }
         finally { setBusy(false); }
       }}>Draft message</button>
-      {selected === person.person_id && <div className="space-y-3"><label className="block">Review your message<textarea aria-label="Intent outreach draft" className="mt-2 w-full rounded border bg-background p-3" value={draft} maxLength={4000} rows={4} onChange={event => setDraft(event.target.value)} /></label><OutreachControls personId={person.person_id} draft={draft} onChanged={() => setSelected('')} /></div>}
+      {selected === person.person_id && <div className="space-y-3"><label className="block">Review your message<textarea aria-label="Intent outreach draft" className="mt-2 w-full rounded border bg-background p-3" value={draft} maxLength={4000} rows={4} onChange={event => setDraft(event.target.value)} /></label>{note && <p className="text-sm text-muted-foreground">{note}</p>}<OutreachControls personId={person.person_id} draft={draft} onChanged={() => setSelected('')} /></div>}
     </article>)}
     {error && <p role="alert">{error}</p>}
   </section>;
