@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api/browser-client';
 import { createClient } from '@/lib/supabase/client';
 import { env } from '@/lib/env';
+import { eraseLocalRecordings } from '@/lib/meetings/local-recordings';
 
 export default function PrivacyPage() {
   const [mode, setMode] = useState('Loading');
@@ -40,7 +41,7 @@ export default function PrivacyPage() {
       <div className="flex flex-wrap gap-4"><Link className="underline" href="/settings/integrations">Connected integrations</Link><Link className="underline" href="/portfolio">Public portfolio links</Link></div>
     </section>
     <section className="rounded-xl border p-4 space-y-3"><h2 className="text-xl">Export your records</h2><p>Download portable JSON, CSV and Markdown, including archived records. Credentials are excluded. This archive does not contain original uploaded files.</p><button disabled={busy || closing} onClick={download} className="min-h-11 rounded border px-4">Download account export</button></section>
-    <form className="rounded-xl border border-destructive p-4 space-y-3" onSubmit={async e => {e.preventDefault();setBusy(true);try {await api.post('/account/delete',{confirmation});setClosing(true);setMessage('Account access is blocked. Cleanup is queued. Keep this page open to check completion.');}catch(e){setMessage(e instanceof Error?e.message:'Deletion request failed');}finally{setBusy(false);}}}>
+    <form className="rounded-xl border border-destructive p-4 space-y-3" onSubmit={async e => {e.preventDefault();setBusy(true);try {const {data:{session}}=await createClient().auth.getSession();await api.post('/account/delete',{confirmation});setClosing(true);try{if(session)await eraseLocalRecordings(session.user.id);setMessage('Account access is blocked. Cleanup is queued. Recordings on this device have been removed. Keep this page open to check completion.');}catch{setMessage('Account cleanup is queued. Device storage could not be cleared. Clear this browser’s site data to remove local recordings.');}}catch(e){setMessage(e instanceof Error?e.message:'Deletion request failed');}finally{setBusy(false);}}}>
       <h2 className="text-xl">Delete my data and account</h2><p>This permanently removes your private records, files, indexes, credentials and public portfolio pages. Download an export first. Copies already exported to Google or saved by other people remain there. Provider backups expire under their retention policies.</p>
       <label className="block">Type DELETE MY ACCOUNT<input value={confirmation} onChange={e=>setConfirmation(e.target.value)} className="mt-2 min-h-11 w-full rounded border bg-background px-3" autoComplete="off" /></label>
       <button disabled={busy || closing || confirmation !== 'DELETE MY ACCOUNT'} className="min-h-11 rounded bg-destructive px-4 text-destructive-foreground">Permanently delete account</button>

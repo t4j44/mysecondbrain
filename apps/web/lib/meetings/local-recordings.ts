@@ -1,0 +1,8 @@
+/** Private local recovery; deleted only after successful upload or explicit discard. */
+export interface LocalRecording { id: string; owner: string; title: string; mime: string; blob: Blob; createdAt: number }
+function database(): Promise<IDBDatabase> { return new Promise((resolve, reject) => { const request = indexedDB.open('second-brain-meeting-recordings', 1); request.onupgradeneeded = () => request.result.createObjectStore('recordings', { keyPath: 'id' }); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); }
+async function operation<T>(mode: IDBTransactionMode, action: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> { const db = await database(); return new Promise((resolve, reject) => { const tx = db.transaction('recordings', mode); const request = action(tx.objectStore('recordings')); tx.oncomplete = () => { db.close(); resolve(request.result); }; tx.onerror = () => { db.close(); reject(tx.error); }; tx.onabort = () => { db.close(); reject(tx.error); }; }); }
+export const saveLocalRecording = (value: LocalRecording) => operation('readwrite', s => s.put(value));
+export const deleteLocalRecording = (id: string) => operation('readwrite', s => s.delete(id));
+export async function listLocalRecordings(owner: string): Promise<LocalRecording[]> { const all = await operation('readonly', s => s.getAll()) as LocalRecording[]; return all.filter(r => r.owner === owner); }
+export async function eraseLocalRecordings(owner: string) { const records = await listLocalRecordings(owner); await Promise.all(records.map(record => deleteLocalRecording(record.id))); }

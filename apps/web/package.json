@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:meetings-ui": "node scripts/meeting-ui-smoke.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

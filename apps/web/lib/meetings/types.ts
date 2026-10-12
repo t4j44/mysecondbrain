@@ -1,0 +1,13 @@
+export type MeetingProcessingStatus = 'draft' | 'recording' | 'uploading' | 'uploaded' | 'transcribing' | 'extracting' | 'awaiting_review' | 'completed' | 'failed';
+export interface Candidate { description: string; evidence_text: string; confidence: number; interpretation: boolean; from_speaker?: string | null; to_speaker?: string | null; due_at?: string | null }
+export interface TranscriptSegment { segment_id: string; chunk_index: number; speaker_local_id: string; start_offset: number; end_offset: number | null; text: string }
+export interface SpeakerMapping { kind: 'me' | 'person' | 'unknown'; person_id: string | null }
+export interface MeetingCapture { state: MeetingProcessingStatus; duration_seconds: number; retained_until: string | null; audio_deleted_at: string | null; intelligence: { summary?: string; topics?: string[]; [key: string]: Candidate[] | string[] | string | undefined }; transcript_segments: TranscriptSegment[]; speaker_mappings: Record<string, SpeakerMapping>; confirmed_at: string | null; error_code: string | null; data_mode: string; receipt: { selected?: string[]; [key: string]: unknown } }
+export interface Meeting { id: string; user_id: string; title: string; meeting_date: string; duration_minutes: number; ai_summary: string | null; transcript_text: string | null; action_items: string[]; participant_person_ids: string[]; venture_id?: string; location?: string; metadata: Record<string, unknown>; capture: MeetingCapture | null; created_at: string; updated_at: string }
+export interface MeetingUsage { used_seconds: number; limit_seconds: number; remaining_seconds: number; percentage_used: number; data_mode: string; max_bytes?: number; retention_days?: number }
+export interface MeetingList { items: Meeting[]; total: number; limit: number; offset: number; has_more: boolean }
+export interface UploadAuthorization { upload_url: string | null; local_upload_endpoint: string | null; mime_type: string; max_bytes: number }
+export interface LiveSegment { sequence: number; start_offset: number; end_offset: number; text: string }
+export function timeLabel(seconds: number) { const minutes = Math.floor(seconds / 60); return `${Math.floor(minutes / 60)}h ${minutes % 60}m`; }
+export function timerLabel(seconds: number) { return [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60].map(n => String(n).padStart(2, '0')).join(':'); }
+export function statusLabel(state?: MeetingProcessingStatus) { return ({ draft: 'Not uploaded', recording: 'Recording', uploading: 'Uploading...', uploaded: 'Processing...', transcribing: 'Processing...', extracting: 'Preparing summary...', awaiting_review: 'Ready to review', completed: 'Saved ✓', failed: 'Failed — Retry' })[state || 'draft']; }

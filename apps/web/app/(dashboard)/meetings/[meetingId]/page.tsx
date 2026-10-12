@@ -1,238 +1,50 @@
 'use client';
-
-import { createClient } from '@/lib/supabase/client';
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { ResponsivePageContainer } from '@/components/shared/responsive-page-container';
+import { Button } from '@/components/ui/button';
+import { api } from '@/lib/api/browser-client';
+import { meetingApi } from '@/lib/meetings/api';
+import { meetingSession } from '@/components/meetings/capture-panel';
+import { env } from '@/lib/env';
+import { statusLabel, type Candidate, type Meeting } from '@/lib/meetings/types';
 
+type Person = { id: string; name: string };
+const labels: Record<string, string> = { decisions: 'Decisions', action_items: 'Next steps', commitments: 'Promises', follow_ups: 'Follow-ups', important_facts: 'Important facts', customer_feedback: 'Customer feedback', questions_open: 'Open questions', people_mentions: 'People mentioned', venture_candidates: 'Businesses mentioned', project_candidates: 'Projects mentioned', relationship_updates: 'Relationship notes', memory_candidates: 'Things to remember', lesson_candidates: 'Lessons' };
 export default function MeetingDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const meetingId = params?.meetingId as string;
-
-  const [meeting, setMeeting] = useState<any>(null);
-  const [participants, setParticipants] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchMeetingData() {
-      setLoading(true);
-      setError(null);
-      try {
-        const { data: { session } } = await createClient().auth.getSession();
-      const token = session?.access_token;
-        const headers = { Authorization: `Bearer ${token || ''}` };
-
-        // Fetch Meeting Details
-        const res = await fetch(`/api/v1/meetings/${meetingId}`, { headers });
-        if (!res.ok) {
-          throw new Error('Failed to retrieve meeting record.');
-        }
-        const data = await res.json();
-        setMeeting(data.data);
-
-        // Fetch participant details using linked ids
-        const participantIds = data.data.participant_person_ids || [];
-        const loadedParts = [];
-        for (const pId of participantIds) {
-          const pRes = await fetch(`/api/v1/people/${pId}`, { headers });
-          if (pRes.ok) {
-            const pData = await pRes.json();
-            loadedParts.push(pData.data);
-          }
-        }
-        setParticipants(loadedParts);
-      } catch (err: any) {
-        setError(err.message || 'Error occurred');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (meetingId) {
-      fetchMeetingData();
-    }
-  }, [meetingId]);
-
-  const handleCreateFollowUpTask = async (actionText: string) => {
-    try {
-      const { data: { session } } = await createClient().auth.getSession();
-      const token = session?.access_token;
-      const response = await fetch('/api/v1/tasks', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token || ''}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: `Action: ${actionText}`,
-          description: `Extracted from meeting: ${meeting.title}`,
-          priority: 'medium',
-        }),
-      });
-
-      if (response.ok) {
-        alert('Action item converted into corresponding task successfully!');
-      } else {
-        throw new Error('Failed to register task.');
-      }
-    } catch (err: any) {
-      alert(`Error converting item: ${err.message}`);
-    }
-  };
-
-  const handleCaptureAsMemory = async () => {
-    try {
-      const { data: { session } } = await createClient().auth.getSession();
-      const token = session?.access_token;
-      const response = await fetch('/api/v1/memories', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token || ''}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: `Insight: ${meeting.title}`,
-          content: meeting.ai_summary || 'Discussion points...',
-          category: 'lesson',
-        }),
-      });
-
-      if (response.ok) {
-        alert('Meeting summary captured as reflective memory card!');
-      } else {
-        throw new Error('Failed to register memory.');
-      }
-    } catch (err: any) {
-      alert(`Error capturing memory: ${err.message}`);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#12081d] text-[#f7f4ea] font-mono p-8 flex items-center justify-center">
-        <p className="animate-pulse">{"//"} ACCESSING MEETING MINUTES MATRIX...</p>
-      </div>
-    );
-  }
-
-  if (error || !meeting) {
-    return (
-      <div className="min-h-screen bg-[#12081d] text-[#f7f4ea] font-mono p-8">
-        <div className="border border-red-500 bg-red-950/20 p-6 max-w-lg mx-auto mt-12 text-center">
-          <p className="text-red-400 mb-4">{"//"} RECORD UNREACHABLE</p>
-          <p className="text-xs text-slate-500 mb-6">{error}</p>
-          <button onClick={() => router.push('/meetings')} className="px-4 py-2 bg-[#301642] border border-[#482264] hover:border-[#00ff9d]">
-            [ RETURN TO MEETINGS ]
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-[#12081d] text-[#f7f4ea] font-sans p-6">
-      {/* Back link */}
-      <Link href="/meetings" className="font-mono text-xs text-[#00ff9d] hover:underline mb-6 inline-block">
-        &lt;= [ BACK TO MEETINGS ]
-      </Link>
-
-      <header className="mb-8 border-b border-[#301642] pb-6 flex justify-between items-end flex-wrap gap-4">
-        <div>
-          <span className="font-mono text-xs text-[#00ff9d] uppercase">{"//"} Meeting Cockpit</span>
-          <h1 className="text-3xl font-mono tracking-tight font-extrabold text-[#f7f4ea] uppercase mt-1">
-            {meeting.title}
-          </h1>
-          <p className="text-xs font-mono text-slate-400 mt-2">
-            Date: {new Date(meeting.meeting_date).toLocaleString()} | Loc: {meeting.location || 'Remote'}
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={handleCaptureAsMemory}
-            className="px-4 py-2 bg-[#12081d] border border-[#301642] text-[#00ff9d] hover:border-[#00ff9d] font-mono text-xs uppercase"
-          >
-            [ CAPTURE AS MEMORY ]
-          </button>
-        </div>
-      </header>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main section: Notes & Summaries */}
-        <section className="lg:col-span-2 space-y-6">
-          {/* AI Summary */}
-          {meeting.ai_summary && (
-            <div className="border border-[#301642] bg-[#0a0510] p-6">
-              <h3 className="text-sm font-mono text-[#00ff9d] uppercase border-b border-[#301642] pb-2 mb-4">
-                {"//"} AI Generated Brief
-              </h3>
-              <p className="text-sm leading-relaxed text-slate-300">{meeting.ai_summary}</p>
-            </div>
-          )}
-
-          {/* Transcript / Notes */}
-          <div className="border border-[#301642] bg-[#0a0510] p-6">
-            <h3 className="text-sm font-mono text-[#00ff9d] uppercase border-b border-[#301642] pb-2 mb-4">
-              {"//"} Meeting Minutes & Transcripts
-            </h3>
-            {meeting.transcript_text ? (
-              <div className="max-h-96 overflow-y-auto bg-[#12081d] border border-[#301642] p-4 text-xs font-mono text-slate-400 whitespace-pre-wrap leading-relaxed">
-                {meeting.transcript_text}
-              </div>
-            ) : (
-              <p className="italic text-slate-500 font-mono text-xs">{"//"} No audio transcripts uploaded for this session.</p>
-            )}
-          </div>
-        </section>
-
-        {/* Sidebar: Participants & Action Items */}
-        <section className="lg:col-span-1 space-y-6">
-          {/* Participants */}
-          <div className="border border-[#301642] bg-[#0a0510] p-6 font-mono text-xs">
-            <h3 className="text-[#00ff9d] uppercase border-b border-[#301642] pb-2 mb-4">{"//"} Attendees</h3>
-            {participants.length === 0 ? (
-              <p className="text-slate-500 italic">No attendees linked.</p>
-            ) : (
-              <div className="space-y-3">
-                {participants.map((p) => (
-                  <div key={p.id} className="flex justify-between items-center bg-[#12081d] border border-[#301642] p-3">
-                    <div>
-                      <p className="font-bold text-[#f7f4ea]">{p.name}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">{p.role || 'Contributor'}</p>
-                    </div>
-                    <Link href={`/people/${p.id}`} className="text-[#00ff9d] hover:underline">
-                      [ PROFILE ]
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Action Items */}
-          <div className="border border-[#301642] bg-[#0a0510] p-6 font-mono text-xs">
-            <h3 className="text-[#00ff9d] uppercase border-b border-[#301642] pb-2 mb-4">{"//"} Action Items</h3>
-            {meeting.action_items && meeting.action_items.length > 0 ? (
-              <div className="space-y-3">
-                {meeting.action_items.map((item: string, idx: number) => (
-                  <div key={idx} className="flex justify-between items-start bg-[#12081d] border border-[#301642] p-3 gap-2">
-                    <span className="text-slate-300 leading-normal">{item}</span>
-                    <button
-                      onClick={() => handleCreateFollowUpTask(item)}
-                      className="text-[#00ff9d] hover:underline shrink-0"
-                    >
-                      [ + TASK ]
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-slate-500 italic">No action items recorded.</p>
-            )}
-          </div>
-        </section>
-      </div>
-    </div>
-  );
+  const params = useParams(); const router = useRouter(); const id = params?.meetingId as string;
+  const [meeting, setMeeting] = useState<Meeting | null>(null); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  const [people, setPeople] = useState<Person[]>([]); const [search, setSearch] = useState(''); const [selected, setSelected] = useState<string[]>([]); const [initialized, setInitialized] = useState(false);
+  const [newName, setNewName] = useState(''); const [player, setPlayer] = useState('');
+  async function refresh() { try { setMeeting(await meetingApi.get(id)); } catch { setError("Couldn't load this meeting. Retry."); } }
+  useEffect(() => { setMeeting(null); setInitialized(false); setSelected([]); setPlayer(''); setError(''); void refresh(); const timer = setInterval(() => void refresh(), 5000); return () => clearInterval(timer); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const timer = setTimeout(() => { void api.get<Person[]>('/meetings/people-search', { params: { q: search } }).then(setPeople).catch(() => undefined); }, 250); return () => clearTimeout(timer); }, [search]);
+  useEffect(() => { if (meeting?.capture?.intelligence.summary && !initialized) { setSelected(Object.entries(meeting.capture.intelligence).flatMap(([key, value]) => Array.isArray(value) && key !== 'topics' ? value.map((_, i) => `${key}:${i}`) : [])); setInitialized(true); } }, [meeting, initialized]);
+  useEffect(() => () => { if (player.startsWith('blob:')) URL.revokeObjectURL(player); }, [player]);
+  async function action(work: () => Promise<unknown>) { setBusy(true); setError(''); try { await work(); await refresh(); } catch { setError("Couldn't save this change. Check the details and retry."); } finally { setBusy(false); } }
+  async function play() { await action(async () => { const session = await meetingSession(); const response = await fetch(`${env.NEXT_PUBLIC_API_BASE_URL.replace(/\/$/, '')}/meetings/${id}/recording`, { headers: { Authorization: `Bearer ${session.access_token}` } }); if (!response.ok) throw new Error('Recording expired'); const url = response.headers.get('content-type')?.includes('application/json') ? (await response.json()).url : URL.createObjectURL(await response.blob()); setPlayer(url); }); }
+  if (!meeting) return <ResponsivePageContainer><Link href="/meetings">Back to meetings</Link><p role={error ? 'alert' : 'status'} className="mt-6">{error || 'Loading meeting...'}</p></ResponsivePageContainer>;
+  const capture = meeting.capture; const intelligence = capture?.intelligence; const speakers = [...new Set(capture?.transcript_segments.map(s => s.speaker_local_id) || [])];
+  const speakerName = (speaker?: string | null) => { const mapping = speaker ? capture?.speaker_mappings[speaker] : undefined; return mapping?.kind === 'me' ? 'You' : mapping?.kind === 'person' ? people.find(p => p.id === mapping.person_id)?.name || 'Saved person' : 'Unknown'; };
+  const reviewing = capture?.state === 'awaiting_review'; const candidates = Object.entries(intelligence || {}).filter(([key, value]) => key in labels && Array.isArray(value)) as [string, Candidate[]][];
+  return <ResponsivePageContainer>
+    <Link href="/meetings" className="text-sm text-muted-foreground">← Back to meetings</Link>
+    <h1 className="mt-5 break-words text-2xl font-semibold sm:text-3xl">{meeting.title}</h1><p className="mt-2 text-sm text-muted-foreground">{new Date(meeting.meeting_date).toLocaleString()} · {meeting.duration_minutes} min</p>
+    {capture && <p className="mt-4" role="status">{statusLabel(capture.state)}</p>}{error && <p className="mt-4 text-sm text-red-500" role="alert">{error}</p>}
+    {capture?.state === 'failed' && <Button className="mt-4" disabled={busy} onClick={() => void action(() => meetingApi.retry(id))}>Retry processing</Button>}
+    <section className="mt-6 rounded-xl border border-border bg-card p-4 sm:p-6"><h2 className="font-semibold">Summary</h2><p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">{intelligence?.summary || meeting.ai_summary || 'Your meeting summary will appear here when processing finishes.'}</p></section>
+    {!!speakers.length && <section className="mt-6 space-y-4 rounded-xl border border-border bg-card p-4 sm:p-6"><h2 className="font-semibold">People</h2><p className="text-sm text-muted-foreground">Tell us who spoke. Voices in each part of a long recording are kept separate until you name them.</p>
+      {reviewing && <><label className="block text-sm">Search your people<input className="mt-2 w-full rounded-md border border-input bg-background p-3" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search a name" /></label><div className="flex flex-wrap gap-2"><input aria-label="New person name" className="min-w-0 flex-1 rounded-md border border-input bg-background p-3 text-sm" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Add a new person" /><Button variant="outline" disabled={busy || !newName.trim()} onClick={() => void action(async () => { const person = await api.post<Person>('/people', { name: newName.trim() }); setPeople(current => [...current, person]); setNewName(''); })}>Add person</Button></div></>}
+      {speakers.map((speaker, index) => { const mapping = capture?.speaker_mappings[speaker]; return <div key={speaker} className="space-y-2 border-t border-border pt-3"><label className="block text-sm">Speaker {index + 1} · part {Number(speaker.match(/^c(\d+)/)?.[1] || 0) + 1}{reviewing ? <select className="mt-2 min-h-12 w-full rounded-md border border-input bg-background p-3" aria-label={`Map speaker ${index + 1}`} disabled={busy} value={mapping?.kind === 'person' ? mapping.person_id || '' : mapping?.kind || 'unknown'} onChange={e => { const value = e.target.value; void action(() => meetingApi.map(id, speaker, { kind: value === 'me' || value === 'unknown' ? value : 'person', person_id: value === 'me' || value === 'unknown' ? null : value })); }}><option value="unknown">Leave unknown</option><option value="me">This is me</option>{mapping?.kind === 'person' && !people.some(p => p.id === mapping.person_id) && <option value={mapping.person_id || ''}>Saved person</option>}{people.map(person => <option key={person.id} value={person.id}>{person.name}</option>)}</select> : <p className="mt-2 text-muted-foreground">{mapping?.kind === 'me' ? 'You' : mapping?.kind === 'person' ? <Link href={`/people/${mapping.person_id}`}>{people.find(p => p.id === mapping.person_id)?.name || 'View person'}</Link> : 'Unknown'}</p>}</label></div>; })}
+    </section>}
+    {candidates.some(([, values]) => values.length) && <section className="mt-6 space-y-4 rounded-xl border border-border bg-card p-4 sm:p-6"><h2 className="font-semibold">What matters</h2><p className="text-sm text-muted-foreground">{reviewing ? 'Review these suggestions before saving them to your people and plans.' : 'Selected details saved with their source evidence.'}</p>{['decisions', 'action_items', 'commitments', 'follow_ups'].map(key => { const values = intelligence?.[key] as Candidate[] | undefined; const count = values?.filter((_item, index) => !capture?.confirmed_at || capture.receipt?.selected?.includes(`${key}:${index}`)).length || 0; return !!count && <p key={key} className="text-sm">{count} {count === 1 ? ({ decisions: 'decision', action_items: 'next step', commitments: 'promise', follow_ups: 'follow-up' } as Record<string, string>)[key] : labels[key].toLowerCase()}</p>; })}
+      <details><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">Review details</summary><div className="space-y-6">{candidates.map(([key, values]) => !!values.length && <div key={key}><h3 className="font-semibold">{labels[key]}</h3>{values.map((item, index) => <div key={index} className="mt-3 rounded-md border border-border p-3 text-sm">{reviewing ? <label className="flex items-start gap-3"><input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={selected.includes(`${key}:${index}`)} onChange={e => setSelected(current => e.target.checked ? [...current, `${key}:${index}`] : current.filter(k => k !== `${key}:${index}`))} /><span className="break-words">{item.description}</span></label> : <p className="break-words">{item.description}</p>}{capture?.confirmed_at && !capture.receipt?.selected?.includes(`${key}:${index}`) && <p className="mt-2 text-muted-foreground">Not saved</p>}{(item.from_speaker || item.to_speaker) && <p className="mt-2 text-muted-foreground">{speakerName(item.from_speaker)} → {speakerName(item.to_speaker)}</p>}{item.interpretation && <p className="mt-2 text-muted-foreground">Interpretation — check carefully</p>}{item.due_at && <p className="mt-2">Due: {new Date(item.due_at).toLocaleDateString()}</p>}<blockquote className="mt-2 break-words border-l-2 border-border pl-3 text-muted-foreground">{item.evidence_text}</blockquote></div>)}</div>)}</div></details>
+      {reviewing && <Button className="min-h-12 w-full sm:w-auto" disabled={busy} onClick={() => void action(() => meetingApi.confirm(id, selected))}>{busy ? 'Saving...' : selected.length === candidates.reduce((n, [, values]) => n + values.length, 0) ? 'Save all' : 'Save selected'}</Button>}{capture?.confirmed_at && <p className="text-sm">Saved to your people and plans ✓</p>}
+    </section>}
+    {reviewing && !candidates.some(([, values]) => values.length) && <Button className="mt-6 min-h-12" disabled={busy} onClick={() => void action(() => meetingApi.confirm(id, []))}>Save meeting</Button>}
+    <details className="mt-6 rounded-xl border border-border bg-card p-4 sm:p-6"><summary className="cursor-pointer font-semibold">View transcript</summary><p className="mt-4 max-h-96 overflow-auto whitespace-pre-wrap break-words text-sm leading-relaxed">{meeting.transcript_text || 'The final transcript is not ready yet.'}</p></details>
+    {capture && !capture.audio_deleted_at && <details className="mt-6 rounded-xl border border-border bg-card p-4 sm:p-6"><summary className="cursor-pointer font-semibold">Play recording</summary><p className="mt-3 text-sm text-muted-foreground">{capture.retained_until ? `Available until ${new Date(capture.retained_until).toLocaleDateString()}.` : 'Available while processing.'}</p><Button className="mt-3" variant="outline" disabled={busy} onClick={() => void play()}>Load private recording</Button>{player && <audio className="mt-3 w-full max-w-full" controls src={player} />}</details>}
+    <Button className="mt-8" variant="ghost" disabled={busy} onClick={() => { if (window.confirm('Delete this meeting and its recording?')) void action(async () => { await meetingApi.remove(id); router.push('/meetings'); }); }}>Delete meeting</Button>
+  </ResponsivePageContainer>;
 }
