@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     founder,
     knowledge,
     mcp,
+    meeting_intelligence,
     network,
     pdf_analysis,
     portfolio_beta,
@@ -22,6 +23,7 @@ api_router.include_router(capture.router)
 api_router.include_router(context_events.router)
 api_router.include_router(relationships.router)
 api_router.include_router(sources.router)
+api_router.include_router(meeting_intelligence.router)
 api_router.include_router(portfolio_beta.router)
 
 

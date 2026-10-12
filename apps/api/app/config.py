@@ -45,6 +45,15 @@ class Settings(BaseSettings):
     # AI Provider Configuration
     GEMINI_API_KEY: str = "placeholder_gemini_key"
     GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_TRANSCRIBE_MODEL: str = "gemini-3.5-transcribe"
+    GEMINI_LIVE_TRANSCRIBE_MODEL: str = "gemini-3.5-transcribe-live"
+    MEETING_AUDIO_MONTHLY_LIMIT_SECONDS: int = Field(default=18000, ge=1)
+    MEETING_AUDIO_RETENTION_DAYS: int = Field(default=7, ge=1, le=365)
+    MEETING_AUDIO_MAX_BYTES: int = Field(default=52428800, ge=1, le=52428800)
+    MEETING_AUDIO_BUCKET: str = "meeting-audio"
+    MEETING_FFMPEG: str = "ffmpeg"
+    MEETING_FFPROBE: str = "ffprobe"
+    MEETING_LIVE_SESSION_SECONDS: int = Field(default=540, ge=30, le=540)
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
     # Billing is configured in Google Cloud; changing tiers never changes data ownership.
     AI_DATA_MODE: Literal["free_redacted", "paid_private"] = "free_redacted"

@@ -1,7 +1,7 @@
 name: PostgreSQL tenant and schema gate
 on:
   push:
-    branches: [main, 'recovery/**', 'codex/**']
+    branches: [main, 'recovery/**', 'codex/**', 'feature/**']
   pull_request:
 jobs:
   postgres:

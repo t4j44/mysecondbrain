@@ -153,13 +153,20 @@ class MeetingService:
         self.repo = MeetingRepository()
 
     async def create_meeting(self, data: Dict[str, Any]) -> Meeting:
-        obj_in = {"user_id": self.user_id, **data}
-        res = await self.repo.create(self.db, obj_in_data=obj_in)
-        await self.db.commit()
-        return res
+        from uuid import UUID
 
-    async def list_meetings(self, pagination: PaginationParams) -> PaginatedResult[Meeting]:
-        return await self.repo.list(self.db, self.user_id, pagination=pagination)
+        from app.repositories.meetings import MeetingsRepository
+        from app.schemas.meetings import MeetingCreate
+        return await MeetingsRepository.create_meeting(self.db, UUID(self.user_id), MeetingCreate.model_validate(data))
+
+    async def list_meetings(self, pagination: PaginationParams) -> PaginatedResult[Any]:
+        from uuid import UUID
+
+        from app.repositories.meetings import MeetingsRepository
+        from app.schemas.meetings import MeetingResponse
+        items, total = await MeetingsRepository.list_meetings(self.db, UUID(self.user_id), limit=pagination.limit, offset=pagination.offset)
+        return PaginatedResult.create(items=[MeetingResponse.model_validate(m) for m in items], total=total,
+            limit=pagination.limit, offset=pagination.offset)
 
     async def get_meeting(self, id: str) -> Meeting:
         res = await self.repo.get_by_id(self.db, self.user_id, id)
@@ -168,13 +175,35 @@ class MeetingService:
         return res
 
     async def update_meeting(self, id: str, data: Dict[str, Any]) -> Meeting:
-        res = await self.repo.update(self.db, self.user_id, id, data)
-        if not res:
-            raise NotFoundError("Meeting record not found.")
-        await self.db.commit()
-        return res
+        from uuid import UUID
+
+        from app.repositories.meetings import MeetingsRepository
+        from app.schemas.meetings import MeetingUpdate
+        return await MeetingsRepository.update_meeting(self.db, UUID(self.user_id), UUID(id), MeetingUpdate.model_validate(data))
 
     async def delete_meeting(self, id: str) -> bool:
+        from app.core.config import settings
+        from app.models.entities import JobRecord
+        from app.services.meeting_intelligence import capture_for
+        meeting = await self.get_meeting(id)
+        if meeting.capture:
+            from sqlalchemy import select
+
+            from app.models.entities import ContextEvent
+            from app.services.context_events import delete_event
+            events = (await self.db.execute(select(ContextEvent).where(ContextEvent.user_id == self.user_id,
+                ContextEvent.source_type == 'meeting', ContextEvent.source_external_id == id,
+                ContextEvent.deleted_at.is_(None)))).scalars().all()
+            for event in events:
+                await delete_event(self.db, self.user_id, str(event.id))
+            _, capture = await capture_for(self.db, self.user_id, id, lock=True)
+            if capture.audio_path and not capture.audio_deleted_at:
+                self.db.add(JobRecord(user_id=self.user_id, job_type='storage_delete', status='pending',
+                    result_payload={'bucket': settings.MEETING_AUDIO_BUCKET, 'path': capture.audio_path}))
+                capture.audio_deleted_at = datetime.now(timezone.utc)
+            meeting.notes, meeting.summary = None, None
+            capture.transcript_segments, capture.intelligence, capture.speaker_mappings = [], {}, {}
+            capture.receipt = {}
         res = await self.repo.delete(self.db, self.user_id, id)
         if not res:
             raise NotFoundError("Meeting record not found.")

@@ -47,13 +47,14 @@ async def test_closure_blocks_sessions_then_erases_only_owner(async_client, auth
     assert (await async_client.get('/api/v1/people', headers=auth_headers)).status_code == 401
     assert (await async_client.get('/api/v1/people', headers=other_auth_headers)).status_code == 200
     await close_account(test_user_id)
-    storage.assert_awaited_once_with(test_user_id)
+    assert storage.await_count == 2
+    assert all(call.args == (test_user_id,) for call in storage.await_args_list)
     auth_delete.assert_awaited_once_with(test_user_id)
     async with TestingSessionLocal() as db:
         assert [p.name for p in (await db.execute(select(Person))).scalars()] == ['Keep']
         assert (await db.get(AccountClosure, test_user_id)).status == 'completed'
     await close_account(test_user_id)
-    storage.assert_awaited_once()
+    assert storage.await_count == 2
 
 
 @pytest.mark.asyncio

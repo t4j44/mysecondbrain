@@ -407,6 +407,7 @@ class Task(Base):
 class Meeting(Base):
     if TYPE_CHECKING:
         participants: Any
+        capture: Any
     __tablename__ = "meetings"
 
     id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)

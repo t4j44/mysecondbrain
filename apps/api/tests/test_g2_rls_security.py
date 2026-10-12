@@ -186,7 +186,11 @@ def _policy_statements() -> list[str]:
 
 def test_every_policy_is_owner_scoped():
     for statement in _policy_statements():
-        if 'brain_private_anon_guard' in statement:
+        if 'meeting_audio_anon_guard' in statement:
+            assert 'AS RESTRICTIVE' in statement and 'TO anon' in statement
+            assert "USING(bucket_id<>'meeting-audio')" in statement
+            assert "WITH CHECK(bucket_id<>'meeting-audio')" in statement
+        elif 'brain_private_anon_guard' in statement:
             assert 'AS RESTRICTIVE' in statement and 'TO anon' in statement
             assert "USING (bucket_id <> 'brain-documents')" in statement
             assert "WITH CHECK (bucket_id <> 'brain-documents')" in statement

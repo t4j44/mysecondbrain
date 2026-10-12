@@ -27,6 +27,8 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
         "relationships",
         "interactions",
         "meetings",
+        "meeting_captures",
+        "usage_counters",
         "meeting_participants",
         "interaction_participants",
         "memories",
@@ -72,6 +74,8 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
 # Critical columns (name â†’ expected PostgreSQL udt/type family hints).
 # Type hints are matched loosely against information_schema / pg_catalog.
 APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
+    "meeting_captures": {"meeting_id": "uuid", "user_id": "uuid", "state": "varchar", "audio_path": "text", "transcript_segments": "jsonb", "intelligence": "jsonb", "charged_seconds": "int4"},
+    "usage_counters": {"user_id": "uuid", "metric": "text", "period_start": "timestamptz", "quantity": "int4"},
     "context_events": {"id": "uuid", "user_id": "uuid", "event_type": "text", "occurred_at": "timestamptz", "recorded_at": "timestamptz", "timezone": "text", "raw_payload": "jsonb", "privacy_class": "text", "deleted_at": "timestamptz"},
     "context_media": {"id": "uuid", "user_id": "uuid", "event_id": "uuid", "draft_id": "uuid", "request_id": "uuid", "storage_path": "text", "thumbnail_path": "text", "size_bytes": "int4"},
     "mcp_oauth_grants": {"id": "uuid", "user_id": "uuid", "scopes": "jsonb", "issuer": "text", "resource": "text", "expires_at": "timestamptz", "revoked_at": "timestamptz"},
@@ -335,6 +339,7 @@ MIGRATION_FILES: List[str] = [
     "20260927000029_context_events.sql",
     "20260927000030_outreach_receipts.sql",
     "20260927000031_mcp_oauth.sql",
+    "20261008000032_meeting_intelligence.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).

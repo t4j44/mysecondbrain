@@ -2,7 +2,7 @@ name: Security & Quality CI
 
 on:
   push:
-    branches: [ main, develop, recovery/**, codex/** ]
+    branches: [ main, develop, recovery/**, codex/**, feature/** ]
   pull_request:
     branches: [ main, develop ]
 

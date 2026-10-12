@@ -121,6 +121,7 @@ async def close_account(owner):
         if not receipt or receipt.status == 'completed':
             return
     await StorageService().delete_owner_files(owner)
+    await StorageService(settings.MEETING_AUDIO_BUCKET).delete_owner_files(owner)
     async with admin_db_session(reason='account_erasure') as db:
         for table in reversed(await schema_tables(db)):
             if table.name == 'account_closures':

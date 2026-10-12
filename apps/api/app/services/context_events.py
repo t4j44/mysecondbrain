@@ -80,7 +80,7 @@ async def create_event(db, owner, *, key, **values):
     return event, True
 
 
-async def event_link(db, event, kind, identity, *, derived=True):
+async def event_link(db, event, kind, identity, *, derived=True, metadata=None):
     relation = 'derived_record' if derived else 'references'
     existing = await db.scalar(select(EntityEdge.id).where(EntityEdge.user_id == event.user_id,
         EntityEdge.source_event_id == event.id, EntityEdge.source_entity_type == 'context_event',
@@ -92,7 +92,7 @@ async def event_link(db, event, kind, identity, *, derived=True):
         source_entity_id=event.id, target_entity_type=kind, target_entity_id=str(identity),
         relationship_type=relation, source_event_id=event.id,
         occurred_at=event.occurred_at, valid_from=event.occurred_at,
-        metadata_payload={'confirmed': True})
+        metadata_payload={'confirmed': True, **(metadata or {})})
     db.add(edge)
 
 

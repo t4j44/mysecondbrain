@@ -29,6 +29,7 @@ dependencies = [
     "python-multipart>=0.0.9",
     "tzdata>=2025.2",
     "google-genai>=0.1.1",
+    "websockets>=14.2,<17.0",
     "pypdf>=4.0.0",
     "pillow>=12.0.0,<13.0.0",
 ]

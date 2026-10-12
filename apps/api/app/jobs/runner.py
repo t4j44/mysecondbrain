@@ -8,7 +8,7 @@ from app.core.logging import logger
 from app.dependencies.database import admin_db_session, rls_db_session
 from app.models.entities import ExportRecord, JobRecord
 
-RUNNABLE = {'storage_delete', 'document_processing', 'index_record', 'export_markdown', 'export_archive', 'sync_google_drive', 'sync_google_calendar'}
+RUNNABLE = {'meeting_processing', 'storage_delete', 'document_processing', 'index_record', 'export_markdown', 'export_archive', 'sync_google_drive', 'sync_google_calendar'}
 
 class JobRunner:
     @classmethod
@@ -23,7 +23,7 @@ class JobRunner:
             await db.commit()
         try:
             async with rls_db_session(owner) as db:
-                async with asyncio.timeout(600):
+                async with asyncio.timeout(780 if kind == 'meeting_processing' else 600):
                     result = await cls._execute_payload(db, owner, kind, payload)
                     await db.commit()
             async with admin_db_session(reason='job_completion') as db:
@@ -55,9 +55,26 @@ class JobRunner:
                         export.retry_count = job.retry_count
                 await db.commit()
             logger.warning('Job failed', extra={'job_id': job_id, 'error_type': type(exc).__name__})
+            if kind == 'meeting_processing':
+                # The outer timeout cancels the handler before its Exception gate.
+                # Persist a retryable capture failure after closing that transaction.
+                from app.services.meeting_intelligence import capture_for
+                async with rls_db_session(owner) as meeting_db:
+                    from app.core.errors import NotFoundError
+                    try:
+                        _, capture = await capture_for(meeting_db, owner, payload['meeting_id'], lock=True)
+                    except NotFoundError:
+                        return  # Deleted/archived source must never be revived.
+                    if capture.state not in {'awaiting_review', 'completed'}:
+                        capture.state = 'failed'
+                        capture.error_code = 'MEETING_PROCESSING_TIMEOUT' if isinstance(exc, TimeoutError) else capture.error_code or 'MEETING_PROCESSING_FAILED'
+                        await meeting_db.commit()
 
     @staticmethod
     async def _execute_payload(db, user_id: str, job_type: str, payload: dict) -> dict:
+        if job_type == 'meeting_processing':
+            from app.jobs.handlers.meeting_processing import process_meeting
+            return await process_meeting(db, user_id, payload)
         if job_type == 'storage_delete':
             from app.integrations.storage_client import StorageService
             if not payload['path'].startswith(user_id + '/'):
@@ -89,6 +106,8 @@ async def queue_worker() -> None:
             async with admin_db_session(reason='queue_poll') as db:
                 from app.services.context_media import expire_draft_media
                 await expire_draft_media(db)
+                from app.services.meeting_intelligence import expire_audio
+                await expire_audio(db)
                 now = datetime.now(timezone.utc)
                 jobs = (await db.execute(select(JobRecord).where(
                     JobRecord.job_type.in_(RUNNABLE),

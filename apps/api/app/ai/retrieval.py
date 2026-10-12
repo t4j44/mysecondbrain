@@ -3,7 +3,7 @@ import re
 
 from sqlalchemy import String, cast, func, or_, select
 
-from app.ai.indexing import SOURCES, record_text
+from app.ai.indexing import SOURCES, meeting_chunks, record_text
 from app.models.entities import ContextEvent
 from app.schemas.knowledge import SearchResultItem
 from app.services.document_chunker import chunk_markdown
@@ -41,6 +41,11 @@ async def perform_keyword_search(db, user_id: str, query: str, limit: int = 10,
                     content = best['chunk_text']
                     section = best.get('section_title')
                     chunk_index = best['chunk_index']
+            if kind == 'meeting' and getattr(record, 'capture', None):
+                chunks = meeting_chunks(record)
+                if chunks:
+                    best = max(chunks, key=lambda chunk: sum(word in chunk['chunk_text'].casefold() for word in words))
+                    content, chunk_index = best['chunk_text'], best['chunk_index']
             matches = sum(word in content.casefold() for word in words)
             item = SearchResultItem(id=str(record.id), entity_type=kind,
                 title=str(getattr(record, 'title', None) or getattr(record, 'name', None)

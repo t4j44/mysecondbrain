@@ -37,8 +37,43 @@ SOURCES = {
 
 
 def record_text(record: Any, kind: str) -> str:
+    if kind == 'meeting' and getattr(record, 'capture', None):
+        capture = record.capture
+        review = 'Confirmed by user' if capture.confirmed_at else 'Unconfirmed AI suggestions; source transcript is recorded speech'
+        text = f'Title: {record.title}\nDate: {record.start_time.isoformat()}\nParticipants: {", ".join((record.meta or {}).get("participant_names", []))}\nReview status: {review}\nSummary: {record.summary or ""}'
+        for key in ('topics', 'important_facts', 'customer_feedback', 'questions_open'):
+            values = (capture.intelligence or {}).get(key, [])
+            if capture.confirmed_at and key != 'topics':
+                values = [v for i, v in enumerate(values) if f'{key}:{i}' in (capture.receipt or {}).get('selected', [])]
+            text += '\n' + key + ': ' + '; '.join(v if isinstance(v, str) else ('Interpretation: ' if v.get('interpretation') else 'Statement: ') + v['description'] + ' | Evidence: ' + v['evidence_text'] for v in values)
+        if capture.confirmed_at:
+            text += '\nConfirmed decisions: ' + '; '.join(record.decisions_list or [])
+            text += '\nConfirmed actions: ' + '; '.join(record.action_items or [])
+            selected = (capture.receipt or {}).get('selected', [])
+            text += '\nConfirmed promises: ' + '; '.join(v['description'] for i, v in enumerate((capture.intelligence or {}).get('commitments', [])) if f'commitments:{i}' in selected and not v.get('interpretation'))
+        return text + '\nTranscript evidence:\n' + (record.notes or '')
     return "\n".join(f"{key}: {getattr(record, key)}" for key in SOURCES[kind][1]
                      if getattr(record, key, None))
+
+
+def meeting_chunks(record):
+    source = record_text(record, 'meeting')
+    compact = source.split('\nTranscript evidence:\n', 1)[0]
+    chunks = chunk_markdown(compact)
+    capture = record.capture
+    if capture:
+        for segment in capture.transcript_segments:
+            label = f'[{segment["speaker_local_id"]} {segment["start_offset"]:.1f}s] '
+            for part in chunk_markdown(label + segment['text']):
+                part['metadata'] = {**part.get('metadata', {}), 'meeting_id': str(record.id),
+                    'segment_id': segment['segment_id'], 'speaker': segment['speaker_local_id'],
+                    'start_offset': segment['start_offset'], 'end_offset': segment['end_offset']}
+                chunks.append(part)
+    for i, part in enumerate(chunks):
+        part['chunk_index'] = i
+        part['metadata'] = {**part.get('metadata', {}), 'meeting_id': str(record.id), 'source': 'meeting',
+            'confirmed_by_user': bool(capture and capture.confirmed_at)}
+    return chunks
 
 
 def fingerprint(value: str) -> str:
@@ -82,8 +117,8 @@ async def index_record(db, user_id: str, kind: str, record_id: str) -> dict:
                         and row.meta.get('privacy_version') == 1
                         and row.meta.get('chunking_version') == CHUNKING_VERSION for row in existing):
         return {'source_type': kind, 'source_id': str(record_id), 'chunks': len(existing), 'unchanged': True}
-    chunks = chunk_markdown(record.extracted_text or "") if kind == "document" else DocumentExtractor.split_text_into_chunks(source, chunk_size=1200, overlap=150)
-    if len(chunks) > 100:
+    chunks = meeting_chunks(record) if kind == 'meeting' and record.capture else chunk_markdown(record.extracted_text or "") if kind == "document" else DocumentExtractor.split_text_into_chunks(source, chunk_size=1200, overlap=150)
+    if len(chunks) > (1000 if kind == 'meeting' else 100):
         raise AIProviderError(message="This beta supports up to 100 text chunks per record.")
     # Finish inference before replacing a previous index. Failures leave the old
     # index intact (retrieval rejects stale fingerprints).
@@ -128,6 +163,7 @@ async def index_record(db, user_id: str, kind: str, record_id: str) -> dict:
             source_record_id=record_id, document_chunk_id=chunk_id, embedding=vector,
             provider="gemini", model=llm.embedding_model, dimensions=768,
             content_checksum=chunk["checksum"], meta={
+                **chunk.get('metadata', {}),
                 "content": chunk["chunk_text"], "source_fingerprint": fingerprint(source),
                 "data_mode": settings.AI_DATA_MODE, "privacy_version": 1,
                 "chunking_version": CHUNKING_VERSION, "chunk_index": chunk["chunk_index"],

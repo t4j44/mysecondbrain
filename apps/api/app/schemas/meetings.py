@@ -2,7 +2,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.meeting_intelligence import CaptureResponse
 
 
 class MeetingBase(BaseModel):
@@ -37,6 +39,8 @@ class MeetingUpdate(BaseModel):
 
 
 class MeetingResponse(MeetingBase):
+    metadata: Dict[str, Any] = Field(default_factory=dict, validation_alias='meta')
+    capture: CaptureResponse | None = None
     id: UUID
     user_id: UUID
     participant_person_ids: List[UUID] = Field(default_factory=list)
@@ -44,8 +48,7 @@ class MeetingResponse(MeetingBase):
     updated_at: datetime
     deleted_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 # Wrapped single meeting

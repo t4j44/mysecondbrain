@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 from uuid import UUID
 
@@ -20,7 +20,7 @@ class MeetingsRepository:
             user_id=user_id,
             venture_id=schema.venture_id,
             title=schema.title,
-            meeting_date=schema.meeting_date,
+            meeting_date=schema.meeting_date if schema.meeting_date.tzinfo else schema.meeting_date.replace(tzinfo=timezone.utc),
             duration_minutes=schema.duration_minutes,
             location=schema.location,
             recording_url=schema.recording_url,
@@ -30,12 +30,15 @@ class MeetingsRepository:
             meta=schema.metadata,
         )
         db.add(db_meeting)
+        if db_meeting.end_time is None:
+            db_meeting.end_time = db_meeting.start_time
         await db.flush()  # Extract ID
 
         # Link participants
-        for person_id in schema.participant_person_ids:
+        for person_id in dict.fromkeys(schema.participant_person_ids):
             # Check owner of person
-            p_query = select(Person).where(and_(Person.id == person_id, Person.user_id == user_id))
+            p_query = select(Person).where(and_(Person.id == person_id, Person.user_id == user_id,
+                Person.deleted_at.is_(None), Person.archived_at.is_(None)))
             p_result = await db.execute(p_query)
             if not p_result.scalar_one_or_none():
                 raise NotFoundError(f"Participant with ID {person_id} not found in workspace.")
@@ -113,15 +116,17 @@ class MeetingsRepository:
     ) -> Meeting:
         db_meeting = await MeetingsRepository.get_meeting(db, user_id, meeting_id)
 
-        update_data = schema.dict(exclude_unset=True)
+        update_data = schema.model_dump(exclude_unset=True)
         participant_ids = update_data.pop("participant_person_ids", None)
         if "metadata" in update_data:
             update_data["meta"] = update_data.pop("metadata")
 
         for key, value in update_data.items():
+            if key == 'meeting_date' and value is not None and value.tzinfo is None:
+                value = value.replace(tzinfo=timezone.utc)
             setattr(db_meeting, key, value)
 
-        db_meeting.updated_at = datetime.utcnow()
+        db_meeting.updated_at = datetime.now(timezone.utc)
 
         if participant_ids is not None:
             # Drop old participants
@@ -134,9 +139,10 @@ class MeetingsRepository:
             await db.execute(del_query)
 
             # Insert new participants
-            for person_id in participant_ids:
+            for person_id in dict.fromkeys(participant_ids):
                 p_query = select(Person).where(
-                    and_(Person.id == person_id, Person.user_id == user_id)
+                    and_(Person.id == person_id, Person.user_id == user_id,
+                        Person.deleted_at.is_(None), Person.archived_at.is_(None))
                 )
                 p_result = await db.execute(p_query)
                 if not p_result.scalar_one_or_none():
@@ -162,7 +168,7 @@ class MeetingsRepository:
     @staticmethod
     async def soft_delete_meeting(db: AsyncSession, user_id: UUID, meeting_id: UUID) -> Meeting:
         db_meeting = await MeetingsRepository.get_meeting(db, user_id, meeting_id)
-        db_meeting.deleted_at = datetime.utcnow()
+        db_meeting.deleted_at = datetime.now(timezone.utc)
         await db.flush()
         if db_meeting.deleted_at or db_meeting.archived_at:
             await delete_index(db, db_meeting)

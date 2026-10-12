@@ -71,6 +71,9 @@ class GeminiLLMProvider(BaseLLMProvider):
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
                 payload: Dict[str, Any] = {"contents": [{"parts": [{"text": minimized}]}],
                     "generationConfig": {"maxOutputTokens": settings.AI_MAX_OUTPUT_TOKENS}}
+                if kwargs.get('response_mime_type'):
+                    payload['generationConfig']['responseMimeType'] = kwargs['response_mime_type']
+                    payload['generationConfig']['maxOutputTokens'] = min(int(kwargs.get('max_output_tokens', settings.AI_MAX_OUTPUT_TOKENS)), 8192)
                 if system_instruction:
                     payload["system_instruction"] = {"parts": [{"text": system_instruction}]}
                 response = await client.post(url, json=payload, headers={"x-goog-api-key": self.api_key})
