@@ -8,7 +8,7 @@ from app.core.logging import logger
 from app.dependencies.database import admin_db_session, rls_db_session
 from app.models.entities import ExportRecord, JobRecord
 
-RUNNABLE = {'meeting_processing', 'storage_delete', 'document_processing', 'index_record', 'export_markdown', 'export_archive', 'sync_google_drive', 'sync_google_calendar'}
+RUNNABLE = {'meeting_processing', 'storage_delete', 'document_processing', 'index_record', 'export_markdown', 'export_archive', 'sync_google_drive', 'sync_google_calendar', 'sync_gmail'}
 
 class JobRunner:
     @classmethod
@@ -90,7 +90,7 @@ class JobRunner:
         if job_type in {'export_markdown', 'export_archive'}:
             from app.jobs.handlers.export_markdown import execute_export_handler
             return await execute_export_handler(db, user_id, payload)
-        if job_type in {'sync_google_drive', 'sync_google_calendar'}:
+        if job_type in {'sync_google_drive', 'sync_google_calendar', 'sync_gmail'}:
             from app.jobs.handlers.sync_google import execute_google_sync_handler
             return await execute_google_sync_handler(db, user_id, payload, job_type)
         raise ValueError('Unsupported job type')

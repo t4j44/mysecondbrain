@@ -14,6 +14,9 @@ export default function SettingsIntegrationsPage() {
   const accounts = useMemo(() => groupAccounts(items), [items]);
   const driveAccounts = useMemo(() => items.filter(item => item.provider_name === 'google_drive' && item.is_connected), [items]);
   const driveChoice = driveAccount || (driveAccounts.length === 1 ? driveAccounts[0].id : '');
+  const [gmailAccount, setGmailAccount] = useState('');
+  const gmailAccounts = useMemo(() => items.filter(item => item.provider_name === 'gmail' && item.is_connected), [items]);
+  const gmailChoice = gmailAccount || (gmailAccounts.length === 1 ? gmailAccounts[0].id : '');
   async function run(action: () => Promise<void>) {
     setBusy(true); setMessage(''); try { await action(); await load(); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Connection failed.'); } finally { setBusy(false); }
@@ -70,6 +73,16 @@ export default function SettingsIntegrationsPage() {
         setJob(result.id); setMessage('Export queued. Check status below.');
       })}>Export my records to Drive</button>
       {driveAccounts.length === 0 && <p className="text-sm">Connect Drive above first.</p>}
+    </section>
+    <section className="space-y-3 rounded-xl border p-5">
+      <h2 className="text-lg font-semibold">Email dates</h2>
+      <p className="text-sm text-muted-foreground">Second Brain looks only at who sent or received each message and when, and only for people you have saved with an email address. It never reads subjects or message text, and nothing from your email is sent to an AI. Disconnecting removes the dates it imported.</p>
+      {gmailAccounts.length > 1 && <AccountSelect label="Refresh from" integrations={gmailAccounts} value={gmailChoice} onChange={setGmailAccount} />}
+      <button disabled={busy || !gmailChoice} className="min-h-11 rounded border px-4" onClick={() => run(async () => {
+        const result = await api.post<{ id: string }>('/sync/gmail', { integration_id: gmailChoice }, { timeoutMs: 45000 });
+        setJob(result.id); setMessage('Refresh queued. Check status below.');
+      })}>Refresh email dates</button>
+      {gmailAccounts.length === 0 && <p className="text-sm">Connect Email dates above first.</p>}
     </section>
     <ScheduleTask integrations={items.filter(item => item.provider_name === 'google_calendar' && item.is_connected)} onJob={setJob} onMessage={setMessage} />
     {job && <button disabled={busy} className="min-h-11 rounded border px-4" onClick={() => run(async () => {

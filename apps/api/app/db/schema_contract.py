@@ -48,6 +48,7 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
         "content_versions",
         "weekly_reviews",
         "integrations",
+        "email_contacts",
         "integration_tokens",
         "sync_jobs",
         "export_jobs",
@@ -74,6 +75,7 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
 # Critical columns (name â†’ expected PostgreSQL udt/type family hints).
 # Type hints are matched loosely against information_schema / pg_catalog.
 APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
+    "email_contacts": {"user_id": "uuid", "integration_id": "uuid", "person_id": "uuid", "last_sent_at": "timestamptz", "last_received_at": "timestamptz"},
     "meeting_captures": {"meeting_id": "uuid", "user_id": "uuid", "state": "varchar", "audio_path": "text", "transcript_segments": "jsonb", "intelligence": "jsonb", "charged_seconds": "int4"},
     "usage_counters": {"user_id": "uuid", "metric": "text", "period_start": "timestamptz", "quantity": "int4"},
     "context_events": {"id": "uuid", "user_id": "uuid", "event_type": "text", "occurred_at": "timestamptz", "recorded_at": "timestamptz", "timezone": "text", "raw_payload": "jsonb", "privacy_class": "text", "deleted_at": "timestamptz"},
@@ -341,6 +343,7 @@ MIGRATION_FILES: List[str] = [
     "20260927000031_mcp_oauth.sql",
     "20261008000032_meeting_intelligence.sql",
     "20261013000033_google_multi_account.sql",
+    "20261013000034_email_contacts.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).

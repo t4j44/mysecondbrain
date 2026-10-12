@@ -86,6 +86,26 @@ describe('Google connections page', () => {
     await waitFor(() => expect(post).toHaveBeenCalledWith('/sync/gdrive', { sync_mode: 'one_way', integration_id: 'd2' }, { timeoutMs: 45000 }));
   });
 
+  it('explains exactly what email access reads and refreshes dates for the only Gmail account', async () => {
+    get.mockImplementation(async (path: string) => path.startsWith('/tasks') ? { items: [] }
+      : { items: [row('g1', 'gmail', 'one@example.test')] });
+    post.mockResolvedValue({ id: 'job-3' });
+    render(<SettingsIntegrationsPage />);
+    expect(await screen.findByText(/never reads subjects or message text/)).toBeInTheDocument();
+    expect(screen.getByText(/nothing from your email is sent to an AI/)).toBeInTheDocument();
+    const refresh = screen.getByRole('button', { name: 'Refresh email dates' });
+    await waitFor(() => expect(refresh).toBeEnabled());
+    fireEvent.click(refresh);
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/sync/gmail', { integration_id: 'g1' }, { timeoutMs: 45000 }));
+    expect(screen.getByRole('button', { name: 'Disconnect Email dates' })).toBeInTheDocument();
+  });
+
+  it('cannot refresh email dates until Email dates is connected', async () => {
+    render(<SettingsIntegrationsPage />);
+    expect(await screen.findByText('Connect Email dates above first.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Refresh email dates' })).toBeDisabled();
+  });
+
   it('uses the only Calendar account without asking and sends it when scheduling', async () => {
     post.mockResolvedValue({ job_id: 'job-2' });
     render(<SettingsIntegrationsPage />);

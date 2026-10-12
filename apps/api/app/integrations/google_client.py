@@ -8,17 +8,19 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote, urlencode
 
 import httpx
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 
 from app.core.config import settings
 from app.core.errors import IntegrationError
 from app.core.security import decrypt_token, encrypt_token
 from app.dependencies.database import admin_db_session
-from app.models.entities import Integration, JobRecord, Task
+from app.models.entities import EmailContact, Integration, JobRecord, Task
 from app.repositories.integrations import IntegrationRepository
 
 SCOPES = {'google_drive': 'https://www.googleapis.com/auth/drive.file',
-          'google_calendar': 'https://www.googleapis.com/auth/calendar.events'}
+          'google_calendar': 'https://www.googleapis.com/auth/calendar.events',
+          # Headers and labels only, never message bodies. Google classes it as a restricted scope.
+          'gmail': 'https://www.googleapis.com/auth/gmail.metadata'}
 # Basic identity only, so each connection can say which Google account it belongs to.
 IDENTITY_SCOPES = 'openid email'
 _ISSUERS = {'https://accounts.google.com', 'accounts.google.com'}
@@ -98,6 +100,9 @@ class GoogleIntegrationService:
         if SCOPES[provider] not in granted or not tokens.get('access_token'):
             raise IntegrationError('The requested Google permission was not granted.', status_code=403)
         account = account_from_id_token(tokens.get('id_token'))
+        if provider == 'gmail' and account is None:
+            # Direction (sent or received) is decided against the account's own address.
+            raise IntegrationError('Second Brain could not tell which Google account this is, so Gmail was not connected.', status_code=400)
         integration = await self.repo.get_for_account(self.db, self.user_id, provider, account)
         if integration is None:
             integration = Integration(user_id=self.user_id, provider_name=provider, status='disconnected',
@@ -178,6 +183,12 @@ class GoogleIntegrationService:
                 {'id': str(integration.id), 'owner': self.user_id})
             await vault.commit()
         integration.is_connected = False
+        if provider_name == 'gmail':
+            # Derived dates are only useful while connected; reconnecting rebuilds them.
+            await self.db.execute(delete(EmailContact).where(EmailContact.user_id == self.user_id,
+                EmailContact.integration_id == integration.id))
+            await self.db.execute(delete(JobRecord).where(JobRecord.user_id == self.user_id,
+                JobRecord.job_type == f'gmail_sync_cursor:{integration.id}'))
         await self.db.commit()
         return True
 
@@ -195,6 +206,9 @@ class GoogleIntegrationService:
         if sync_mode != 'one_way':
             raise IntegrationError('This beta supports export to Drive only.')
         return await self._enqueue('google_drive', {'folder_id': folder_id}, integration_id)
+
+    async def trigger_gmail_sync_job(self, integration_id=None):
+        return await self._enqueue('gmail', {}, integration_id)
 
     async def trigger_calendar_sync_job(self, calendar_id='primary', integration_id=None):
         return await self._enqueue('google_calendar', {'calendar_id': calendar_id}, integration_id)

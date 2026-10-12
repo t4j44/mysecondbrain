@@ -9,6 +9,7 @@ from app.models.entities import (
     Commitment,
     ContentItem,
     ContextEvent,
+    EmailContact,
     EntityEdge,
     Interaction,
     JobRecord,
@@ -70,6 +71,7 @@ async def delete_person_context(db, person):
         row.deleted_at = now
         await delete_index(db, row)
         await invalidate_drafts(db, owner, str(row.id))
+    await db.execute(delete(EmailContact).where(EmailContact.user_id == owner, EmailContact.person_id == identity))
     await db.execute(delete(PersonOrganizationRole).where(PersonOrganizationRole.user_id == owner,
         PersonOrganizationRole.person_id == identity))
     await db.execute(delete(RelationshipAction).where(RelationshipAction.user_id == owner,

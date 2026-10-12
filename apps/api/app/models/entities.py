@@ -812,6 +812,21 @@ class Integration(Base):
         self.status = "connected" if value else "revoked"
 
 
+class EmailContact(Base):
+    """When mail last went to, and last came from, a saved person via one Google account. Dates only."""
+
+    __tablename__ = "email_contacts"
+
+    integration_id: Any = Column(FlexibleUUID, primary_key=True)
+    person_id: Any = Column(FlexibleUUID, primary_key=True)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    last_sent_at: Any = Column(DateTime(timezone=True), nullable=True)
+    last_received_at: Any = Column(DateTime(timezone=True), nullable=True)
+    updated_at: Any = Column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+
+
 class JobRecord(Base):
     __tablename__ = "jobs"
 

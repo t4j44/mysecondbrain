@@ -15,7 +15,9 @@ inputs are refused by the free AI path; private manual capture still works.
 | Unconfirmed media | Private draft attachments, maximum two per capture | Existing worker expires unconfirmed media after 24 hours |
 | Outreach drafts/outcomes | Private receipts and explicitly confirmed events | Open does not mean sent; erased event receipts retain content-free replay metadata |
 | MCP OAuth | Hashed codes/opaque tokens/client secrets in server-only vault tables; owner-readable grant metadata | No vault secrets in exports; revoke checked on each call; account closure blocks access and removes owner vault records |
-| Google OAuth | Existing encrypted integration-token vault | Excluded from exports; disconnect/account-erasure lifecycle retained |
+| Google OAuth | Encrypted integration-token vault, one connection per Google account and capability; the account email is stored on the connection | Excluded from exports; disconnect/account-erasure lifecycle retained |
+| Email dates (Gmail) | Per saved person and Google account: the date mail was last sent to them and last received from them. Headers From/To/Cc/Date only; no subject, snippet, body, address or message id is stored or sent to any AI. Owner-scoped PostgreSQL + RLS | Exported as dates; removed when you disconnect Gmail, delete the person, or erase the account. Re-syncing rebuilds it |
+| Conversation capsules | A one-line question, a short answer gist and up to three source titles, built per Ask answer and kept on your device | Never stored on the server; the next question sends only the newest four, treated as untrusted background and not as evidence |
 | Pilot telemetry | Private audit events with type/count/IDs, no prompt/body/contact fields | Owner activity view; no inferred delivery, payment or testimonial; account erasure removes owner logs |
 
 `private` context events are eligible for authorized retrieval. `restricted` events

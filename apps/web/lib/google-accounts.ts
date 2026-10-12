@@ -1,4 +1,4 @@
-export type Provider = 'google_drive' | 'google_calendar';
+export type Provider = 'google_drive' | 'google_calendar' | 'gmail';
 export type Integration = { id: string; provider_name: string; account_identifier?: string | null; is_connected: boolean };
 export type AccountGroup = { key: string; name: string; email?: string; byProvider: Partial<Record<Provider, Integration>> };
 
@@ -6,6 +6,7 @@ export const UNKNOWN_ACCOUNT = 'Google account (not identified)';
 export const PROVIDERS: { provider: Provider; label: string; blurb: string }[] = [
   { provider: 'google_drive', label: 'Drive', blurb: 'Save a Markdown copy of your records to your Drive.' },
   { provider: 'google_calendar', label: 'Calendar', blurb: 'Put tasks you choose on your calendar.' },
+  { provider: 'gmail', label: 'Email dates', blurb: 'See when you last emailed or heard from people you have saved. Reads sender, recipients and dates only.' },
 ];
 
 /** Connected capabilities grouped under the Google account they belong to, oldest account first. */

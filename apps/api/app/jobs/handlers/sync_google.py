@@ -18,4 +18,7 @@ async def execute_google_sync_handler(
         return await service.export_drive(payload)
     if job_type == "sync_google_calendar":
         return await service.sync_calendar(payload)
+    if job_type == "sync_gmail":
+        from app.integrations.gmail_metadata import GmailSync
+        return await GmailSync(db, user_id).run(payload)
     raise IntegrationError("Unknown sync operation.", code=ErrorCode.VALIDATION_FAILED)

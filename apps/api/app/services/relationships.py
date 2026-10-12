@@ -23,6 +23,7 @@ from app.models.crm import Relationship
 from app.models.entities import (
     AuditLog,
     Commitment,
+    EmailContact,
     EntityEdge,
     Interaction,
     Meeting,
@@ -99,6 +100,18 @@ class RelationshipService:
             raise NotFoundError('Person is not available.')
         return person
 
+    async def email_dates(self, identities):
+        """Latest date mail went to, and came from, each person across connected Google accounts. Dates only."""
+        rows = (await self.db.execute(select(EmailContact).where(EmailContact.user_id == self.owner,
+            EmailContact.person_id.in_([str(item) for item in identities])))).scalars().all()
+        found = {}
+        for row in rows:
+            slot = found.setdefault(str(row.person_id), {'sent': None, 'received': None})
+            for key, value in (('sent', utc(row.last_sent_at)), ('received', utc(row.last_received_at))):
+                if value and (slot[key] is None or value > slot[key]):
+                    slot[key] = value
+        return found
+
     async def profile(self, identity):
         person = await self.person(identity)
         identity = str(person.id)
@@ -161,12 +174,14 @@ class RelationshipService:
             MeetingParticipant.person_id == identity).limit(50))).scalars().all()
         for meeting_id in meetings:
             await add('meeting', meeting_id, 'Recorded meeting participant.', source(person, 'person'))
-        last = max((utc(value) for value in (stats[2], person.last_interaction_at) if value), default=None)
+        emailed = (await self.email_dates([identity])).get(identity, {'sent': None, 'received': None})
+        last = max((utc(value) for value in (stats[2], person.last_interaction_at, *emailed.values()) if value), default=None)
         profile = {'person': {**source(person, 'person'), 'name': person.name, 'role': person.role, 'company': person.company,
             'industry': person.industry, 'location': person.location, 'email': person.email, 'phone': person.phone,
             'linkedin_url': person.linkedin_url, 'notes': person.notes, 'where_met': (person.metadata_payload or {}).get('where_met'),
             'when_met': (person.metadata_payload or {}).get('when_met'), 'relationship_type': person.relationship_type},
             'first_interaction': stats[1], 'last_interaction': last, 'recency': recency(last, stats[0]),
+            'email_contact': {'last_sent_at': emailed['sent'], 'last_received_at': emailed['received']},
             'timeline': [{**source(row, 'interaction'), 'date': row.date, 'summary': row.summary, 'location': row.location,
                 'topics': (row.meta or {}).get('topics', [])} for row in history],
             'topics': sorted({topic for row in history for topic in (row.meta or {}).get('topics', []) if isinstance(topic, str)}),
@@ -274,6 +289,7 @@ class RelationshipService:
         identities = [str(p.id) for p in people]
         latest = (await self.db.execute(select(Interaction.person_id, func.max(Interaction.date), func.count()).where(*active(Interaction, self.owner), Interaction.person_id.in_(identities)).group_by(Interaction.person_id))).all()
         dates = {str(row[0]): (row[1], row[2]) for row in latest}
+        emailed = await self.email_dates(identities)
         obligations = await self.rows(Commitment, Commitment.status == 'open', or_(Commitment.from_person_id.in_(identities), Commitment.to_person_id.in_(identities)), limit=1000, order=Commitment.due_at.asc())
         actions = (await self.db.execute(select(RelationshipAction).where(RelationshipAction.user_id == self.owner,
             RelationshipAction.person_id.in_(identities)).order_by(RelationshipAction.created_at.desc()).limit(2000))).scalars().all()
@@ -285,7 +301,8 @@ class RelationshipService:
         for person in people:
             identity = str(person.id)
             recorded, count = dates.get(identity, (None, 0))
-            last = max((utc(value) for value in (recorded, person.last_interaction_at) if value), default=None)
+            mail = emailed.get(identity, {})
+            last = max((utc(value) for value in (recorded, person.last_interaction_at, *mail.values()) if value), default=None)
             strength = recency(last, count, now)
             candidates = []
             for item in obligations:
@@ -330,6 +347,10 @@ class RelationshipService:
         for item in recent:
             when = utc(item.date).date().isoformat() if item.date else 'undated'
             lines.append(clip(f'Past contact ({when}): ' + ' '.join(x for x in (item.title, item.summary) if x), MAX_FACT_CHARS))
+        mail = (await self.email_dates([identity])).get(identity, {})
+        for label, value in (('You last emailed them on', mail.get('sent')), ('They last emailed you on', mail.get('received'))):
+            if value:
+                lines.append(f'{label} {value.date().isoformat()}.')
         last = max((utc(item.date) for item in recent if item.date), default=None)
         days = (datetime.now(timezone.utc) - last).days if last else None
         if days is not None:

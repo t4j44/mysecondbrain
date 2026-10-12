@@ -43,6 +43,10 @@ class SyncDriveRequest(BaseModel):
     integration_id: Optional[str] = None  # which connected Google account; required when several are
 
 
+class SyncGmailRequest(BaseModel):
+    integration_id: Optional[str] = None
+
+
 class SyncCalendarRequest(BaseModel):
     calendar_id: Optional[str] = "primary"
     integration_id: Optional[str] = None

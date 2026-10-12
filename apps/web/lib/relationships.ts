@@ -11,6 +11,7 @@ export type Profile = {
   related: Related[]; commitments: (Evidence & {direction: string; status: string; due_at: string | null})[];
   tasks: (Evidence & {status: string; due_at: string | null})[]; brief: {text: string; evidence: Evidence}[];
   followups: Followup[]; limits: string;
+  email_contact?: {last_sent_at: string | null; last_received_at: string | null};
 };
 export type HomeData = {
   activation: {counts: Record<string, number>; targets: Record<string, number>; activated: boolean; first_activated_at: string | null; successful_actions_last_7_days: number; definition: string; success_definition: string};

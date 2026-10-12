@@ -32,6 +32,7 @@ from app.schemas import (
     SyncCalendarRequest,
     SyncDriveRequest,
 )
+from app.schemas.integrations import SyncGmailRequest
 
 router = APIRouter()
 
@@ -52,13 +53,13 @@ async def download_export(export_id: str, user: AuthenticatedUser = Depends(get_
 
 
 @router.post("/integrations/google/authorize")
-async def google_authorize(provider: Literal["google_drive", "google_calendar"], login_hint: Optional[str] = Query(default=None, max_length=254),
+async def google_authorize(provider: Literal["google_drive", "google_calendar", "gmail"], login_hint: Optional[str] = Query(default=None, max_length=254),
                            user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
     return await GoogleIntegrationService(db, user.id).authorize(provider, login_hint)
 
 
 @router.delete("/integrations/google/{provider}")
-async def google_disconnect(provider: Literal["google_drive", "google_calendar"], integration_id: Optional[str] = None,
+async def google_disconnect(provider: Literal["google_drive", "google_calendar", "gmail"], integration_id: Optional[str] = None,
                            user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
     return {"disconnected": await GoogleIntegrationService(db, user.id).disconnect_provider(provider, integration_id)}
 
@@ -190,6 +191,22 @@ async def sync_google_calendar(
         integration_id=req.integration_id,
     )
     return job
+
+
+@router.post(
+    "/sync/gmail",
+    response_model=JobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Refresh when you last emailed each saved person (dates only; no subjects or message text)",
+)
+async def sync_gmail(
+    background_tasks: BackgroundTasks,
+    payload: Optional[SyncGmailRequest] = None,
+    service: IntegrationManagementService = Depends(get_integration_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.trigger_gmail_sync(
+        background_tasks, integration_id=(payload or SyncGmailRequest()).integration_id)
 
 
 # --- EXPORT ENDPOINTS (Task 32) ---
