@@ -1,6 +1,8 @@
 """Google OAuth and user-approved exports/actions; Supabase is authoritative."""
 import base64
 import hashlib
+import json
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote, urlencode
@@ -17,6 +19,29 @@ from app.repositories.integrations import IntegrationRepository
 
 SCOPES = {'google_drive': 'https://www.googleapis.com/auth/drive.file',
           'google_calendar': 'https://www.googleapis.com/auth/calendar.events'}
+# Basic identity only, so each connection can say which Google account it belongs to.
+IDENTITY_SCOPES = 'openid email'
+_ISSUERS = {'https://accounts.google.com', 'accounts.google.com'}
+
+
+def account_from_id_token(id_token: str | None) -> str | None:
+    """Verified email of the Google account that just authorized us, or None.
+
+    The token arrives straight from Google's token endpoint over TLS in answer to our own code
+    exchange, so its signature is not re-checked; issuer, audience, expiry and email
+    verification are.
+    """
+    try:
+        segment = (id_token or '').split('.')[1]
+        payload = json.loads(base64.urlsafe_b64decode(segment + '=' * (-len(segment) % 4)))
+        email = str(payload.get('email', '')).strip().lower()
+        verified = payload.get('email_verified') in (True, 'true')
+        fresh = float(payload.get('exp', 0)) > datetime.now(timezone.utc).timestamp()
+    except (AttributeError, IndexError, ValueError, TypeError):
+        return None
+    trusted = payload.get('iss') in _ISSUERS and payload.get('aud') == settings.GOOGLE_CLIENT_ID
+    return email if trusted and verified and fresh and '@' in email else None
+
 
 class GoogleIntegrationService:
     def __init__(self, db, user_id):
@@ -27,10 +52,12 @@ class GoogleIntegrationService:
         if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
             raise IntegrationError('Google connection needs server configuration.', code='GOOGLE_NOT_CONFIGURED', status_code=503)
 
-    async def authorize(self, provider: str):
+    async def authorize(self, provider: str, login_hint: str | None = None):
         self.require_config()
         if provider not in SCOPES:
             raise IntegrationError('Unsupported Google integration.')
+        hint = (login_hint or '').strip().lower()
+        hint_param = {'login_hint': hint} if re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', hint) else {}
         state, verifier = secrets.token_urlsafe(32), secrets.token_urlsafe(48)
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip('=')
         self.db.add(JobRecord(user_id=self.user_id, job_type='google_oauth_state', status='pending',
@@ -39,8 +66,9 @@ class GoogleIntegrationService:
         await self.db.commit()
         return {'url': 'https://accounts.google.com/o/oauth2/v2/auth?' + urlencode({
             'client_id': settings.GOOGLE_CLIENT_ID, 'redirect_uri': settings.GOOGLE_REDIRECT_URI,
-            'response_type': 'code', 'scope': SCOPES[provider], 'access_type': 'offline',
-            'prompt': 'consent', 'state': state, 'code_challenge': challenge, 'code_challenge_method': 'S256'})}
+            'response_type': 'code', 'scope': f'{IDENTITY_SCOPES} {SCOPES[provider]}', 'access_type': 'offline',
+            'prompt': 'select_account consent', 'state': state, 'code_challenge': challenge, 'code_challenge_method': 'S256',
+            **hint_param})}
 
     async def connect_oauth_callback(self, code: str, state: str | None):
         self.require_config()
@@ -69,9 +97,11 @@ class GoogleIntegrationService:
         granted = tokens.get('scope', '').split()
         if SCOPES[provider] not in granted or not tokens.get('access_token'):
             raise IntegrationError('The requested Google permission was not granted.', status_code=403)
-        integration = await self.repo.get_by_provider(self.db, self.user_id, provider)
+        account = account_from_id_token(tokens.get('id_token'))
+        integration = await self.repo.get_for_account(self.db, self.user_id, provider, account)
         if integration is None:
-            integration = Integration(user_id=self.user_id, provider_name=provider, status='disconnected')
+            integration = Integration(user_id=self.user_id, provider_name=provider, status='disconnected',
+                                      account_identifier=account)
             self.db.add(integration)
             await self.db.flush()
         integration.scopes = granted
@@ -79,8 +109,24 @@ class GoogleIntegrationService:
         await self._store_tokens(str(integration.id), tokens)
         integration.is_connected = True
         await self.db.commit()
-        return {'status': 'connected', 'provider': provider, 'scopes_granted': granted,
-                'message': 'Google connection verified.'}
+        return {'status': 'connected', 'provider': provider, 'scopes_granted': granted, 'account_identifier': account,
+                'integration_id': str(integration.id),
+                'message': f'Google connection verified for {account}.' if account else 'Google connection verified.'}
+
+    async def select_integration(self, provider: str, integration_id=None) -> Integration:
+        """The account to use: the one asked for, or the only connected one. Never a silent guess."""
+        rows = await self.repo.list_for_provider(self.db, self.user_id, provider)
+        if integration_id:
+            chosen = next((row for row in rows if str(row.id) == str(integration_id)), None)
+            if chosen is None or not chosen.is_connected:
+                raise IntegrationError('That Google account is not connected.', code='GOOGLE_ACCOUNT_NOT_FOUND', status_code=409)
+            return chosen
+        connected = [row for row in rows if row.is_connected]
+        if not connected:
+            raise IntegrationError('Connect Google and grant the required permission first.', status_code=409)
+        if len(connected) > 1:
+            raise IntegrationError('Choose which Google account to use.', code='GOOGLE_ACCOUNT_REQUIRED', status_code=409)
+        return connected[0]
 
     async def _store_tokens(self, integration_id: str, tokens: dict):
         async with admin_db_session(reason='google_token_vault_write') as vault:
@@ -96,9 +142,9 @@ class GoogleIntegrationService:
                  'expiry': datetime.now(timezone.utc) + timedelta(seconds=int(tokens.get('expires_in', 3600)))})
             await vault.commit()
 
-    async def access_token(self, provider: str):
-        integration = await self.repo.get_by_provider(self.db, self.user_id, provider)
-        if not integration or not integration.is_connected or SCOPES[provider] not in integration.scopes:
+    async def access_token(self, provider: str, integration_id=None):
+        integration = await self.select_integration(provider, integration_id)
+        if SCOPES[provider] not in (integration.scopes or []):
             raise IntegrationError('Connect Google and grant the required permission first.', status_code=409)
         async with admin_db_session(reason='google_token_vault_read') as vault:
             row = (await vault.execute(text('''SELECT encrypted_access_token, encrypted_refresh_token, expires_at
@@ -120,9 +166,12 @@ class GoogleIntegrationService:
         await self._store_tokens(str(integration.id), tokens)
         return tokens['access_token']
 
-    async def disconnect_provider(self, provider_name):
-        integration = await self.repo.get_by_provider(self.db, self.user_id, provider_name)
-        if not integration:
+    async def disconnect_provider(self, provider_name, integration_id=None):
+        try:
+            integration = await self.select_integration(provider_name, integration_id)
+        except IntegrationError as error:
+            if error.code == 'GOOGLE_ACCOUNT_REQUIRED':
+                raise
             return False
         async with admin_db_session(reason='google_token_vault_revoke') as vault:
             await vault.execute(text('DELETE FROM integration_tokens WHERE integration_id=CAST(:id AS uuid) AND user_id=CAST(:owner AS uuid)'),
@@ -132,23 +181,27 @@ class GoogleIntegrationService:
         await self.db.commit()
         return True
 
-    async def _enqueue(self, provider, payload):
-        await self.access_token(provider)
-        job = JobRecord(user_id=self.user_id, job_type='sync_' + provider, status='pending', result_payload=payload)
+    async def _enqueue(self, provider, payload, integration_id=None):
+        # Fix the account now, so a job that runs later cannot land in a different one.
+        integration = await self.select_integration(provider, integration_id)
+        await self.access_token(provider, integration.id)
+        job = JobRecord(user_id=self.user_id, job_type='sync_' + provider, status='pending',
+                        result_payload={**payload, 'integration_id': str(integration.id)})
         self.db.add(job)
         await self.db.flush()
         return job
 
-    async def trigger_drive_sync_job(self, folder_id=None, sync_mode='one_way'):
+    async def trigger_drive_sync_job(self, folder_id=None, sync_mode='one_way', integration_id=None):
         if sync_mode != 'one_way':
             raise IntegrationError('This beta supports export to Drive only.')
-        return await self._enqueue('google_drive', {'folder_id': folder_id})
+        return await self._enqueue('google_drive', {'folder_id': folder_id}, integration_id)
 
-    async def trigger_calendar_sync_job(self, calendar_id='primary'):
-        return await self._enqueue('google_calendar', {'calendar_id': calendar_id})
+    async def trigger_calendar_sync_job(self, calendar_id='primary', integration_id=None):
+        return await self._enqueue('google_calendar', {'calendar_id': calendar_id}, integration_id)
 
     async def export_drive(self, payload):
-        token = await self.access_token('google_drive')
+        integration_id = payload.get('integration_id')
+        token = await self.access_token('google_drive', integration_id)
         # Only user-owned, active records; no remote AI involved in archival.
         from app.ai.indexing import SOURCES, record_text
         lines = ['# Second Brain private archive', '', 'Supabase is the source of truth.', '']
@@ -162,16 +215,28 @@ class GoogleIntegrationService:
                 lines.extend([record_text(row, kind), ''])
         headers = {'Authorization': 'Bearer ' + token}
         # Serialize archive identity allocation across concurrent jobs for this account.
-        await self.db.execute(select(Integration).where(Integration.user_id == self.user_id,
-            Integration.provider_name == 'google_drive').with_for_update())
-        # One persisted per-owner archive identity; updates do not create duplicates.
+        lock = select(Integration).where(Integration.user_id == self.user_id, Integration.provider_name == 'google_drive')
+        if integration_id:
+            lock = lock.where(Integration.id == integration_id)
+        await self.db.execute(lock.with_for_update())
+        # One persisted archive identity per Drive account; updates do not create duplicates.
+        # A file id belongs to one account's Drive, so each account keeps its own.
+        kind = f'drive_archive_identity:{integration_id}' if integration_id else 'drive_archive_identity'
         identity = (await self.db.execute(select(JobRecord).where(JobRecord.user_id == self.user_id,
-            JobRecord.job_type == 'drive_archive_identity').with_for_update())).scalars().first()
+            JobRecord.job_type == kind).with_for_update())).scalars().first()
+        if identity is None and integration_id:
+            # The archive created before accounts were tracked belongs to the only Drive connection.
+            drive_rows = await self.repo.list_for_provider(self.db, self.user_id, 'google_drive')
+            legacy = (await self.db.execute(select(JobRecord).where(JobRecord.user_id == self.user_id,
+                JobRecord.job_type == 'drive_archive_identity').with_for_update())).scalars().first()
+            if legacy is not None and len(drive_rows) == 1:
+                legacy.job_type = kind
+                identity = legacy
         async with httpx.AsyncClient(timeout=30) as client:
             if identity is None:
                 generated = await client.get('https://www.googleapis.com/drive/v3/files/generateIds', headers=headers, params={'count': 1, 'space': 'drive'})
                 generated.raise_for_status()
-                identity = JobRecord(user_id=self.user_id, job_type='drive_archive_identity', status='completed', result_payload={'file_id': generated.json()['ids'][0]})
+                identity = JobRecord(user_id=self.user_id, job_type=kind, status='completed', result_payload={'file_id': generated.json()['ids'][0]})
                 self.db.add(identity)
                 await self.db.commit()
             file_id = identity.result_payload['file_id']
@@ -191,7 +256,8 @@ class GoogleIntegrationService:
         return {'file_id': file_id, 'status': 'exported'}
 
     async def sync_calendar(self, payload):
-        token = await self.access_token('google_calendar')
+        integration_id = payload.get('integration_id')
+        token = await self.access_token('google_calendar', integration_id)
         calendar = quote(payload.get('calendar_id', 'primary'), safe='')
         base = f'https://www.googleapis.com/calendar/v3/calendars/{calendar}/events'
         tasks = (await self.db.execute(select(Task).where(Task.user_id == self.user_id,
@@ -219,7 +285,8 @@ class GoogleIntegrationService:
                         response = await client.patch(base + '/' + event_id, headers=headers, params={'sendUpdates': 'none'}, json=event)
                     response.raise_for_status()
                     task.gcal_event_id = event_id
-                    task.calendar_sync_metadata = {**metadata, 'status': 'synced', 'calendar_id': payload.get('calendar_id', 'primary')}
+                    task.calendar_sync_metadata = {**metadata, 'status': 'synced', 'calendar_id': payload.get('calendar_id', 'primary'),
+                        **({'integration_id': integration_id} if integration_id else {})}
                 count += 1
                 await self.db.commit()
         return {'events_synced': count}

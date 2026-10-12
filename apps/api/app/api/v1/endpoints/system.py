@@ -7,7 +7,7 @@ from fastapi.responses import Response
 from pydantic import AwareDatetime, BaseModel, Field
 from sqlalchemy import select
 
-from app.core.errors import NotFoundError, ValidationError
+from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.pagination import PaginatedResponse, PaginationParams
 from app.dependencies.auth import AuthenticatedUser, get_current_user
 from app.dependencies.database import get_rls_db_session
@@ -52,18 +52,19 @@ async def download_export(export_id: str, user: AuthenticatedUser = Depends(get_
 
 
 @router.post("/integrations/google/authorize")
-async def google_authorize(provider: Literal["google_drive", "google_calendar"],
+async def google_authorize(provider: Literal["google_drive", "google_calendar"], login_hint: Optional[str] = Query(default=None, max_length=254),
                            user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
-    return await GoogleIntegrationService(db, user.id).authorize(provider)
+    return await GoogleIntegrationService(db, user.id).authorize(provider, login_hint)
 
 
 @router.delete("/integrations/google/{provider}")
-async def google_disconnect(provider: Literal["google_drive", "google_calendar"],
+async def google_disconnect(provider: Literal["google_drive", "google_calendar"], integration_id: Optional[str] = None,
                            user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
-    return {"disconnected": await GoogleIntegrationService(db, user.id).disconnect_provider(provider)}
+    return {"disconnected": await GoogleIntegrationService(db, user.id).disconnect_provider(provider, integration_id)}
 
 
 class CalendarSchedule(BaseModel):
+    integration_id: Optional[str] = None  # which connected Google account; required when several are
     start: AwareDatetime
     duration_minutes: int = Field(default=30, ge=5, le=1440)
     timezone: str = "Asia/Dhaka"
@@ -81,12 +82,18 @@ async def schedule_task(task_id: str, payload: CalendarSchedule,
         Task.user_id == user.id, Task.deleted_at.is_(None)))).scalar_one_or_none()
     if task is None:
         raise NotFoundError("Task not found.")
-    await GoogleIntegrationService(db, user.id).access_token("google_calendar")
+    google = GoogleIntegrationService(db, user.id)
+    integration = await google.select_integration("google_calendar", payload.integration_id)
+    await google.access_token("google_calendar", integration.id)
+    placed_on = (task.calendar_sync_metadata or {}).get("integration_id")
+    if task.gcal_event_id and placed_on and placed_on != str(integration.id):
+        # An event lives in exactly one account's calendar; moving it silently would orphan the first.
+        raise ConflictError("This task is already on another Google account's calendar. Remove it there first.")
     task.calendar_sync_metadata = {**(task.calendar_sync_metadata or {}), "enabled": True, "cancel": payload.cancel,
         "start": payload.start.isoformat(), "end": (payload.start + timedelta(minutes=payload.duration_minutes)).isoformat(),
-        "timezone": payload.timezone, "status": "pending"}
+        "timezone": payload.timezone, "status": "pending", "integration_id": str(integration.id)}
     job = JobRecord(user_id=user.id, job_type="sync_google_calendar", status="pending",
-                    result_payload={"task_id": str(task.id), "calendar_id": "primary"})
+                    result_payload={"task_id": str(task.id), "calendar_id": "primary", "integration_id": str(integration.id)})
     db.add(job)
     await db.commit()
     return {"job_id": str(job.id), "status": "pending"}
@@ -159,7 +166,8 @@ async def sync_google_drive(
 ):
     req = payload or SyncDriveRequest()
     job = await service.trigger_drive_sync(
-        req.folder_id, req.sync_mode, background_tasks=background_tasks
+        req.folder_id, req.sync_mode, background_tasks=background_tasks,
+        integration_id=req.integration_id,
     )
     return job
 
@@ -178,7 +186,8 @@ async def sync_google_calendar(
 ):
     req = payload or SyncCalendarRequest()
     job = await service.trigger_calendar_sync(
-        req.calendar_id or "primary", background_tasks=background_tasks
+        req.calendar_id or "primary", background_tasks=background_tasks,
+        integration_id=req.integration_id,
     )
     return job
 

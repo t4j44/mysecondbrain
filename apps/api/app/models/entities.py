@@ -779,7 +779,10 @@ del _section
 
 class Integration(Base):
     __tablename__ = "integrations"
-    __table_args__ = (UniqueConstraint("user_id", "provider", name="uq_user_provider"),)
+    # One row per user, capability and Google account. Rows connected before the account
+    # was recorded have no identifier and share the empty key, so at most one can exist.
+    __table_args__ = (Index("uq_integrations_user_provider_account", "user_id", "provider",
+                            text("(coalesce(lower(external_account_identifier), ''))"), unique=True),)
 
     id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
     user_id: Any = Column(FlexibleUUID, nullable=False, index=True)

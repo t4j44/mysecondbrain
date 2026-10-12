@@ -340,6 +340,7 @@ MIGRATION_FILES: List[str] = [
     "20260927000030_outreach_receipts.sql",
     "20260927000031_mcp_oauth.sql",
     "20261008000032_meeting_intelligence.sql",
+    "20261013000033_google_multi_account.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).
