@@ -4,6 +4,7 @@ export interface Citation {
   title: string;
   uri?: string;
   snippet?: string;
+  segment_id?: string;
 }
 
 /** A question and its answer reduced to the few facts a follow-up needs. Built by the server, kept on this device. */

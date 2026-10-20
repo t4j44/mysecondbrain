@@ -6,7 +6,7 @@ export class MeetingApiClient {
   list(params: Record<string, string | number | undefined> = {}) { return api.get<MeetingList>('/meetings', { params }); }
   get(id: string) { return api.get<Meeting>(`/meetings/${id}`); }
   usage() { return api.get<MeetingUsage>('/meetings/usage'); }
-  create(requestId: string, title: string) { return api.post<Meeting>('/meetings/captures', { request_id: requestId, title, meeting_date: new Date().toISOString(), recording_permission: true, provider_terms_accepted: true }); }
+  create(requestId: string, title: string, nonSensitive = false) { return api.post<Meeting>('/meetings/captures', { request_id: requestId, title, meeting_date: new Date().toISOString(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null, recording_permission: true, provider_terms_accepted: true, non_sensitive_recording: nonSensitive }); }
   authorize(id: string, mime: string) { return api.post<UploadAuthorization>(`/meetings/${id}/upload-authorization`, { mime_type: mime }); }
   finalize(id: string) { return api.post<Meeting>(`/meetings/${id}/finalize-upload`, undefined, { timeoutMs: 180000 }); }
   retry(id: string) { return api.post<Meeting>(`/meetings/${id}/retry`); }

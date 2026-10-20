@@ -34,7 +34,7 @@ describe('Google connections page', () => {
   beforeEach(() => {
     get.mockReset(); post.mockReset(); del.mockReset(); assign.mockReset();
     Object.defineProperty(window, 'location', { configurable: true, value: { ...window.location, assign } });
-    get.mockImplementation(async (path: string) => path.startsWith('/tasks')
+    get.mockImplementation(async (path: string) => path === '/release-capabilities' ? { google_integrations: true, portfolio_publishing: true } : path.startsWith('/tasks')
       ? { items: [{ id: 'task-1', title: 'Send deck' }] }
       : { items: [row('d1', 'google_drive', 'one@example.test'), row('c1', 'google_calendar', 'one@example.test'),
                   row('d2', 'google_drive', 'two@example.test')] });
@@ -87,7 +87,7 @@ describe('Google connections page', () => {
   });
 
   it('explains exactly what email access reads and refreshes dates for the only Gmail account', async () => {
-    get.mockImplementation(async (path: string) => path.startsWith('/tasks') ? { items: [] }
+    get.mockImplementation(async (path: string) => path === '/release-capabilities' ? { google_integrations: true, portfolio_publishing: true } : path.startsWith('/tasks') ? { items: [] }
       : { items: [row('g1', 'gmail', 'one@example.test')] });
     post.mockResolvedValue({ id: 'job-3' });
     render(<SettingsIntegrationsPage />);

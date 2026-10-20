@@ -295,7 +295,7 @@ export function ChatArea({
                       {msg.citations.map((citation, idx) => (
                           <Link
                             key={citation.id || idx}
-                            href={`/sources/${encodeURIComponent(citation.entity_type)}/${encodeURIComponent(citation.id)}`}
+                            href={citation.entity_type === 'meeting' ? `/meetings/${encodeURIComponent(citation.id)}${citation.segment_id ? `#segment-${encodeURIComponent(citation.segment_id)}` : ''}` : `/sources/${encodeURIComponent(citation.entity_type)}/${encodeURIComponent(citation.id)}`}
                             className="min-h-11 px-2 py-2 rounded-md bg-purple-950/60 border border-purple-500/30 text-purple-300 text-xs flex items-center gap-1 underline"
                           >
                             [{idx + 1}] {citation.title || citation.entity_type}

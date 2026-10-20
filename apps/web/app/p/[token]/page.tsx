@@ -2,9 +2,10 @@ import { env } from '@/lib/env';
 import { notFound } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 export const metadata = { robots: { index: false, follow: false }, referrer: 'no-referrer' };
-export default async function PublicPortfolio({ params }: { params: { token: string } }) {
-  if (!/^[A-Za-z0-9_-]{43}$/.test(params.token)) notFound();
-  const response = await fetch(`${env.NEXT_PUBLIC_API_BASE_URL.replace(/\/$/, '')}/public/portfolio/${params.token}`, { cache: 'no-store' });
+export default async function PublicPortfolio({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) notFound();
+  const response = await fetch(`${env.NEXT_PUBLIC_API_BASE_URL.replace(/\/$/, '')}/public/portfolio/${token}`, { cache: 'no-store' });
   if (response.status === 404) notFound();
   if (!response.ok) throw new Error('This portfolio is temporarily unavailable.');
   const snapshot: { title: string; body: string } = await response.json();

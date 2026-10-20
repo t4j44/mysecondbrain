@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import type { User, Session } from '@supabase/supabase-js';
 
 export async function getCurrentSession(): Promise<Session | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { session }, error } = await supabase.auth.getSession();
   if (error || !session) {
     return null;
@@ -12,7 +12,7 @@ export async function getCurrentSession(): Promise<Session | null> {
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) {
     return null;
@@ -29,7 +29,7 @@ export async function requireAuthenticatedUser(redirectTo = '/login'): Promise<U
 }
 
 export async function signOut(): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
   await supabase.auth.signOut();
 }
 

@@ -2,10 +2,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api/browser-client';
+import { useReleaseCapabilities } from '@/hooks/useReleaseCapabilities';
 type Source = { id: string; entity_type: string; title: string };
 type Draft = { id: string; title: string; body: string; sources: { id: string; kind: string; excerpt: string }[] };
 type Publication = { id: string; title: string; revoked: boolean };
 export default function PortfolioPage() {
+  const capabilities = useReleaseCapabilities();
   const [query, setQuery] = useState(''); const [results, setResults] = useState<Source[]>([]);
   const [selected, setSelected] = useState<Source[]>([]); const [title, setTitle] = useState('My work case study');
   const [drafts, setDrafts] = useState<Draft[]>([]); const [draft, setDraft] = useState<Draft | null>(null);
@@ -23,6 +25,7 @@ export default function PortfolioPage() {
   }
   return <div className="mx-auto max-w-3xl space-y-6">
     <h1 className="text-3xl font-semibold">Evidence portfolio</h1>
+    {!capabilities.portfolio_publishing && <p className="rounded border p-3">Public sharing is disabled pending hosted verification for this release. Private drafts and revocation remain available.</p>}
     <p>Choose real records, review a case study, then publish only the text you approve. Saved claims are self-reported unless you have independent supporting evidence.</p>
     <section className="space-y-3 rounded-xl border p-4"><h2 className="text-xl font-semibold">Choose evidence</h2>
       <form className="flex gap-2" onSubmit={event => { event.preventDefault(); run(async () => {
@@ -52,7 +55,7 @@ export default function PortfolioPage() {
         await load(); setMessage('Private draft saved. Published copies keep their approved text.');
       })}>Save private draft</button>
       <label className="flex items-start gap-3"><input type="checkbox" checked={approved} onChange={event => setApproved(event.target.checked)} className="mt-1" /><span>I reviewed this exact text, removed private details, and approve sharing it with anyone who has the link.</span></label>
-      <button disabled={busy || !approved} className="min-h-11 rounded bg-primary px-4 text-primary-foreground" onClick={() => run(async () => {
+      <button disabled={busy || !approved || !capabilities.portfolio_publishing} className="min-h-11 rounded bg-primary px-4 text-primary-foreground" onClick={() => run(async () => {
         const result = await api.post<{ share_path: string }>(`/portfolio/drafts/${draft.id}/publish`, { title: draft.title, body: draft.body, confirmed_public: true });
         setShare(window.location.origin + result.share_path); setApproved(false); await load();
       })}>Publish reviewed copy</button>

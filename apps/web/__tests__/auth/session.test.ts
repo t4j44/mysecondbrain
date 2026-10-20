@@ -6,7 +6,7 @@ const mockGetUser = vi.fn();
 const mockGetSession = vi.fn();
 
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: () => ({
+  createClient: async () => ({
     auth: {
       getUser: mockGetUser,
       getSession: mockGetSession,

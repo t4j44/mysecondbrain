@@ -51,7 +51,7 @@ export default defineConfig({
     },
     {
       name: 'chromium',
-      testMatch: /v15-context\.spec\.ts|beta-journey\.spec\.ts|core-lifecycle\.spec\.ts|negative\.authenticated\.spec\.ts|cross-tenant\.spec\.ts/,
+      testMatch: /meeting-review\.spec\.ts|v15-context\.spec\.ts|beta-journey\.spec\.ts|core-lifecycle\.spec\.ts|negative\.authenticated\.spec\.ts|cross-tenant\.spec\.ts/,
       dependencies: hasAuth ? ['setup'] : [],
       use: {
         ...devices['Desktop Chrome'],
@@ -61,7 +61,7 @@ export default defineConfig({
     },
     {
       name: 'mobile-chrome',
-      testMatch: /v15-context\.spec\.ts|beta-journey\.spec\.ts|core-lifecycle\.spec\.ts|negative\.authenticated\.spec\.ts/,
+      testMatch: /meeting-review\.spec\.ts|v15-context\.spec\.ts|beta-journey\.spec\.ts|core-lifecycle\.spec\.ts|negative\.authenticated\.spec\.ts/,
       use: {
         ...devices['Pixel 5'],
         ...(hasAuth ? { storageState: AUTH_STATE_PATH } : {}),

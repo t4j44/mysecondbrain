@@ -57,6 +57,11 @@ test.describe('Closed beta capture, retrieve, act and share', () => {
     await page.getByLabel('Public case study text').fill(approvedText);
     await page.getByRole('button', { name: 'Save private draft' }).click();
     await page.getByRole('checkbox', { name: /I reviewed this exact text/ }).check();
+    if (await page.getByText('Public sharing is disabled pending hosted verification for this release.', { exact: false }).isVisible()) {
+      await expect(page.getByRole('button', { name: 'Publish reviewed copy' })).toBeDisabled();
+      test.info().annotations.push({ type: 'release-gate', description: 'Public sharing disabled: private draft and disabled state tested; live publication remains unverified.' });
+      return;
+    }
     await page.getByRole('button', { name: 'Publish reviewed copy' }).click();
     const share = await page.locator('a[href*="/p/"]').getAttribute('href');
     expect(share).toBeTruthy();
