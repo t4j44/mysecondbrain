@@ -15,6 +15,7 @@ from app.db.rls import (
     identity_statements,
 )
 from app.db.schema_verify import SchemaVerificationError, verify_migrated_schema
+from app.db.staging_dns_diagnostics import can_resolve_expected_host, inspect_staging_db_url
 from app.dependencies.auth import AuthenticatedUser, get_current_user
 
 # Canonical application engine. supabase/migrations owns the schema; this module never
@@ -157,6 +158,17 @@ async def verify_database_ready() -> None:
             f"SQLite is forbidden for environment '{settings.ENVIRONMENT}'. "
             "Point DATABASE_URL at a migrated PostgreSQL database."
         )
+
+    if (
+        settings.ENVIRONMENT.lower() == "staging"
+        and settings.STAGING_EXPECTED_DB_HOST
+    ):
+        endpoint = inspect_staging_db_url(
+            settings.DATABASE_URL, settings.STAGING_EXPECTED_DB_HOST
+        )
+        logger.warning("Staging database configuration diagnostic: %s", endpoint)
+        result = await can_resolve_expected_host(settings.STAGING_EXPECTED_DB_HOST)
+        logger.warning("Staging expected Supabase pooler DNS lookup: %s", result)
 
     if not settings.DATABASE_SCHEMA_VERIFY:
         async with engine.connect() as conn:
