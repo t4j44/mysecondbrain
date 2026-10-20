@@ -4,7 +4,6 @@ import pytest
 
 from app.db.staging_dns_diagnostics import inspect_staging_db_url
 
-
 EXPECTED = "aws-0-ap-southeast-1.pooler.supabase.com"
 
 
