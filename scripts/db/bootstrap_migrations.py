@@ -113,7 +113,7 @@ GRANT EXECUTE ON FUNCTION auth.role() TO anon, authenticated;
 # plain container. Migration 0020 grants per table; this covers sequences and functions.
 POST_MIGRATION_GRANT_SQL = """
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
+-- Do not re-grant all functions: migration 35 revokes trigger RPC access.
 REVOKE ALL ON public.integration_tokens FROM authenticated;
 """
 

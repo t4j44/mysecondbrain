@@ -344,6 +344,7 @@ MIGRATION_FILES: List[str] = [
     "20261008000032_meeting_intelligence.sql",
     "20261013000033_google_multi_account.sql",
     "20261013000034_email_contacts.sql",
+    "20261020000035_staging_function_security.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).
