@@ -1,7 +1,6 @@
 """Staging DSN diagnostics must identify bad parsing without leaking secrets."""
 
 import pytest
-
 from app.db.staging_dns_diagnostics import inspect_staging_db_url
 
 
