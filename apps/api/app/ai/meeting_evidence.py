@@ -42,8 +42,9 @@ def ground_intelligence(draft: MeetingIntelligence, segments: list[dict], speake
                 item.evidence = resolve_quote(item.evidence_text, segments, item.from_speaker)
                 if draft.schema_version == 1 and item.due_evidence:
                     # Legacy JSON had quotations but no reference array. A
-                    # deadline may be in a separate utterance by that speaker.
-                    due_refs = resolve_quote(item.due_evidence, segments, item.from_speaker)
+                    # deadline may be stated by another participant. Preserve
+                    # that speaker's own ref; never reattribute the primary quote.
+                    due_refs = resolve_quote(item.due_evidence, segments)
                     item.evidence = [*item.evidence[:10], *due_refs[:10]]
             validate_refs(item.evidence, segments)
             # A genuine quote elsewhere does not substantiate this candidate's quote.

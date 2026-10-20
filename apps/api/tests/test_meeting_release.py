@@ -85,14 +85,18 @@ def test_legacy_conditional_proposals_preserve_full_quotation():
         MeetingIntelligence.model_validate(dict(old, schema_version=2))
 
 
-def test_legacy_deadline_in_separate_utterance_gets_canonical_references():
+@pytest.mark.parametrize('deadline_speaker', ['alice','bob'])
+def test_legacy_deadline_in_separate_utterance_gets_canonical_references(deadline_speaker):
     quote, deadline = 'I will send the report.', 'The deadline is 2026-10-22.'
     rows = [{'segment_id':str(i),'speaker_local_id':'alice','start_offset':float(i),
         'end_offset':float(i + 1),'text':text} for i, text in enumerate([quote, deadline])]
+    # Another participant can state the deadline; it must be referenced without
+    # changing who spoke the primary promise, matching the v2 contract.
+    rows[1]['speaker_local_id'] = deadline_speaker
     draft = MeetingIntelligence.model_validate({'summary':'Review','commitments':[
         {'description':'Send report','evidence_text':quote,'confidence':.9,'from_speaker':'alice',
          'due_at':'2026-10-22T00:00:00Z','due_evidence':deadline}]})
-    ground_intelligence(draft, rows, ['alice'])
+    ground_intelligence(draft, rows, ['alice','bob'])
     assert {ref.segment_id for ref in draft.commitments[0].evidence} == {'0','1'}
 
 

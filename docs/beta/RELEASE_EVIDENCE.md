@@ -12,9 +12,10 @@ ancestors; this preserves the newer relationship/Google/email work. See
 FINAL_FEATURE_AUDIT for the initial matrix, preserved files and base CI links.
 Verified candidate identity and linked CI receipts are below. The completion report
 also supplies the final branch HEAD and its exact Actions runs; historic/base
-results alone do not pass a newer candidate. This final evidence commit additionally
-ensures a confirmed self-speaker appears in minutes and corrects the runbook's
-test-user creation order; its own checks must pass before acceptance.
+results alone do not pass a newer candidate. This release additionally ensures a
+confirmed self-speaker appears in minutes, preserves separately spoken legacy
+deadline evidence without reattribution, and corrects the runbook's test-user
+creation order; the final commit's own checks must pass before acceptance.
 
 Independent read-only review found incorrect cross-reference speaker attribution,
 stale minutes after extraction, and legacy conditional/deadline compatibility gaps.
@@ -33,7 +34,7 @@ Vite 6.4.3. Retained google-genai 0.8 and MarkItDown 0.1.5 compatibility bounds.
 
 | Check | Observed result | Limit |
 |---|---|---|
-| Meeting release regressions after final minutes fix | 24 passed, 12 deprecation warnings, 10.27s | Mocked AI, SQLite owner checks; not RLS/provider proof |
+| Meeting release regressions after final legacy deadline fix | 25 passed, 12 deprecation warnings, 10.80s | Mocked AI, SQLite owner checks; not RLS/provider proof |
 | Complete local backend at 4d78cc2 | 459 passed, 0 failures/errors/skips, JUnit 311.986s | Before the final three blank-evidence regressions; final code CI receipt below |
 | Complete frontend Vitest | 60 passed, 14 files, 39.69s | Component/unit, not hosted auth |
 | Frontend lint/typecheck | PASS, no ESLint warnings/errors | Next lint deprecation is tooling notice |
@@ -54,6 +55,10 @@ full run is retained, not recast as passing. The serial full rerun passed 459/45
 without relaxing a limit. A separate build invocation without required mock public
 variables failed closed as designed; the correctly configured final build passed.
 Final full-suite/CI receipts follow.
+The explicit legacy deadline regression initially failed when a second participant
+stated the due date; resolving that participant's own canonical reference repaired
+it without relaxing primary promise/speaker matching. Both same-speaker and
+different-speaker variants are now covered by the focused suite.
 Previous 438-test baseline and 93-test intermediate focus runs are not final proof.
 Hosted Playwright collection is configuration validation only, not execution.
 

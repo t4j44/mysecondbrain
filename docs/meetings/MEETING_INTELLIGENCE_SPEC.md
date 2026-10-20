@@ -30,7 +30,8 @@ Schema v2 adds title/purpose/agenda proposals, executive/detailed summaries,
 discussion sections, key points, risks/ideas/numbers and structured evidence.
 Existing summary/topics/receipt consumers remain compatible. Legacy v1 conditional
 proposals conservatively retain their entire quotation as the condition. Legacy
-deadline quotes acquire canonical references, including separate utterances; new
+deadline quotes acquire canonical references, including separate utterances by
+another participant, without changing the primary promise's attribution; new
 supplied v2 references must substantiate those fields directly.
 
 ## Extraction and evidence
