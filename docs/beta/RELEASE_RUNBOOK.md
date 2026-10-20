@@ -27,7 +27,8 @@ by these instructions automatically.
    support. Verify TLS/target privately and do not paste the URI into evidence.
 5. **Authentication / URL configuration**: set the staging web URL as Site URL;
    allow only its `/callback` and `/reset-password` redirect routes. Create two
-   ordinary synthetic email/password users A/B under **Authentication / Users**.
+   ordinary synthetic email/password users A/B under **Authentication / Users**
+   AFTER the reviewed migrations are applied, so profile triggers are in place.
    Confirm their emails for the test. Neither is an administrator/service account.
 6. **Storage / Buckets**: after migrations, verify `meeting-audio` and the existing
    document/context buckets are private, with owner-prefix policies and active
@@ -181,6 +182,19 @@ MCP OAuth/read/draft/context/finalize/revoke; 60–90 minute bilingual meeting w
 secondary topic; two-user audio/graph/export denial; partial retry; worker restart;
 deletion/index invalidation/object erasure; export/closure. Google and portfolio
 remain visibly disabled unless live tests justify separately enabling their flags.
+
+For optional integrations, the operator may open a controlled test window ONLY on
+the verified isolated staging service. For Google, create a staging OAuth Web
+client in Google Cloud → APIs & Services, enable the required Drive/Calendar APIs,
+restrict consent testing to the synthetic accounts, and set `GOOGLE_CLIENT_ID`,
+`GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI=https://<staging-web>/settings/integrations/google/callback`.
+Enable `GOOGLE_INTEGRATIONS_RELEASE_VERIFIED` on staging for that bounded test;
+exercise authorize, callback, controlled sync, disconnect and revocation. For
+portfolio, temporarily enable `PORTFOLIO_PUBLISHING_RELEASE_VERIFIED` on staging
+and test explicit approval, signed-out public read, revoke and disappearance.
+These staging switches permit acceptance testing; they do not certify production.
+Restore false on failure or incomplete acceptance. No production flag is enabled
+by a staging result, and no paid provider plan is activated by these flags.
 
 Physical HTTPS Android/iOS acceptance must cover permission denial, record/pause/
 resume, reconnect/offline, refresh/recovery, background limitations, end/upload,

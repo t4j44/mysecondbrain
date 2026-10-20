@@ -95,7 +95,8 @@ navigation. Existing recorder, CRM, private storage, OAuth, context and durable 
 were reused. No schema migration was needed. Confirmation still gates CRM writes.
 
 Fixed lossy summary merging, cross-speaker quotation acceptance, stale minutes,
-legacy conditional/deadline compatibility, stale note concurrency, list payload
+legacy conditional/deadline compatibility, blank-evidence/condition bypasses,
+confirmed self-attendance in minutes, stale note concurrency, list payload
 overfetch, dependency-manifest drift, vulnerable runtime families and Next async
 server APIs. Added real PostgreSQL concurrency regressions and actual Docker/worker
 CI steps. Independent review findings have focused reproducer/regression coverage.

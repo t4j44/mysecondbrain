@@ -424,6 +424,10 @@ async def test_review_export_confirm_typed_edges_and_delete(
             },
         )
     ).status_code == 200
+    assert (await async_client.post(path + '/speakers', headers=auth_headers,
+        json={'speaker':'c0:spk_1','kind':'me','confirmed':True})).status_code == 200
+    before_confirm = await async_client.get(path + '/export/markdown?kind=minutes', headers=auth_headers)
+    assert 'Attendees: Not confirmed' in before_confirm.text
     receipts = [
         await async_client.post(path + "/confirm", headers=auth_headers, json={"confirmed": True})
         for _ in range(2)
@@ -437,6 +441,7 @@ async def test_review_export_confirm_typed_edges_and_delete(
         and "Owner agenda" in exported.text
     )
     assert "#segment-c0%3A0" in exported.text and "I will send the report." in exported.text
+    assert 'Attendees: You, Synthetic Ahmed' in exported.text
     assert "token=" not in exported.text and "meeting-audio/" not in exported.text
     async with TestingSessionLocal() as db:
         edges = (

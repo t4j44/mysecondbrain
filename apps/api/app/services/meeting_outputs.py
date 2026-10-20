@@ -62,12 +62,15 @@ def minutes_markdown(meeting):
     data, meta = capture.intelligence or {}, meeting.meta or {}
     confirmed = bool(capture.confirmed_at)
     selected = set((capture.receipt or {}).get('selected', []))
+    attendees = list(meta.get('participant_names', [])) if confirmed else []
+    if confirmed and any(mapping.get('kind') == 'me' for mapping in capture.speaker_mappings.values()):
+        attendees.insert(0, 'You')
     lines = ['## Meeting minutes',
         'Status: ' + ('Reviewed selections confirmed by owner' if confirmed else 'Proposed — not confirmed'),
         'Date/time: ' + meeting.start_time.isoformat(),
         'Meeting timezone: ' + (meta.get('timezone') or 'Unknown'),
         'Location: ' + (meeting.location or 'Unknown'),
-        'Attendees: ' + (', '.join(meta.get('participant_names', [])) if confirmed and meta.get('participant_names') else 'Not confirmed'),
+        'Attendees: ' + (', '.join(attendees) if attendees else 'Not confirmed'),
         'Roles: Not recorded', '', '### Agenda', meta.get('agenda') or 'Not provided']
     for key in ('decisions', 'commitments', 'action_items', 'follow_ups'):
         lines += ['', '### ' + key.replace('_', ' ').title()]

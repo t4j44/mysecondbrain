@@ -47,7 +47,8 @@ before checkpoint persistence may still be charged on retry. Exactly-once provid
 billing is not claimed.
 
 Each consequential claim references canonical segment ID, speaker ID, exact
-offsets and a quote matching with whitespace normalization only. The primary quote
+offsets and a substantive quote matching with whitespace normalization only.
+Normalized-empty quotations, candidate evidence and conditions are rejected. The primary quote
 and attributed speaker must match the SAME reference. Deadlines and conditions
 must be attached to the candidate's canonical references. Date evidence needs an
 unambiguous day/month/year (English/Bangla), matching the assigned date. Unknown
