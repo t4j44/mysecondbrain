@@ -27,7 +27,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r apps/api/requirements.txt
+      - run: pip install --require-hashes -r apps/api/requirements.lock
       - run: python scripts/db/bootstrap_migrations.py
       - run: pytest apps/api/tests/integration -q -o addopts='' --junitxml=postgres-results.xml
       - run: python scripts/check_test_evidence.py postgres-results.xml
@@ -44,6 +44,22 @@ jobs:
         env:
           RUN_ISOLATED_RESTORE_PROOF: '1'
         run: python scripts/db/verify_backup_restore.py
+      - name: Build actual API Docker image
+        run: docker build -t second-brain-release-smoke -f apps/api/Dockerfile apps/api
+      - name: Run container against disposable migrated PostgreSQL
+        run: |
+          docker run -d --name second-brain-release-smoke --network host \
+            -e DATABASE_URL="$POSTGRES_TEST_DATABASE_URL" -e ENVIRONMENT=e2e -e APP_ENV=e2e \
+            -e RELEASE_SHA="$GITHUB_SHA" -e GEMINI_API_KEY=mock_ci_key \
+            -e JOB_WORKER_ENABLED=true second-brain-release-smoke
+          docker exec second-brain-release-smoke ffmpeg -version
+          docker exec second-brain-release-smoke ffprobe -version
+          python scripts/verify_container_runtime.py
+      - name: Container diagnostics
+        if: always()
+        run: |
+          docker logs second-brain-release-smoke 2>&1 | tail -80
+          docker rm -f second-brain-release-smoke || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

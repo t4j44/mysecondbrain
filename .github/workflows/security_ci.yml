@@ -24,11 +24,14 @@ jobs:
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff mypy bandit pytest pytest-cov -r apps/api/requirements.txt
+          pip install --require-hashes -r apps/api/requirements.lock
 
       - name: Run Ruff Linter
         run: |
           ruff check apps/api
+
+      - name: Audit locked Python dependencies in isolated tool environment
+        run: pipx run --spec pip-audit==2.10.1 pip-audit --require-hashes -r apps/api/requirements.lock
 
       - name: Run Bandit Security Scanner
         run: |
@@ -73,6 +76,14 @@ jobs:
           # Collect browser tests without credentials to catch invalid suite configuration.
           # This is not hosted E2E evidence; the separate staging workflow runs the flows.
           pnpm --filter @second-brain/web test:e2e --list
+
+      - name: Audit production browser dependencies
+        run: pnpm audit --prod
+
+      - name: Exercise real Chromium meeting components at three widths
+        run: |
+          pnpm --filter @second-brain/web exec playwright install --with-deps chromium
+          pnpm --filter @second-brain/web test:meetings-ui
 
       - name: Run Frontend Build
         env:
