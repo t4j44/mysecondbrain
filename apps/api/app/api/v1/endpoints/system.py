@@ -33,8 +33,16 @@ from app.schemas import (
     SyncDriveRequest,
 )
 from app.schemas.integrations import SyncGmailRequest
+from app.services.release_gates import optional_enabled, require_google_release
 
 router = APIRouter()
+
+
+@router.get('/release-capabilities')
+async def release_capabilities(_user: AuthenticatedUser = Depends(get_current_user)):
+    return {'google_integrations': optional_enabled('GOOGLE_INTEGRATIONS_RELEASE_VERIFIED'),
+        'portfolio_publishing': optional_enabled('PORTFOLIO_PUBLISHING_RELEASE_VERIFIED'),
+        'notice': 'Optional hosted integrations require recorded acceptance before enabling for this release.'}
 
 
 @router.get('/exports/{export_id}/download')
@@ -55,6 +63,7 @@ async def download_export(export_id: str, user: AuthenticatedUser = Depends(get_
 @router.post("/integrations/google/authorize")
 async def google_authorize(provider: Literal["google_drive", "google_calendar", "gmail"], login_hint: Optional[str] = Query(default=None, max_length=254),
                            user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    require_google_release()
     return await GoogleIntegrationService(db, user.id).authorize(provider, login_hint)
 
 
@@ -75,6 +84,7 @@ class CalendarSchedule(BaseModel):
 @router.post("/integrations/google/tasks/{task_id}/schedule", status_code=202)
 async def schedule_task(task_id: str, payload: CalendarSchedule,
                         user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    require_google_release()
     try:
         ZoneInfo(payload.timezone)
     except ZoneInfoNotFoundError:
@@ -149,6 +159,7 @@ async def google_oauth_callback(
     service: IntegrationManagementService = Depends(get_integration_service),
     _user: AuthenticatedUser = Depends(get_current_user),
 ):
+    require_google_release()
     res = await service.handle_google_callback(payload.code, payload.state)
     return GoogleCallbackResponse(**res)
 
@@ -165,6 +176,7 @@ async def sync_google_drive(
     service: IntegrationManagementService = Depends(get_integration_service),
     _user: AuthenticatedUser = Depends(get_current_user),
 ):
+    require_google_release()
     req = payload or SyncDriveRequest()
     job = await service.trigger_drive_sync(
         req.folder_id, req.sync_mode, background_tasks=background_tasks,
@@ -185,6 +197,7 @@ async def sync_google_calendar(
     service: IntegrationManagementService = Depends(get_integration_service),
     _user: AuthenticatedUser = Depends(get_current_user),
 ):
+    require_google_release()
     req = payload or SyncCalendarRequest()
     job = await service.trigger_calendar_sync(
         req.calendar_id or "primary", background_tasks=background_tasks,
@@ -205,6 +218,7 @@ async def sync_gmail(
     service: IntegrationManagementService = Depends(get_integration_service),
     _user: AuthenticatedUser = Depends(get_current_user),
 ):
+    require_google_release()
     return await service.trigger_gmail_sync(
         background_tasks, integration_id=(payload or SyncGmailRequest()).integration_id)
 

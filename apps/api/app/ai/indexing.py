@@ -23,7 +23,7 @@ SOURCES = {
     "person": (m.Person, ("name", "role", "company", "industry", "location", "notes", "tags")),
     "organization": (m.Organization, ("name", "description", "industry")),
     "interaction": (m.Interaction, ("title", "summary", "detailed_notes", "location")),
-    "meeting": (m.Meeting, ("title", "summary", "notes", "agenda")),
+    "meeting": (m.Meeting, ("title", "summary", "notes", "agenda", "meta")),
     "project": (m.Project, ("name", "description")),
     "task": (m.Task, ("title", "description", "status", "due_date")),
     "commitment": (m.Commitment, ("description", "notes", "direction", "status", "due_at")),
@@ -41,6 +41,19 @@ def record_text(record: Any, kind: str) -> str:
         capture = record.capture
         review = 'Confirmed by user' if capture.confirmed_at else 'Unconfirmed AI suggestions; source transcript is recorded speech'
         text = f'Title: {record.title}\nDate: {record.start_time.isoformat()}\nParticipants: {", ".join((record.meta or {}).get("participant_names", []))}\nReview status: {review}\nSummary: {record.summary or ""}'
+        data = capture.intelligence or {}
+        text += '\nMeeting timezone: ' + ((record.meta or {}).get('timezone') or 'Unknown')
+        text += '\nReviewed purpose: ' + ((record.meta or {}).get('purpose') or '')
+        text += '\nReviewed agenda: ' + ((record.meta or {}).get('agenda') or '')
+        text += '\n## Executive summary (AI draft)\n' + data.get('executive_summary', '')
+        text += '\n## Detailed summary (AI draft)\n' + data.get('detailed_summary', '')
+        for section in data.get('discussion_sections', []):
+            text += '\n\n## ' + section['title'] + ' (AI draft; ' + section['kind'] + ')\n' + section['summary']
+            text += '\n' + '\n'.join(p['text'] for p in section.get('key_points', []))
+            text += '\nEvidence: ' + '; '.join(f'{r["segment_id"]} {r["speaker_id"]} {r["start_seconds"]}s: {r["quote"]}' for r in section['evidence'])
+        user_notes = (record.meta or {}).get('meeting_notes', {})
+        if user_notes:
+            text += f'\n## User-authored notes (not audio-verified), version {user_notes["version"]}\n' + user_notes['markdown']
         for key in ('topics', 'important_facts', 'customer_feedback', 'questions_open'):
             values = (capture.intelligence or {}).get(key, [])
             if capture.confirmed_at and key != 'topics':
@@ -51,6 +64,8 @@ def record_text(record: Any, kind: str) -> str:
             text += '\nConfirmed actions: ' + '; '.join(record.action_items or [])
             selected = (capture.receipt or {}).get('selected', [])
             text += '\nConfirmed promises: ' + '; '.join(v['description'] for i, v in enumerate((capture.intelligence or {}).get('commitments', [])) if f'commitments:{i}' in selected and not v.get('interpretation'))
+        # Fingerprint reflects corrected identities and review state as well as prose.
+        text += '\nSpeaker mappings: ' + str(capture.speaker_mappings if hasattr(capture, 'speaker_mappings') else {})
         return text + '\nTranscript evidence:\n' + (record.notes or '')
     return "\n".join(f"{key}: {getattr(record, key)}" for key in SOURCES[kind][1]
                      if getattr(record, key, None))
@@ -62,8 +77,17 @@ def meeting_chunks(record):
     chunks = chunk_markdown(compact)
     capture = record.capture
     if capture:
+        for part in chunks:
+            heading = part.get('section_title') or ''
+            section = next((s for s in (capture.intelligence or {}).get('discussion_sections', [])
+                if heading == s['title'] or heading.startswith(s['title'] + ' (AI draft;')), None)
+            if section and section['evidence']:
+                ref = section['evidence'][0]
+                part['metadata'] = {**part.get('metadata', {}), 'discussion_section_id': section['id'],
+                    'evidence': section['evidence'], 'segment_id': ref['segment_id'],
+                    'speaker': ref['speaker_id'], 'start_offset': ref['start_seconds'], 'end_offset': ref['end_seconds']}
         for segment in capture.transcript_segments:
-            label = f'[{segment["speaker_local_id"]} {segment["start_offset"]:.1f}s] '
+            label = f'[{segment["segment_id"]} {segment["speaker_local_id"]} {segment["start_offset"]:.1f}s] '
             for part in chunk_markdown(label + segment['text']):
                 part['metadata'] = {**part.get('metadata', {}), 'meeting_id': str(record.id),
                     'segment_id': segment['segment_id'], 'speaker': segment['speaker_local_id'],
@@ -72,6 +96,7 @@ def meeting_chunks(record):
     for i, part in enumerate(chunks):
         part['chunk_index'] = i
         part['metadata'] = {**part.get('metadata', {}), 'meeting_id': str(record.id), 'source': 'meeting',
+            'output_schema_version': (capture.intelligence or {}).get('schema_version', 1) if capture else 1,
             'confirmed_by_user': bool(capture and capture.confirmed_at)}
     return chunks
 
@@ -218,7 +243,7 @@ async def semantic_search(db, user_id: str, query: str, limit: int = 10,
     seen = set()
     for row in result.mappings():
         kind, identity = row["source_record_type"], str(row["source_record_id"])
-        key = (kind, str(row["document_chunk_id"]) if kind == "document" else identity)
+        key = (kind, identity, row['metadata'].get('chunk_index')) if kind == 'meeting' else (kind, str(row["document_chunk_id"]) if kind == "document" else identity)
         if key in seen:
             continue
         try:
@@ -238,6 +263,8 @@ async def semantic_search(db, user_id: str, query: str, limit: int = 10,
             chunk_id=str(row["document_chunk_id"]) if row["document_chunk_id"] else None,
             chunk_index=metadata.get("chunk_index"), section=metadata.get("section_title"),
             page=metadata.get("page_number"),
+            segment_id=metadata.get('segment_id'), speaker_id=metadata.get('speaker'),
+            start_seconds=metadata.get('start_offset'), end_seconds=metadata.get('end_offset'),
             confidence_available=False, search_mode="semantic"))
         if len(items) >= limit:
             break

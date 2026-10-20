@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="Production-ready FastAPI backend and domain service layer for Taj's Second Brain, enforcing strict multi-tenant Row Level Security (RLS) and ownership-first portability.",
+    description="FastAPI backend and domain service layer for Taj's Second Brain, enforcing strict multi-tenant Row Level Security (RLS) and ownership-first portability.",
     version=settings.APP_VERSION,
     docs_url="/api/docs" if not settings.is_production() else None,
     redoc_url="/api/redoc" if not settings.is_production() else None,

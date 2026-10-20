@@ -91,6 +91,8 @@ class JobRunner:
             from app.jobs.handlers.export_markdown import execute_export_handler
             return await execute_export_handler(db, user_id, payload)
         if job_type in {'sync_google_drive', 'sync_google_calendar', 'sync_gmail'}:
+            from app.services.release_gates import require_google_release
+            require_google_release()
             from app.jobs.handlers.sync_google import execute_google_sync_handler
             return await execute_google_sync_handler(db, user_id, payload, job_type)
         raise ValueError('Unsupported job type')

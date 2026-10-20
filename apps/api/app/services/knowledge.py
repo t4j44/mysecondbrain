@@ -353,7 +353,9 @@ class AIService:
             "source_citations": [i.id for i in rag_items],
             "citations": [{"id": item.id, "entity_type": item.entity_type,
                 "title": item.title, "snippet": item.snippet,
-                "uri": f"/sources/{item.entity_type}/{item.id}" + (f"?chunk={item.chunk_id}" if item.chunk_id else ""),
+                "uri": (f"/meetings/{item.id}" + (f"#segment-{item.segment_id}" if item.segment_id else "")) if item.entity_type == 'meeting' else f"/sources/{item.entity_type}/{item.id}" + (f"?chunk={item.chunk_id}" if item.chunk_id else ""),
+                "segment_id": item.segment_id or '', "speaker_id": item.speaker_id or '',
+                "start_seconds": str(item.start_seconds) if item.start_seconds is not None else '',
                 "section": item.section or "", "page": str(item.page or "")} for item in rag_items],
         }
 

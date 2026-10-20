@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.ai.meeting_provider import GeminiMeetingProvider, extract_intelligence
 from app.ai.privacy import private_ai_scope
 from app.ai.provider import GeminiLLMProvider
+from app.core.config import settings
 from app.services.meeting_audio import audio_chunks, audio_mime, inspect_audio
 
 
@@ -31,8 +32,10 @@ async def main():
     # No personal database context: synthetic request identity and supplied audio only.
     with private_ai_scope(str(uuid4())):
         details = await extract_intelligence('\n'.join(s['text'] for s in segments),
-            date='2026-10-08', speakers=sorted({s['speaker_local_id'] for s in segments}))
-    print(f'PASS: duration={duration}s segments={len(segments)} summary_chars={len(details.summary)}')
+            date=os.getenv('MEETING_SMOKE_DATE', '2026-10-20'),
+            speakers=sorted({s['speaker_local_id'] for s in segments}), segments=segments)
+    print(f'PASS: duration={duration}s segments={len(segments)} sections={len(details.discussion_sections)} detailed_chars={len(details.detailed_summary)}')
+    print(f'Models: final={settings.GEMINI_TRANSCRIBE_MODEL} text={settings.GEMINI_MODEL}; data_mode={settings.AI_DATA_MODE}')
     print('Live streaming, Bangla accuracy and real user storage boundaries still require the phone/staging test.')
 
 

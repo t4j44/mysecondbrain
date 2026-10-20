@@ -94,3 +94,66 @@ async def test_quota_changes_are_not_exposed_through_postgrest_login(pg_engine,m
             await conn.execute(text('RESET ROLE'))
             await conn.execute(text('RESET SESSION AUTHORIZATION'))
             await conn.execute(text(f'DROP ROLE {role}'))
+
+
+async def test_concurrent_user_note_edits_preserve_one_winner_and_owner_rls(pg_engine, meeting_fixture):
+    from app.core.errors import ConflictError, NotFoundError
+    from app.schemas.meeting_intelligence import NotesUpdate
+    from app.services.meeting_intelligence import capture_for
+    from app.services.meeting_outputs import notes_view, save_notes
+    ids = meeting_fixture
+    factory = async_sessionmaker(pg_engine, expire_on_commit=False)
+    async def edit(markdown):
+        async with factory() as db:
+            await identity(db, ids['owner'])
+            try:
+                meeting, _ = await capture_for(db, ids['owner'], ids['meeting'], lock=True)
+                await save_notes(db, meeting, NotesUpdate(expected_version=0, markdown=markdown))
+                await db.commit()
+                return True
+            except ConflictError:
+                await db.rollback()
+                return False
+    assert sorted(await asyncio.gather(edit('First synthetic edit'), edit('Second synthetic edit'))) == [False, True]
+    async with factory() as db:
+        await identity(db, ids['owner'])
+        meeting, _ = await capture_for(db, ids['owner'], ids['meeting'])
+        notes = notes_view(meeting)
+        assert notes['version'] == 1 and len(notes['revisions']) == 1
+        assert notes['markdown'] in {'First synthetic edit', 'Second synthetic edit'}
+    async with factory() as db:
+        await identity(db, ids['other'])
+        with pytest.raises(NotFoundError):
+            await capture_for(db, ids['other'], ids['meeting'], lock=True)
+
+
+async def test_concurrent_confirmation_creates_one_receipt_and_temporal_graph(pg_engine, meeting_fixture):
+    import json
+
+    from app.models.entities import EntityEdge
+    from app.schemas.meeting_intelligence import ConfirmIntelligence
+    from app.services.meeting_intelligence import confirm_intelligence
+    ids = meeting_fixture
+    async with pg_engine.begin() as db:
+        await db.execute(text("""UPDATE public.meeting_captures SET state='awaiting_review',
+            transcript_segments=CAST(:segments AS jsonb), intelligence=CAST(:intelligence AS jsonb)
+            WHERE meeting_id=CAST(:meeting AS uuid)"""), {**ids,
+                'segments': json.dumps([{'segment_id':'c0:0','chunk_index':0,'speaker_local_id':'c0:unknown',
+                    'start_offset':0,'end_offset':4,'text':'We decided to test the beta.'}]),
+                'intelligence': json.dumps({'summary':'Beta test decision','decisions':[{'description':'Test the beta',
+                    'evidence_text':'We decided to test the beta.','confidence':.9}]})})
+    factory = async_sessionmaker(pg_engine, expire_on_commit=False)
+    async def confirm_once():
+        async with factory() as db:
+            await identity(db, ids['owner'])
+            receipt = await confirm_intelligence(db, ids['owner'], ids['meeting'], ConfirmIntelligence(confirmed=True))
+            await db.commit()
+            return receipt
+    first, second = await asyncio.gather(confirm_once(), confirm_once())
+    assert first == second and len(first['decisions']) == 1
+    async with factory() as db:
+        await identity(db, ids['owner'])
+        edges = (await db.scalars(select(EntityEdge).where(EntityEdge.source_entity_type == 'meeting',
+            EntityEdge.source_entity_id == ids['meeting']))).all()
+        assert len(edges) == 1 and edges[0].relationship_type == 'produced'
+        assert edges[0].valid_from and edges[0].source_event_id

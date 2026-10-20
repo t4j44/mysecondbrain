@@ -24,7 +24,7 @@ async def capture(client, headers, request_id=None):
     response = await client.post('/api/v1/meetings/captures', headers=headers, json={
         'request_id': request_id or str(uuid4()), 'title': 'Customer meeting',
         'meeting_date': datetime.now(timezone.utc).isoformat(),
-        'recording_permission': True, 'provider_terms_accepted': True})
+        'recording_permission': True, 'provider_terms_accepted': True, 'non_sensitive_recording': True})
     assert response.status_code == 201, response.text
     return response.json()
 

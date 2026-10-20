@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     MEETING_FFMPEG: str = "ffmpeg"
     MEETING_FFPROBE: str = "ffprobe"
     MEETING_LIVE_SESSION_SECONDS: int = Field(default=540, ge=30, le=540)
+    MEETING_EXTRACTION_MAX_BATCHES: int = Field(default=80, ge=1, le=200)
+    MEETING_PRIVATE_AUDIO_RELEASE_VERIFIED: bool = False
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
     # Billing is configured in Google Cloud; changing tiers never changes data ownership.
     AI_DATA_MODE: Literal["free_redacted", "paid_private"] = "free_redacted"
@@ -67,6 +69,8 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = "http://localhost:3000/settings/integrations/google/callback"
+    GOOGLE_INTEGRATIONS_RELEASE_VERIFIED: bool = False
+    PORTFOLIO_PUBLISHING_RELEASE_VERIFIED: bool = False
     OPENAI_API_KEY: str = "placeholder_openai_key"
     OPENAI_MODEL: str = "gpt-4o"
 

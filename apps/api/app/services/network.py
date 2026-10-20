@@ -165,7 +165,18 @@ class MeetingService:
         from app.repositories.meetings import MeetingsRepository
         from app.schemas.meetings import MeetingResponse
         items, total = await MeetingsRepository.list_meetings(self.db, UUID(self.user_id), limit=pagination.limit, offset=pagination.offset)
-        return PaginatedResult.create(items=[MeetingResponse.model_validate(m) for m in items], total=total,
+        summaries = []
+        for meeting in items:
+            view = MeetingResponse.model_validate(meeting)
+            # Listing must not repeatedly transfer full recordings/transcripts,
+            # extraction checkpoints or note revision history to a phone.
+            view.transcript_text = None
+            view.metadata = {k: v for k, v in view.metadata.items() if k != 'meeting_notes'}
+            if view.capture:
+                view.capture = view.capture.model_copy(update={'intelligence': {},
+                    'transcript_segments': [], 'speaker_mappings': {}, 'receipt': {}})
+            summaries.append(view)
+        return PaginatedResult.create(items=summaries, total=total,
             limit=pagination.limit, offset=pagination.offset)
 
     async def get_meeting(self, id: str) -> Meeting:
@@ -202,6 +213,7 @@ class MeetingService:
                     result_payload={'bucket': settings.MEETING_AUDIO_BUCKET, 'path': capture.audio_path}))
                 capture.audio_deleted_at = datetime.now(timezone.utc)
             meeting.notes, meeting.summary = None, None
+            meeting.meta, meeting.description = {}, None
             capture.transcript_segments, capture.intelligence, capture.speaker_mappings = [], {}, {}
             capture.receipt = {}
         res = await self.repo.delete(self.db, self.user_id, id)

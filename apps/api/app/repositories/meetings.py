@@ -6,7 +6,7 @@ from sqlalchemy import and_, asc, delete, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.core.errors import NotFoundError
+from app.core.errors import ConflictError, NotFoundError
 from app.jobs.index_queue import delete_index, queue_index
 from app.models.entities import Person
 from app.models.meetings import Meeting, MeetingParticipant
@@ -115,6 +115,9 @@ class MeetingsRepository:
         db: AsyncSession, user_id: UUID, meeting_id: UUID, schema: MeetingUpdate
     ) -> Meeting:
         db_meeting = await MeetingsRepository.get_meeting(db, user_id, meeting_id)
+
+        if db_meeting.capture:
+            raise ConflictError('Use meeting review or versioned notes for recorded meetings. The original transcript is immutable.')
 
         update_data = schema.model_dump(exclude_unset=True)
         participant_ids = update_data.pop("participant_person_ids", None)

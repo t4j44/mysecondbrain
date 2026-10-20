@@ -17,6 +17,7 @@ from app.dependencies.auth import AuthenticatedUser, get_current_user
 from app.dependencies.database import admin_db_session, get_rls_db_session
 from app.models.entities import AuditLog, ContentItem
 from app.models.publication import BetaFeedback, PortfolioPublication
+from app.services.release_gates import require_portfolio_release
 
 router = APIRouter(tags=['Portfolio beta'])
 
@@ -92,6 +93,7 @@ async def save_draft(draft_id: UUID, payload: DraftEdit, user: AuthenticatedUser
 
 @router.post('/portfolio/drafts/{draft_id}/publish', status_code=201)
 async def publish(draft_id: UUID, payload: ReviewedSnapshot, user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    require_portfolio_release()
     await _draft(db, user.id, draft_id)
     # Only this explicitly reviewed text becomes public. Never hydrate private
     # citations, profile/contact fields, or later edits when serving the snapshot.
@@ -122,6 +124,7 @@ async def revoke(publication_id: UUID, user: AuthenticatedUser = Depends(get_cur
 
 @router.get('/public/portfolio/{token}')
 async def public_snapshot(token: str, response: Response):
+    require_portfolio_release()
     response.headers['Cache-Control'] = 'no-store'
     response.headers['X-Robots-Tag'] = 'noindex, nofollow'
     if len(token) != 43:

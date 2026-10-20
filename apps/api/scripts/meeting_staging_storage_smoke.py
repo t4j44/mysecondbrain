@@ -18,9 +18,17 @@ async def main():
     if os.getenv('RUN_MEETING_STAGING_SMOKE') != '1' or os.getenv('MEETING_SMOKE_STAGING_CONFIRMED') != '1':
         raise SystemExit('BLOCKED: this writes synthetic staging data; both explicit staging opt-in flags are required.')
     base = os.environ['MEETING_STAGING_API_URL'].rstrip('/')
-    if any(word in urlsplit(base).hostname.lower() for word in ('production','prod.','taj-secondbrain-api.')):
+    if urlsplit(base).scheme != 'https' or any(word in (urlsplit(base).hostname or '').lower() for word in ('production','prod.','taj-secondbrain-api.')):
         raise SystemExit('BLOCKED: production host rejected. Use the separate staging API.')
-    storage = os.environ['MEETING_STAGING_SUPABASE_URL'].rstrip('/')+'/storage/v1'
+    project = os.environ['MEETING_STAGING_SUPABASE_URL'].rstrip('/')
+    ref = os.environ['BETA_SUPABASE_PROJECT_REF']
+    production_ref = os.environ['PRODUCTION_SUPABASE_PROJECT_REF']
+    if not ref or not production_ref or ref == production_ref or project != f'https://{ref}.supabase.co':
+        raise SystemExit('BLOCKED: separate staging project identity must be verified.')
+    expected_sha = os.environ['MEETING_SMOKE_RELEASE_SHA']
+    if len(expected_sha) != 40 or any(c not in '0123456789abcdef' for c in expected_sha):
+        raise SystemExit('BLOCKED: exact release SHA is required.')
+    storage = project+'/storage/v1'
     public = os.environ['MEETING_STAGING_PUBLISHABLE_KEY']
     a, b = [os.environ[name] for name in ('MEETING_SMOKE_USER_A_TOKEN','MEETING_SMOKE_USER_B_TOKEN')]
     if a == b:
@@ -32,18 +40,22 @@ async def main():
         wav.setframerate(16000)
         wav.writeframes(b'\0'*32000)
     async with httpx.AsyncClient(timeout=60) as client:
+        health = await client.get(base.removesuffix('/api/v1') + '/health')
+        health.raise_for_status()
+        assert health.json()['release_sha'] == expected_sha, 'Staging API release mismatch'
         headers_a, headers_b = {'Authorization':'Bearer '+a}, {'Authorization':'Bearer '+b}
         create = await client.post(base+'/meetings/captures',headers=headers_a,json={
             'request_id':str(uuid4()),'title':'Synthetic storage isolation smoke',
             'meeting_date':datetime.now(timezone.utc).isoformat(),
-            'recording_permission':True,'provider_terms_accepted':True})
+            'recording_permission':True,'provider_terms_accepted':True,'non_sensitive_recording':True})
         create.raise_for_status()
         identity = create.json()['id']
         try:
             response = await client.post(base+f'/meetings/{identity}/upload-authorization',headers=headers_a,json={'mime_type':'audio/wav'})
             response.raise_for_status()
             url = response.json()['upload_url']
-            assert url and '/object/upload/sign/meeting-audio/' in url
+            assert url and urlsplit(url).hostname == urlsplit(project).hostname
+            assert '/object/upload/sign/meeting-audio/' in url
             uploaded = await client.put(url,content=buffer.getvalue(),headers={'Content-Type':'audio/wav','x-upsert':'false'})
             uploaded.raise_for_status()
             # Do not finalize: no AI call, quota charge, or false transcript proof.

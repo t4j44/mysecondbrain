@@ -22,7 +22,7 @@ async def process_meeting(db, owner, payload):
         raise ConflictError('Recording upload has not been verified.')
     try:
         ensure_audio_consent(capture)
-        if not meeting.notes:
+        if not capture.retained_until:
             capture.state, capture.error_code = 'transcribing', None
             await db.commit()
             content = await AudioStorage().read_bounded(capture.audio_path)
@@ -40,7 +40,8 @@ async def process_meeting(db, owner, payload):
                     capture.transcript_segments = [*capture.transcript_segments, *segments]
                 await db.commit()
             meeting, capture = await capture_for(db, owner, identity, lock=True)
-            meeting.notes = '\n'.join(f'[{s["speaker_local_id"]} {s["start_offset"]:.1f}s] {s["text"]}'
+            # Canonical segments, never user-editable notes, are the source of truth.
+            meeting.notes = '\n'.join(f'[{s["segment_id"]} {s["speaker_local_id"]} {s["start_offset"]:.1f}s] {s["text"]}'
                 for s in capture.transcript_segments)
             capture.retained_until = datetime.now(timezone.utc) + timedelta(days=settings.MEETING_AUDIO_RETENTION_DAYS)
             await db.commit()
@@ -48,9 +49,20 @@ async def process_meeting(db, owner, payload):
         capture.state = 'extracting'
         transcript, date = meeting.notes, meeting.start_time.isoformat()
         speakers = sorted({s['speaker_local_id'] for s in capture.transcript_segments})
+        segments = list(capture.transcript_segments)
+        checkpoints = (capture.intelligence or {}).get('_extraction', {}).get('batches', {})
         await db.commit()
+        async def save_checkpoint(index, batch, total):
+            # Recheck active ownership after every provider call. Deletion wins.
+            _, current = await capture_for(db, owner, identity, lock=True)
+            extraction = (current.intelligence or {}).get('_extraction', {})
+            batches = {**extraction.get('batches', {}), str(index): batch}
+            current.intelligence = {'_extraction': {'version': 2, 'batches': batches,
+                'completed_batches': len(batches), 'total_batches': total, 'partial': True}}
+            await db.commit()
         with private_ai_scope(owner, db):
-            intelligence = await extract_intelligence(transcript, date=date, speakers=speakers)
+            intelligence = await extract_intelligence(transcript, date=date, speakers=speakers,
+                segments=segments, checkpoints=checkpoints, save_checkpoint=save_checkpoint)
         meeting, capture = await capture_for(db, owner, identity, lock=True)
         capture.intelligence = intelligence.model_dump(mode='json')
         meeting.summary = intelligence.summary

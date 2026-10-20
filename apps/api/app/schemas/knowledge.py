@@ -221,6 +221,10 @@ class SearchResultItem(BaseModel):
     chunk_index: Optional[int] = None
     section: Optional[str] = None
     page: Optional[int] = None
+    segment_id: Optional[str] = None
+    speaker_id: Optional[str] = None
+    start_seconds: Optional[float] = None
+    end_seconds: Optional[float] = None
 
 
 class SearchResultResponse(BaseModel):

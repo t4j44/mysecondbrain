@@ -34,6 +34,7 @@ async def perform_keyword_search(db, user_id: str, query: str, limit: int = 10,
             content = record_text(record, kind)
             section = None
             chunk_index = None
+            segment_meta = {}
             if kind == 'document' and record.extracted_text:
                 chunks = chunk_markdown(record.extracted_text)
                 if chunks:
@@ -46,11 +47,15 @@ async def perform_keyword_search(db, user_id: str, query: str, limit: int = 10,
                 if chunks:
                     best = max(chunks, key=lambda chunk: sum(word in chunk['chunk_text'].casefold() for word in words))
                     content, chunk_index = best['chunk_text'], best['chunk_index']
+                    section = best.get('section_title')
+                    segment_meta = best.get('metadata', {})
             matches = sum(word in content.casefold() for word in words)
             item = SearchResultItem(id=str(record.id), entity_type=kind,
                 title=str(getattr(record, 'title', None) or getattr(record, 'name', None)
                           or getattr(record, 'filename', None) or kind),
-                snippet=content[:1800], section=section, chunk_index=chunk_index, score=None, search_mode='keyword', confidence_available=False)
+                snippet=content[:1800], section=section, chunk_index=chunk_index, score=None, search_mode='keyword', confidence_available=False,
+                segment_id=segment_meta.get('segment_id'), speaker_id=segment_meta.get('speaker'),
+                start_seconds=segment_meta.get('start_offset'), end_seconds=segment_meta.get('end_offset'))
             candidates.append((matches, item))
     candidates.sort(key=lambda pair: -pair[0])
     return [item for _, item in candidates[:max(1, min(limit, 50))]]
