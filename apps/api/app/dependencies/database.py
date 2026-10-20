@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.db.dsn import to_async_dsn
 from app.db.rls import (
     IDENTITY_PROBE_SQL,
     RLS_ROLE,
@@ -35,7 +36,7 @@ else:
         pool_pre_ping=True,
     )
 
-engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
+engine = create_async_engine(to_async_dsn(settings.DATABASE_URL), **_engine_kwargs)
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
