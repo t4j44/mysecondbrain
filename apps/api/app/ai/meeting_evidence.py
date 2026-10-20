@@ -24,7 +24,7 @@ def validate_refs(refs: list[EvidenceRef], segments: list[dict]) -> None:
     by_id = {s['segment_id']: s for s in segments}
     for ref in refs:
         segment = by_id.get(ref.segment_id)
-        if (not segment or ref.speaker_id != segment['speaker_local_id']
+        if (not normalize(ref.quote) or not segment or ref.speaker_id != segment['speaker_local_id']
             or ref.start_seconds != segment['start_offset']
             or ref.end_seconds != segment.get('end_offset')
             or normalize(ref.quote) not in normalize(segment['text'])):
@@ -34,6 +34,8 @@ def validate_refs(refs: list[EvidenceRef], segments: list[dict]) -> None:
 def ground_intelligence(draft: MeetingIntelligence, segments: list[dict], speakers: list[str]) -> MeetingIntelligence:
     for field in CANDIDATE_FIELDS:
         for item in getattr(draft, field):
+            if not normalize(item.evidence_text):
+                raise AIProviderError('Candidate quotation must contain source text.')
             if any(s and s not in speakers for s in (item.from_speaker, item.to_speaker)):
                 raise AIProviderError('Meeting details contained an unknown speaker.')
             if not item.evidence:
@@ -53,7 +55,7 @@ def ground_intelligence(draft: MeetingIntelligence, segments: list[dict], speake
                 if not any(normalize(item.due_evidence) in normalize(ref.quote) for ref in item.evidence):
                     raise AIProviderError('Deadline evidence must be attached to the candidate source references.')
             if item.condition:
-                if not any(normalize(item.condition) in normalize(ref.quote) for ref in item.evidence):
+                if not normalize(item.condition) or not any(normalize(item.condition) in normalize(ref.quote) for ref in item.evidence):
                     raise AIProviderError('Condition evidence must be attached to the candidate source references.')
     for value in (draft.suggested_title, draft.purpose, *draft.agenda_items):
         if value:

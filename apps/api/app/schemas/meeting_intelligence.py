@@ -53,6 +53,8 @@ class Candidate(StrictModel):
 
     @model_validator(mode='after')
     def explicit_due(self):
+        if self.condition is not None and not self.condition.strip():
+            raise ValueError('Condition must contain source text.')
         if re.search(r'\b(?:if|unless|provided that|subject to)\b|যদি|হলে', self.evidence_text, re.I) and not self.condition:
             raise ValueError('Conditional statements must preserve their condition explicitly.')
         if self.due_at and not self.due_evidence:

@@ -47,6 +47,31 @@ async def test_old_notice_cannot_submit_or_resume_audio(async_client, auth_heade
     assert (await async_client.post(path + '/finalize-upload', headers=auth_headers)).status_code == 409
 
 
+@pytest.mark.parametrize('empty_field', ['quote', 'evidence_text'])
+def test_supplied_refs_cannot_ground_whitespace_only_quotes(empty_field):
+    row = {'segment_id':'a','speaker_local_id':'alice','start_offset':0.,
+        'end_offset':1.,'text':'I will send the report.'}
+    candidate = {'description':'Arbitrary assertion','evidence_text':row['text'],
+        'confidence':.9,'from_speaker':'alice','evidence':[{'segment_id':'a',
+            'speaker_id':'alice','start_seconds':0.,'end_seconds':1.,'quote':row['text']}]}
+    if empty_field == 'quote':
+        candidate['evidence'][0]['quote'] = ' \n\t '
+    else:
+        candidate['evidence_text'] = ' \n\t '
+    draft = MeetingIntelligence.model_validate({'schema_version':2,'summary':'Draft',
+        'commitments':[candidate]})
+    with pytest.raises(AIProviderError):
+        ground_intelligence(draft, [row], ['alice'])
+
+
+def test_conditional_proposals_cannot_replace_condition_with_whitespace():
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match='Condition must contain source text'):
+        Candidate(description='Send report', evidence_text='If approved, I will send it.',
+            confidence=.9, condition=' \n\t ')
+
+
 def test_legacy_conditional_proposals_preserve_full_quotation():
     from pydantic import ValidationError
 
