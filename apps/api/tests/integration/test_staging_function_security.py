@@ -1,6 +1,7 @@
 """Guard against SQL RPC access to trigger-only SECURITY DEFINER functions."""
 import pytest
 from sqlalchemy import text
+
 from .conftest import requires_postgres
 
 pytestmark = [pytest.mark.postgres, requires_postgres]
