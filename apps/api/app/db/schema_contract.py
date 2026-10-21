@@ -345,6 +345,7 @@ MIGRATION_FILES: List[str] = [
     "20261013000033_google_multi_account.sql",
     "20261013000034_email_contacts.sql",
     "20261020000035_staging_function_security.sql",
+    "20261021000036_limit_account_active_to_session_owner.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).
