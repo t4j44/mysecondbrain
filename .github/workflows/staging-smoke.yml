@@ -56,19 +56,18 @@ jobs:
           assert metadata.get('authorization_servers'), 'MCP OAuth issuer not advertised'
           print('PASS public MCP discovery metadata (not an authenticated MCP test)')
 
+          # Next.js can render the auth form after hydration; raw HTML is not a
+          # browser DOM. This is an HTTP application-shell check, not a signup test.
           from html.parser import HTMLParser
 
-          class InputParser(HTMLParser):
+          class TitleParser(HTMLParser):
               def __init__(self):
                   super().__init__()
-                  self.types = []
-                  self.title = ''
                   self.in_title = False
+                  self.title = ''
               def handle_starttag(self, tag, attrs):
                   if tag == 'title':
                       self.in_title = True
-                  if tag == 'input':
-                      self.types.append(dict(attrs).get('type', 'text'))
               def handle_endtag(self, tag):
                   if tag == 'title':
                       self.in_title = False
@@ -76,13 +75,14 @@ jobs:
                   if self.in_title:
                       self.title += data
 
-          for path, expected in (('/login', {'email', 'password'}), ('/signup', {'email', 'password', 'text'})):
+          for path in ('/login', '/signup'):
               status, body = fetch(path, os.environ['WEB'])
-              parser = InputParser()
+              parser = TitleParser()
               parser.feed(body)
-              assert status == 200 and expected.issubset(set(parser.types)), (
-                  f'Expected auth fields missing from {path}: HTTP {status}, title {parser.title[:90]!r}, input types {parser.types}')
-              print(f'PASS hosted auth form {path}: HTTP {status}, inputs present (not sign-in/registration proof)')
+              assert status == 200 and 'Second Brain' in parser.title, (
+                  f'Unexpected HTML page for {path}: HTTP {status}, title {parser.title[:90]!r}')
+              assert '/_next/' in body, f'Next.js application assets not found at {path}'
+              print(f'PASS hosted Next.js application shell {path}, HTTP {status} (client-side auth flow NOT tested)')
 
-          print('PASS public smoke gates. Authenticated E2E, Gemini and external MCP tests remain separate.')
+          print('PASS public shell/health/discovery smoke; browser auth, Gemini, MCP OAuth remain separate.')
           PY
