@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
@@ -40,9 +41,39 @@ class PersonService:
         return res
 
     async def list_people(
-        self, pagination: PaginationParams, **filters
+        self, pagination: PaginationParams, *, search: str = "",
+        relationship_type: Optional[str] = None, **filters
     ) -> PaginatedResult[Person]:
-        return await self.repo.list(self.db, self.user_id, pagination=pagination, **filters)
+        # Filtering happens before LIMIT and COUNT, so users with >100 contacts
+        # can search their entire network rather than a browser-only first page.
+        token = search.strip()
+        if not token and not relationship_type:
+            return await self.repo.list(self.db, self.user_id, pagination=pagination, **filters)
+        conditions = [
+            Person.user_id == self.user_id,
+            Person.deleted_at.is_(None),
+            Person.archived_at.is_(None),
+        ]
+        if relationship_type and relationship_type != "all":
+            conditions.append(Person.relationship_type == relationship_type)
+        if token:
+            conditions.append(or_(
+                Person.name.icontains(token, autoescape=True),
+                Person.company.icontains(token, autoescape=True),
+                Person.role.icontains(token, autoescape=True),
+                Person.notes.icontains(token, autoescape=True),
+            ))
+        count = await self.db.scalar(select(func.count()).select_from(Person).where(*conditions))
+        statement = (
+            select(Person).where(*conditions)
+            .order_by(Person.created_at.desc(), Person.id.desc())
+            .offset(pagination.offset).limit(pagination.limit)
+        )
+        people = (await self.db.execute(statement)).scalars().all()
+        return PaginatedResult.create(
+            items=list(people), total=int(count or 0),
+            limit=pagination.limit, offset=pagination.offset,
+        )
 
     async def get_person(self, id: str) -> Person:
         res = await self.repo.get_by_id(self.db, self.user_id, id)
