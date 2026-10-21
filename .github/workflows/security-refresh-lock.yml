@@ -1,0 +1,47 @@
+name: Refresh isolated Python dependency lock for 2026 security advisories
+on:
+  push:
+    branches: [codex/security-dependency-refresh]
+    paths:
+      - apps/api/pyproject.toml
+      - .github/workflows/security-refresh-lock.yml
+permissions:
+  contents: write
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.8"
+      - name: Resolve fixed Pillow and certifi and regenerate hashed export
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv lock --project apps/api --upgrade-package pillow --upgrade-package certifi
+          uv export --project apps/api --frozen --all-extras --no-emit-project --output-file apps/api/requirements.lock
+          grep -E '^pillow==13\\.|^certifi==2026\\.10\\.' apps/api/requirements.lock
+          python - <<'PY'
+          import pathlib
+          s=pathlib.Path('apps/api/requirements.lock').read_text()
+          assert 'pillow==13.' in s, 'Pillow 13 not resolved'
+          assert 'certifi==2026.10.' in s, 'certifi fix not resolved'
+          print("PASS pinned dependency ranges updated")
+          PY
+      - name: Push isolated lockfile update only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add apps/api/uv.lock apps/api/requirements.lock
+          if git diff --cached --quiet; then
+            echo "No lockfile changes needed"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "security(deps): refresh hashed Pillow and certifi lockfiles"
+            git push origin HEAD:codex/security-dependency-refresh
+          fi
