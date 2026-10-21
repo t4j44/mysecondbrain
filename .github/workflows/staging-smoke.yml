@@ -56,10 +56,23 @@ jobs:
           assert metadata.get('authorization_servers'), 'MCP OAuth issuer not advertised'
           print('PASS public MCP discovery metadata (not an authenticated MCP test)')
 
-          for path, marker in (('/login', 'Sign in to Terminal'), ('/signup', 'Request Credentials')):
+          from html.parser import HTMLParser
+
+          class InputParser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.types = []
+              def handle_starttag(self, tag, attrs):
+                  if tag == 'input':
+                      self.types.append(dict(attrs).get('type', 'text'))
+
+          for path, expected in (('/login', {'email', 'password'}), ('/signup', {'email', 'password', 'text'})):
               status, body = fetch(path, os.environ['WEB'])
-              assert status == 200 and marker in body, f'Expected authentication page failed: {path} HTTP {status}'
-              print(f'PASS hosted HTML {path} (not a sign-in/registration test)')
+              parser = InputParser()
+              parser.feed(body)
+              assert status == 200 and expected.issubset(set(parser.types)), (
+                  f'Expected auth fields missing from {path}: HTTP {status}, input types {parser.types}')
+              print(f'PASS hosted auth form {path}: HTTP {status}, inputs present (not sign-in/registration proof)')
 
           print('PASS public smoke gates. Authenticated E2E, Gemini and external MCP tests remain separate.')
           PY
