@@ -14,7 +14,7 @@ jobs:
     env:
       STAGING_API: https://second-brain-api-staging.onrender.com
       STAGING_WEB: https://second-brain-web-staging-seven.vercel.app
-      EXPECTED_SHA: c32315b8791d8b118fbc8bd7573a57547c132b94
+      EXPECTED_SHA: 060a12a414c09eb7fea501122a2baad132c54cab
     steps:
       - name: Check live staging endpoints, identity, and anonymous security
         shell: bash
