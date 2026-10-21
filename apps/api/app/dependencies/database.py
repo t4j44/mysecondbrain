@@ -70,7 +70,13 @@ def _install_identity_listener(session: AsyncSession, statements: IdentityStatem
         # Shared owner lock lasts for this transaction; deletion takes exclusive.
         owner = next(params["subject"] for _, params in statements if "subject" in params)
         connection.execute(text("SELECT pg_advisory_xact_lock_shared(hashtextextended(:owner, 17))"), {"owner": owner})
-        active = connection.execute(text("SELECT public.account_active(CAST(:owner AS uuid))"), {"owner": owner}).scalar()
+        # The pre-identity check runs on the privileged connection, before JWT claims
+        # and SET LOCAL ROLE are applied. public.account_active(owner) is intentionally
+        # scoped to auth.uid() and must not be called before that identity exists.
+        active = connection.execute(
+            text("SELECT NOT EXISTS (SELECT 1 FROM public.account_closures WHERE user_id = CAST(:owner AS uuid))"),
+            {"owner": owner},
+        ).scalar()
         if not active:
             from app.core.errors import AuthenticationError
             raise AuthenticationError("This account is being deleted.")
