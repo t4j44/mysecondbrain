@@ -18,7 +18,12 @@ async def test_closure_restricts_direct_authenticated_database_access(pg_engine)
                            {'id': owner, 'email': owner + '@closure.test'})
     try:
         async with pg_engine.begin() as conn:
-            assert await conn.scalar(text('SELECT public.account_active(CAST(:id AS uuid))'), {'id': owner})
+            # Without an authenticated JWT principal, public RPC must not reveal
+            # arbitrary account status. The privileged backend checks the ledger.
+            assert not await conn.scalar(text('SELECT public.account_active(CAST(:id AS uuid))'), {'id': owner})
+            assert await conn.scalar(text(
+                'SELECT NOT EXISTS (SELECT 1 FROM public.account_closures WHERE user_id=CAST(:id AS uuid))'
+            ), {'id': owner})
             await conn.execute(text('INSERT INTO public.account_closures(user_id) VALUES(CAST(:id AS uuid))'), {'id': owner})
         async with pg_engine.begin() as conn:
             await conn.execute(text("SELECT set_config('request.jwt.claim.sub', :owner, true)"), {'owner': owner})
