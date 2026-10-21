@@ -3,12 +3,41 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { MailCheck, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { MailCheck, ArrowLeft, ShieldAlert, Loader2 } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 
 export default function VerifyPage() {
   const searchParams = useSearchParams();
-  const email = searchParams.get('email') || 'your registered operator email';
+  const email = searchParams.get('email') || '';
+  const [sending, setSending] = React.useState(false);
+  const [resent, setResent] = React.useState(false);
+  const { toast } = useToast();
+
+  async function resendConfirmation() {
+    if (!email || sending || resent) return;
+    setSending(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/callback` },
+      });
+      if (error) throw error;
+      setResent(true);
+      toast({ title: 'Confirmation requested', description: 'Check your inbox for the newest confirmation message.' });
+    } catch (error) {
+      toast({
+        title: 'Unable to resend confirmation',
+        description: error instanceof Error ? error.message : 'Please try again later.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
     <div className="space-y-6 text-center">
@@ -21,7 +50,7 @@ export default function VerifyPage() {
           Verification Required
         </h2>
         <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
-          We have dispatched an identity validation link to <span className="font-mono text-[#00ff9d] font-semibold">{email}</span>.
+          We have dispatched an identity validation link to <span className="font-mono text-[#00ff9d] font-semibold">{email || 'your registered email'}</span>.
         </p>
       </div>
 
@@ -36,6 +65,21 @@ export default function VerifyPage() {
       </div>
 
       <div className="pt-4 flex flex-col space-y-3">
+        {email && (
+          <Button
+            type="button"
+            onClick={() => void resendConfirmation()}
+            disabled={sending || resent}
+            data-testid="resend-confirmation"
+            className="w-full font-mono text-xs"
+          >
+            {sending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            {resent ? 'CONFIRMATION REQUESTED — CHECK EMAIL' : 'RESEND CONFIRMATION EMAIL'}
+          </Button>
+        )}
+        <p className="text-xs text-muted-foreground">
+          If an email link expired, use only the newest message. Already confirmed? Return to sign in.
+        </p>
         <Link href="/login" className="w-full">
           <Button variant="outline" className="w-full font-mono text-xs">
             <ArrowLeft className="h-3 w-3 mr-2" />
