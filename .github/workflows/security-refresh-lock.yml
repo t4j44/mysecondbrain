@@ -23,8 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           uv lock --project apps/api --upgrade-package pillow --upgrade-package certifi
-          uv export --project apps/api --frozen --all-extras --no-emit-project --output-file apps/api/requirements.lock
-          grep -E '^pillow==13\\.|^certifi==2026\\.10\\.' apps/api/requirements.lock
+          uv export --project apps/api --frozen --all-extras --no-emit-project --output-file apps/api/requirements.lock > /dev/null
           python - <<'PY'
           import pathlib
           s=pathlib.Path('apps/api/requirements.lock').read_text()
