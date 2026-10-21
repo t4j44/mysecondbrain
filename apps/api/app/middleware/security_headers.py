@@ -14,8 +14,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
-        # Ensure we don't break Server-Sent Events (SSE) streaming
-        if response.headers.get("content-type") == "text/event-stream":
+        # Private CRM, memory, meeting, OAuth and MCP responses must never be
+        # shared across users by a browser/CDN/proxy cache.
+        path = request.url.path
+        if path.startswith(("/api/v1/", "/oauth/", "/mcp/")) or path == "/mcp":
+            response.headers["Cache-Control"] = "private, no-store"
+
+        # Preserve the streaming contract, even for authenticated MCP/SSE.
+        if response.headers.get("content-type", "").startswith("text/event-stream"):
             response.headers["Cache-Control"] = "no-cache, no-transform"
             response.headers["Connection"] = "keep-alive"
             response.headers["X-Accel-Buffering"] = "no"
