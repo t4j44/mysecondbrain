@@ -69,11 +69,13 @@ async def create_person(
 async def list_people(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    q: str = Query('', max_length=100),
+    relationship_type: Optional[str] = Query(default=None, max_length=30),
     service: PersonService = Depends(get_person_service),
     _user: AuthenticatedUser = Depends(get_current_user),
 ):
     pagination = PaginationParams(limit=limit, offset=offset)
-    res = await service.list_people(pagination)
+    res = await service.list_people(pagination, search=q, relationship_type=relationship_type)
     return res.model_dump()
 
 
