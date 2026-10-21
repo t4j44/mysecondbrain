@@ -1,0 +1,65 @@
+name: Staging public smoke checks
+on:
+  push:
+    branches:
+      - codex/second-brain-release-hardening
+    paths:
+      - '.github/workflows/staging-smoke.yml'
+      - 'apps/api/**'
+      - 'apps/web/**'
+      - 'supabase/migrations/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check readiness, auth pages and public MCP discovery
+        env:
+          API: https://second-brain-api-staging.onrender.com
+          WEB: https://second-brain-web-staging-seven.vercel.app
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import time
+          from urllib.error import HTTPError, URLError
+          from urllib.request import Request, urlopen
+
+          def fetch(path, origin, retries=7):
+              error = None
+              for attempt in range(retries):
+                  try:
+                      request = Request(origin + path, headers={'User-Agent': 'SecondBrain-Staging-Health/1.0'})
+                      with urlopen(request, timeout=30) as response:
+                          return response.status, response.read(1_000_000).decode('utf-8')
+                  except (HTTPError, URLError, TimeoutError) as exc:
+                      error = f'{type(exc).__name__}: {getattr(exc, "code", "connection error")}'
+                      if attempt < retries - 1:
+                          time.sleep(10)
+              raise AssertionError(f'{path} unavailable after {retries} attempts ({error})')
+
+          status, body = fetch('/health/ready', os.environ['API'])
+          data = json.loads(body)
+          assert status == 200 and data.get('status') == 'ready' and data.get('database') == 'connected', (
+              f'Backend readiness failed: HTTP {status} / {data}')
+          print('PASS backend readiness: HTTP 200, database connected')
+
+          status, body = fetch('/.well-known/oauth-protected-resource/mcp', os.environ['API'])
+          metadata = json.loads(body)
+          assert status == 200 and str(metadata.get('resource', '')).endswith('/mcp'), (
+              'MCP public resource metadata missing or invalid')
+          assert metadata.get('authorization_servers'), 'MCP OAuth issuer not advertised'
+          print('PASS public MCP discovery metadata (not an authenticated MCP test)')
+
+          for path, marker in (('/login', 'Sign in to Terminal'), ('/signup', 'Request Credentials')):
+              status, body = fetch(path, os.environ['WEB'])
+              assert status == 200 and marker in body, f'Expected authentication page failed: {path} HTTP {status}'
+              print(f'PASS hosted HTML {path} (not a sign-in/registration test)')
+
+          print('PASS public smoke gates. Authenticated E2E, Gemini and external MCP tests remain separate.')
+          PY
