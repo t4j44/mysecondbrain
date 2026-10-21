@@ -18,7 +18,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # shared across users by a browser/CDN/proxy cache.
         path = request.url.path
         if path.startswith(("/api/v1/", "/oauth/", "/mcp/")) or path == "/mcp":
-            response.headers["Cache-Control"] = "private, no-store"
+            response.headers.setdefault("Cache-Control", "private, no-store")
 
         # Preserve the streaming contract, even for authenticated MCP/SSE.
         if response.headers.get("content-type", "").startswith("text/event-stream"):
