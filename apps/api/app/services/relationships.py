@@ -251,14 +251,18 @@ class RelationshipService:
         work = []
         for project in projects:
             connections = await self.rows(Interaction, Interaction.project_id == project.id, Interaction.person_id.is_not(None), limit=30, order=Interaction.date.desc())
+            # Resolve project contacts in one owner-scoped query rather than
+            # issuing a SELECT for every interaction (N+1 database queries).
+            connection_ids = {str(row.person_id) for row in connections}
+            connection_people = await self.rows(
+                Person, Person.id.in_(connection_ids), limit=30,
+            ) if connection_ids else []
+            people_by_id = {str(person.id): person for person in connection_people}
             linked = []
             seen = set()
             for row in connections:
-                if str(row.person_id) in seen:
-                    continue
-                try:
-                    person = await self.person(row.person_id)
-                except NotFoundError:
+                person = people_by_id.get(str(row.person_id))
+                if person is None or str(person.id) in seen:
                     continue
                 seen.add(str(person.id))
                 linked.append({'person_id': str(person.id), 'name': person.name, 'reason': row.summary or row.title, 'evidence': source(row, 'interaction')})
