@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
+import { GoogleSignIn } from '@/components/shared/google-sign-in';
 import { signupSchema, type SignupFormValues } from '@/lib/validation/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -145,6 +146,16 @@ export default function SignupPage() {
           )}
         </Button>
       </form>
+
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase font-mono">
+          <span className="bg-[#12081d] px-2 text-muted-foreground">Or sign up with</span>
+        </div>
+      </div>
+      <GoogleSignIn />
 
       <div className="text-center text-sm text-muted-foreground font-mono pt-4">
         Already registered?{' '}
