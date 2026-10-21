@@ -8,6 +8,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, ArrowRight, KeyRound } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
+import { GoogleSignIn } from '@/components/shared/google-sign-in';
+import { safeAuthReturnPath } from '@/lib/auth/redirect';
 import { loginSchema, type LoginFormValues } from '@/lib/validation/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,8 +21,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
-  const requestedRedirect = searchParams.get('redirect') || '/dashboard';
-  const redirectUrl = requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//') && !requestedRedirect.includes('\\') ? requestedRedirect : '/dashboard';
+  const redirectUrl = safeAuthReturnPath(searchParams.get('redirect'));
 
   const {
     register,
@@ -144,6 +145,8 @@ export default function LoginPage() {
           <span className="bg-[#12081d] px-2 text-muted-foreground">Or access via</span>
         </div>
       </div>
+
+      <GoogleSignIn next={redirectUrl} />
 
       <div className="text-center text-sm text-muted-foreground font-mono">
         Need operator authorization?{' '}
