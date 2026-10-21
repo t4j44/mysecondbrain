@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api/browser-client';
 import { ApiError } from '@/lib/api/errors';
 import { toApiError } from '@/lib/api/format-error';
@@ -8,36 +8,72 @@ import type { ListResponse, Person, PersonCreateInput } from '@/lib/api/domains'
 
 export type { Person, PersonCreateInput };
 
-export function usePeople() {
+type PeopleOptions = {
+  search?: string;
+  tag?: string;
+  pageSize?: number;
+};
+
+export function usePeople({ search = '', tag = 'all', pageSize = 100 }: PeopleOptions = {}) {
   const [people, setPeople] = useState<Person[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  const requestVersion = useRef(0);
+
+  const params = useCallback((offset: number) => ({
+    limit: pageSize,
+    offset,
+    ...(search.trim() ? { q: search.trim() } : {}),
+    ...(tag !== 'all' ? { relationship_type: tag } : {}),
+  }), [pageSize, search, tag]);
 
   const refetch = useCallback(async () => {
+    const current = ++requestVersion.current;
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<ListResponse<Person>>('/people', { params: { limit: 100 } });
+      const res = await api.get<ListResponse<Person>>('/people', { params: params(0) });
+      if (current !== requestVersion.current) return;
       setPeople(res.items ?? []);
       setTotal(res.total ?? 0);
     } catch (err) {
-      setError(toApiError(err));
+      if (current === requestVersion.current) setError(toApiError(err));
     } finally {
-      setLoading(false);
+      if (current === requestVersion.current) setLoading(false);
     }
-  }, []);
+  }, [params]);
 
   useEffect(() => {
-    refetch();
+    void refetch();
+    return () => { requestVersion.current++; };
   }, [refetch]);
+
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || people.length >= total) return;
+    const current = requestVersion.current;
+    setLoadingMore(true);
+    try {
+      const res = await api.get<ListResponse<Person>>('/people', { params: params(people.length) });
+      if (current !== requestVersion.current) return;
+      setPeople((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        return [...prev, ...(res.items ?? []).filter((p) => !seen.has(p.id))];
+      });
+      setTotal(res.total ?? total);
+    } catch (err) {
+      if (current === requestVersion.current) setError(toApiError(err));
+    } finally {
+      if (current === requestVersion.current) setLoadingMore(false);
+    }
+  }, [loading, loadingMore, people.length, total, params]);
 
   const createPerson = async (data: PersonCreateInput) => {
     setError(null);
     try {
       const created = await api.post<Person>('/people', data);
-      setPeople((prev) => [created, ...prev]);
-      setTotal((t) => t + 1);
+      await refetch();
       return created;
     } catch (err) {
       const apiErr = toApiError(err);
@@ -84,14 +120,7 @@ export function usePeople() {
   };
 
   return {
-    people,
-    total,
-    loading,
-    error,
-    refetch,
-    createPerson,
-    updatePerson,
-    deletePerson,
-    getPerson,
+    people, total, loading, loadingMore, hasMore: people.length < total,
+    error, refetch, loadMore, createPerson, updatePerson, deletePerson, getPerson,
   };
 }
