@@ -19,10 +19,18 @@ const FILTER_TAGS = ['all', 'mentor', 'investor', 'peer', 'collaborator', 'lead'
 export default function PeopleNetworkPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { people, loading, error, refetch, createPerson } = usePeople();
-
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
   const [selectedTag, setSelectedTag] = React.useState('all');
+
+  React.useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+
+  const { people, total, loading, loadingMore, hasMore, loadMore, error, refetch, createPerson } =
+    usePeople({ search: debouncedSearch, tag: selectedTag, pageSize: 30 });
+  const hasFilters = Boolean(debouncedSearch.trim()) || selectedTag !== 'all';
   const [quickAddInput, setQuickAddInput] = React.useState('');
   const [isAdding, setIsAdding] = React.useState(false);
 
@@ -91,22 +99,8 @@ export default function PeopleNetworkPage() {
     }
   };
 
-  const filteredPeople = React.useMemo(() => {
-    return people.filter((p) => {
-      const q = searchQuery.toLowerCase();
-      const matchesSearch =
-        !q ||
-        p.name.toLowerCase().includes(q) ||
-        p.company?.toLowerCase().includes(q) ||
-        p.role?.toLowerCase().includes(q) ||
-        p.notes?.toLowerCase().includes(q);
-
-      const matchesTag =
-        selectedTag === 'all' || p.relationship_type.toLowerCase() === selectedTag.toLowerCase();
-
-      return matchesSearch && matchesTag;
-    });
-  }, [people, searchQuery, selectedTag]);
+  // The server filters across the complete contact set before paginating.
+  const filteredPeople = people;
 
   return (
     <ResponsivePageContainer>
@@ -192,14 +186,14 @@ export default function PeopleNetworkPage() {
       ) : filteredPeople.length === 0 ? (
         <EmptyState
           icon={Users}
-          title={people.length === 0 ? 'No contacts yet' : 'No matches'}
+          title={hasFilters ? 'No matches' : 'No contacts yet'}
           description={
-            people.length === 0
-              ? 'Add your first contact using the quick bar above or the full form.'
-              : 'Try a different search or filter.'
+            hasFilters
+              ? 'Try a different search or filter.'
+              : 'Add your first contact using the quick bar above or the full form.'
           }
-          actionLabel={people.length === 0 ? 'Add Contact' : undefined}
-          onAction={people.length === 0 ? () => router.push('/people/new') : undefined}
+          actionLabel={!hasFilters ? 'Add Contact' : undefined}
+          onAction={!hasFilters ? () => router.push('/people/new') : undefined}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -257,6 +251,23 @@ export default function PeopleNetworkPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {!loading && total > 0 && (
+        <div className="mt-6 flex flex-col items-center gap-3" aria-live="polite">
+          <span className="text-xs text-muted-foreground">
+            Showing {people.length} of {total} matching contacts
+          </span>
+          {hasMore && (
+            <button
+              type="button"
+              onClick={() => void loadMore()}
+              disabled={loadingMore}
+              className="rounded-xl border border-[#301642] bg-[#12081d] px-5 py-3 text-sm font-medium text-[#f7f4ea] hover:border-[#00ff9d] disabled:opacity-60 min-h-[44px]"
+            >
+              {loadingMore ? 'Loading contacts…' : 'Load more contacts'}
+            </button>
+          )}
         </div>
       )}
     </ResponsivePageContainer>
