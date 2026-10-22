@@ -16,7 +16,7 @@ describe('lazy login submission',()=>{
   render(<Login/>);expect(mocks.signIn).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText('Email Address'),{target:{value:'synthetic@example.invalid'}});
   fireEvent.change(screen.getByLabelText('Password'),{target:{value:'fictional-test-password'}});
-  const button=screen.getByRole('button',{name:'Sign in',exact:true});
+  const button=screen.getByRole('button',{name:/^Sign in$/});
   fireEvent.submit(button.closest('form')!);fireEvent.submit(button.closest('form')!);
   await waitFor(()=>expect(mocks.signIn).toHaveBeenCalledTimes(1));
   await act(async()=>{finish({error:new Error('Synthetic unavailable')});});

@@ -121,6 +121,7 @@ test('200 percent text remains usable without horizontal overflow',async({page},
   if(route==='assistant'){
    await page.getByRole('textbox',{name:'Your question'}).fill('Readable at 200%');
    const send=page.getByRole('button',{name:'Send question'});
+   expect((await page.getByRole('textbox',{name:'Your question'}).boundingBox())!.width).toBeGreaterThanOrEqual(150);
    // Enlarged text intentionally uses document scrolling. The send control must
    // remain reachable and uncovered, rather than being clipped by a fixed shell.
    await send.scrollIntoViewIfNeeded();await expect(send).toBeInViewport();
