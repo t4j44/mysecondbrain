@@ -17,7 +17,7 @@ export default function HomePage() {
   }, []);
   useEffect(() => { void load(); }, [load]);
   return <div className="mx-auto max-w-6xl space-y-8">
-    <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold">What deserves your attention?</h1><p className="mt-2 text-muted-foreground">Your people, promises, and next conversations.</p></div><Link className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-primary-foreground" href="/capture">Capture a conversation</Link></header>
+    <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold">What deserves your attention?</h1><p className="mt-2 text-muted-foreground">Your people, promises, and next conversations.</p></div><Link className="sb-interactive inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-primary-foreground" href="/capture">Capture a conversation</Link></header>
     {error && <div role="alert" className="rounded-xl border p-4"><p>{error}</p><button className="mt-3 min-h-11 underline" onClick={load}>Retry</button></div>}
     {!data && !error && <p role="status">Loading your relationship context…</p>}
     {data && <>
