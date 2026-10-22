@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { Loader2 } from 'lucide-react';
 
-import { createClient } from '@/lib/supabase/client';
 import { safeAuthReturnPath } from '@/lib/auth/redirect';
 import { env } from '@/lib/env';
 import { useToast } from '@/components/ui/use-toast';
@@ -40,6 +39,7 @@ export function GoogleSignIn({ next = '/dashboard' }: { next?: string }) {
     if (!isEnabled || loading) return;
     setLoading(true);
     try {
+      const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
       const destination = safeAuthReturnPath(next);
       const { error } = await supabase.auth.signInWithOAuth({
@@ -75,12 +75,12 @@ export function GoogleSignIn({ next = '/dashboard' }: { next?: string }) {
         Continue with Google
       </button>
       {isEnabled === false && (
-        <p role="status" className="text-center text-xs text-muted-foreground">
+        <p role="status" className="text-center text-sm text-muted-foreground">
           Google sign-in is awaiting provider setup. Email and password remain available.
         </p>
       )}
       {isEnabled === null && (
-        <p role="status" className="text-center text-xs text-muted-foreground">
+        <p role="status" className="text-center text-sm text-muted-foreground">
           Checking Google sign-in availability…
         </p>
       )}
