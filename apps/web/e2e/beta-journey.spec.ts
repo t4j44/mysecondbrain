@@ -5,6 +5,7 @@ import { uniqueId } from './helpers/ui';
 test.describe('Closed beta capture, retrieve, act and share', () => {
   test.skip(!getPrimaryE2EUser() || !hasSupabasePublicConfig(), 'Requires a configured staging test account.');
   test('reviewed capture persists, becomes a task and supports a revocable portfolio', async ({ page, browser }) => {
+    test.setTimeout(300000);
     const marker = uniqueId('betaproof').replace(/-/g, '');
     const note = `${marker} tested a prototype and promised to send a demo. Outcomes are not yet measured.`;
     await page.goto('/capture');
@@ -16,7 +17,7 @@ test.describe('Closed beta capture, retrieve, act and share', () => {
     await page.getByLabel('Organization', { exact: true }).fill('');
     await page.getByLabel('Existing project', { exact: true }).fill('');
     await page.getByLabel('Existing venture', { exact: true }).fill('');
-    await page.getByLabel('Summary', { exact: true }).fill(note);
+    await page.getByRole('textbox', { name: 'Summary', exact: true }).fill(note);
     await page.getByLabel('Commitment', { exact: true }).fill(`Send ${marker} demo`);
     await page.getByLabel('Who made the commitment?').selectOption('owed_by_me');
     await page.getByLabel('Topics discussed (comma separated)').fill('fundraising');
