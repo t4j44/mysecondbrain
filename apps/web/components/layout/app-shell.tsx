@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { TopBar } from './top-bar';
 import { MobileBottomBar } from './mobile-bottom-bar';
-import { BetaNotice } from '../shared/beta-notice';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -89,7 +88,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main Content Workspace Column */}
       <div className="workspace-column flex min-h-0 min-w-0 flex-1 flex-col">
         <TopBar onOpenQuickCapture={() => router.push('/capture')} />
-        <BetaNotice />
         <main
           id="main-content"
           tabIndex={-1}
