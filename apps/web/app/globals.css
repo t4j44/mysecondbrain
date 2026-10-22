@@ -84,8 +84,11 @@
 .chat-surface { min-height: 0; flex: 1; }
 /* Enlarged text needs document scrolling when the header and composer no longer
    fit in a short viewport. Preserve the normal conversation scroller otherwise. */
-.conversation-shell[data-expanded-text="true"] { height: auto; min-height: 100dvh; overflow: visible; }
+.conversation-shell[data-expanded-text="true"] { position: relative; height: auto; min-height: 100dvh; overflow: visible; }
 .conversation-shell[data-expanded-text="true"] .chat-surface { min-height: 24rem; }
+/* At enlarged text sizes the whole conversation scrolls. Anchor navigation to
+   that document, so viewport scrolling cannot place it over the composer. */
+.conversation-shell[data-expanded-text="true"] .mobile-bottom-bar { position: absolute; }
 @media (max-width: 1023px) {
   .workspace-main { padding-bottom: var(--bottom-nav-height, calc(5rem + env(safe-area-inset-bottom))); }
   .conversation-shell { height: max(var(--app-height, 100dvh), 32rem); }
