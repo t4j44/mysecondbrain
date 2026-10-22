@@ -122,7 +122,7 @@ export default function PeopleNetworkPage() {
         <Link
           href="/people/new"
           data-testid="person-create"
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#00ff9d] text-[#0a0510] font-mono text-xs font-bold uppercase hover:bg-[#00e08a] transition-all min-h-[44px]"
+          className="sb-interactive inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#00ff9d] text-[#0a0510] font-mono text-xs font-bold uppercase hover:bg-[#00e08a] transition-all min-h-[44px]"
         >
           <Plus className="h-4 w-4 stroke-[3]" />
           <span>New Contact</span>
@@ -136,12 +136,12 @@ export default function PeopleNetworkPage() {
             value={quickAddInput}
             onChange={(e) => setQuickAddInput(e.target.value)}
             placeholder="Quick add: Name, Role @ Company - note"
-            className="w-full bg-[#0e0716] border border-[#3b1e5a] focus:border-[#00ff9d] text-sm text-[#f7f4ea] placeholder:text-muted-foreground/60 pl-4 pr-24 py-3.5 rounded-xl outline-none min-h-[44px]"
+            className="sb-field w-full bg-[#0e0716] border border-[#3b1e5a] focus:border-[#00ff9d] text-sm text-[#f7f4ea] placeholder:text-muted-foreground/60 pl-4 pr-24 py-3.5 rounded-xl outline-none min-h-[44px]"
           />
           <button
             type="submit"
             disabled={!quickAddInput.trim() || isAdding}
-            className="absolute right-2 px-4 py-2 rounded-lg bg-[#00ff9d] text-[#0a0510] font-mono text-xs font-bold uppercase hover:bg-[#00e08a] disabled:opacity-30 min-h-[36px]"
+            className="sb-interactive absolute right-2 px-4 py-2 rounded-lg bg-[#00ff9d] text-[#0a0510] font-mono text-xs font-bold uppercase hover:bg-[#00e08a] disabled:opacity-30 min-h-[36px]"
           >
             {isAdding ? 'Adding...' : 'Add'}
           </button>
@@ -157,7 +157,7 @@ export default function PeopleNetworkPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search people, companies, notes..."
-            className="w-full bg-[#12081d] border border-[#301642] focus:border-[#00ff9d] text-sm text-[#f7f4ea] pl-10 pr-4 py-2.5 rounded-xl outline-none min-h-[44px]"
+            className="sb-field w-full bg-[#12081d] border border-[#301642] focus:border-[#00ff9d] text-sm text-[#f7f4ea] pl-10 pr-4 py-2.5 rounded-xl outline-none min-h-[44px]"
           />
         </div>
 
@@ -167,7 +167,7 @@ export default function PeopleNetworkPage() {
               key={tag}
               type="button"
               onClick={() => setSelectedTag(tag)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase whitespace-nowrap min-h-[36px] ${
+              className={`sb-interactive px-3 py-2 rounded-lg text-xs font-mono uppercase whitespace-nowrap min-h-[40px] ${
                 selectedTag === tag
                   ? 'bg-[#00ff9d] text-[#0a0510] font-bold'
                   : 'bg-[#12081d] text-muted-foreground border border-[#251238]'
@@ -201,7 +201,7 @@ export default function PeopleNetworkPage() {
             <div
               key={person.id}
               data-testid="person-card"
-              className="rounded-2xl border border-[#251238] bg-[#0a0510] hover:border-[#00ff9d]/50 p-5 transition-all flex flex-col justify-between gap-4"
+              className="rounded-2xl border border-[#251238] bg-[#0a0510] p-4 sm:p-5 transition-colors duration-150 flex flex-col justify-between gap-4"
             >
               <div>
                 <div className="flex items-start justify-between gap-2">
@@ -236,14 +236,14 @@ export default function PeopleNetworkPage() {
                 <button
                   type="button"
                   onClick={() => handleCreateFollowUp(person)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#251238] hover:bg-[#3b1e5a] text-[#00ff9d] text-[11px] font-mono min-h-[36px]"
+                  className="sb-interactive flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#251238] hover:bg-[#3b1e5a] text-[#00ff9d] text-[11px] font-mono min-h-[36px]"
                 >
                   <CheckSquare className="h-3 w-3" />
                   Follow-up
                 </button>
                 <Link
                   href={`/people/${person.id}`}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#12081d] border border-[#301642] text-[#f7f4ea] text-[11px] font-mono min-h-[36px]"
+                  className="sb-interactive flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#12081d] border border-[#301642] text-[#f7f4ea] text-[11px] font-mono min-h-[36px]"
                 >
                   View
                   <ArrowUpRight className="h-3 w-3 text-[#00ff9d]" />
