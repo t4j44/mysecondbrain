@@ -16,11 +16,11 @@ export function Sidebar({ className = '' }: SidebarProps) {
     <nav aria-label="Primary Navigation" className="flex-1 space-y-2 p-3">{primaryNavigation.map(item => {
       const active = isPrimaryActive(item.href, pathname); const Icon = item.icon;
       return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined}
-        className={`flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-medium transition-colors ${active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+        className={`sb-interactive flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-medium transition-colors ${active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
         <Icon className="h-5 w-5" /><span>{item.title}</span>
       </Link>;
     })}</nav>
-    <div className="border-t p-3"><Link href="/settings" className="flex min-h-11 items-center gap-3 rounded-lg px-4 text-sm text-muted-foreground hover:bg-muted"><Settings className="h-4 w-4" />Settings</Link>
+    <div className="border-t p-3"><Link href="/settings" className="sb-interactive flex min-h-11 items-center gap-3 rounded-lg px-4 text-sm text-muted-foreground hover:bg-muted"><Settings className="h-4 w-4" />Settings</Link>
       <p className="px-4 pt-2 text-xs text-muted-foreground">Private workspace · Early beta</p></div>
   </aside>;
 }
