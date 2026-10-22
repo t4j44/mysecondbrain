@@ -9,7 +9,7 @@ const {chromium}=require('@playwright/test');
 const {default:lighthouse}=await import(pathToFileURL(path.join(root,'.test-tmp/mobile-tools/node_modules/lighthouse/core/index.js')));
 const project=phase==='before'?path.join(root,'.test-tmp/mobile-release-baseline'):root;
 const out=path.join(root,'.test-tmp/mobile-overhaul/lighthouse');await fs.mkdir(out,{recursive:true});
-const env={...process.env,NEXT_TELEMETRY_DISABLED:'1',NEXT_PUBLIC_SUPABASE_URL:'https://mock.supabase.co',NEXT_PUBLIC_SUPABASE_ANON_KEY:'mock-public-key-for-build-audit',NEXT_PUBLIC_API_BASE_URL:'http://127.0.0.1:4175/api/v1'};
+const env={...process.env,NEXT_TELEMETRY_DISABLED:'1',NEXT_PUBLIC_SUPABASE_URL:'https://mock.supabase.co',NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'mock-public-key-for-build-audit',NEXT_PUBLIC_SUPABASE_ANON_KEY:'mock-public-key-for-build-audit',NEXT_PUBLIC_API_BASE_URL:'http://127.0.0.1:4175/api/v1'};
 const server=spawn(process.execPath,[path.join(root,'apps/web/node_modules/next/dist/bin/next'),'start','--port','4176'],{cwd:path.join(project,'apps/web'),env,stdio:['ignore','pipe','pipe'],windowsHide:true});
 let chrome;
 try{

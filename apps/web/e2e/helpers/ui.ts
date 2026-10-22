@@ -15,8 +15,8 @@ export async function loginViaUi(page: Page, user: E2EUser): Promise<void> {
 }
 
 export async function logoutViaUi(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'User account options' }).click();
-  await page.getByRole('button', { name: /lock terminal \/\/ sign out/i }).click();
+  await page.getByRole('button', { name: 'Account options' }).click();
+  await page.getByRole('menuitem', { name: 'Sign out', exact: true }).click();
   await expect(page).toHaveURL(/\/login/);
   await expect(page.getByLabel(/email address/i)).toBeVisible();
 }
