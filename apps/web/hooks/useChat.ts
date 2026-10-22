@@ -42,6 +42,9 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
   const [error, setError] = useState<Error | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const inFlightRef = useRef(false);
+  const generationRef = useRef(0);
+  useEffect(() => () => { generationRef.current++; abortControllerRef.current?.abort(); }, []);
   const messagesRef = useRef<ChatMessage[]>(messages);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
@@ -53,18 +56,24 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
   );
 
   const stop = useCallback(() => {
+    generationRef.current++;
+    inFlightRef.current = false;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
     setIsLoading(false);
     setIsThinking(false);
+    setMessages(previous => previous.map(message => message.status === 'thinking' || message.status === 'streaming'
+      ? { ...message, status: 'completed', isThinking: false, content: message.content ? `${message.content}\n[Stopped]` : 'Answer stopped.' } : message));
   }, []);
 
   const sendMessage = useCallback(
     async (customContent?: string) => {
       const messageText = (customContent !== undefined ? customContent : input).trim();
-      if (!messageText || isLoading) return;
+      if (!messageText || isLoading || inFlightRef.current) return;
+      inFlightRef.current = true;
+      const generation = ++generationRef.current;
 
       setError(null);
       if (customContent === undefined) {
@@ -72,8 +81,8 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
       }
 
       const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const userMessageId = `user-${Date.now()}`;
-      const assistantMessageId = `assistant-${Date.now() + 1}`;
+      const userMessageId = `user-${crypto.randomUUID()}`;
+      const assistantMessageId = `assistant-${crypto.randomUUID()}`;
 
       const userMessage: ChatMessage = {
         id: userMessageId,
@@ -148,16 +157,18 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
             ...body,
           }),
           signal: abortController.signal,
+          cache: 'no-store',
         });
+        if (generation !== generationRef.current) return;
 
         if (!response.ok) {
-          const errorText = await response.text().catch(() => response.statusText);
-          throw new Error(`API returned ${response.status}: ${errorText}`);
+          const requestId = response.headers.get('x-request-id');
+          throw new Error(`The answer service could not complete this request (HTTP ${response.status})${requestId ? `. Request: ${requestId}` : ''}.`);
         }
 
         if (response.headers.get('content-type')?.includes('application/json')) {
           const result = await response.json();
-          if (typeof result.generated_text !== 'string') {
+          if (typeof result.generated_text !== 'string' || !result.generated_text.trim()) {
             throw new Error('The assistant returned an unexpected response. Please try again.');
           }
           const finalMessage: ChatMessage = {
@@ -169,6 +180,7 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
           setIsThinking(false);
           setIsLoading(false);
           abortControllerRef.current = null;
+          inFlightRef.current = false;
           onFinish?.(finalMessage);
           return;
         }
@@ -186,13 +198,12 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
 
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
+          if (generation !== generationRef.current) { await reader.cancel(); return; }
+          const chunk = done ? decoder.decode() : decoder.decode(value, { stream: true });
           buffer += chunk;
 
           const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+          buffer = done ? '' : lines.pop() || '';
 
           for (const line of lines) {
             const trimmedLine = line.trim();
@@ -277,43 +288,21 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
               );
             }
           }
-        }
-
-        if (buffer.trim()) {
-          let textDelta = buffer.trim();
-          if (textDelta.startsWith('0:')) {
-            try { textDelta = JSON.parse(textDelta.slice(2)); } catch {}
-          }
-          if (textDelta && !textDelta.startsWith('data:') && !textDelta.startsWith('e:')) {
-            accumulatedContent += textDelta;
-          }
+          if (done) break;
         }
 
         setIsThinking(false);
         setIsLoading(false);
         abortControllerRef.current = null;
+        inFlightRef.current = false;
+        if (!accumulatedContent.trim()) throw new Error('No answer was returned. Try again.');
 
-        let finalMessage: ChatMessage | null = null;
-        setMessages((prev) =>
-          prev.map((msg) => {
-            if (msg.id === assistantMessageId) {
-              finalMessage = {
-                ...msg,
-                content: accumulatedContent || msg.content || 'Response complete.',
-                citations: accumulatedCitations,
-                status: 'completed',
-                isThinking: false,
-              };
-              return finalMessage;
-            }
-            return msg;
-          })
-        );
-
-        if (onFinish && finalMessage) {
-          onFinish(finalMessage);
-        }
+        const finalMessage: ChatMessage = {...pendingAssistantMessage,content:accumulatedContent,
+          citations:accumulatedCitations,status:'completed',isThinking:false};
+        setMessages(previous=>previous.map(message=>message.id===assistantMessageId?finalMessage:message));
+        onFinish?.(finalMessage);
       } catch (err: any) {
+        if (generation !== generationRef.current) return;
         if (err.name === 'AbortError') {
           setMessages((prev) =>
             prev.map((msg) =>
@@ -350,6 +339,7 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
         setIsThinking(false);
         setIsLoading(false);
         abortControllerRef.current = null;
+        inFlightRef.current = false;
       }
     },
     [api, body, headers, input, isLoading, onError, onFinish]

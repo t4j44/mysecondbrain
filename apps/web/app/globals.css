@@ -68,6 +68,34 @@
     @apply bg-background text-foreground antialiased selection:bg-[#00ff9d] selection:text-[#0a0510];
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+  :where(a, button, input, textarea, select, summary):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 3px;
+  }
+  input, textarea, select { min-width: 0; font-size: 1rem; }
+  main { overflow-wrap: anywhere; }
+  main :where(input, textarea, select) { font-size: max(1rem, 1em); }
+  main :where(button, input, select, summary) { min-height: 44px; }
+  main :where(input[type="checkbox"], input[type="radio"]) { min-height: auto; }
+}
+
+.conversation-shell { height: max(100dvh, 32rem); min-height: 0; overflow: clip; }
+.conversation-shell .workspace-main { padding-bottom: var(--bottom-nav-height, calc(3.75rem + env(safe-area-inset-bottom))); }
+.chat-surface { min-height: 0; flex: 1; }
+/* Enlarged text needs document scrolling when the header and composer no longer
+   fit in a short viewport. Preserve the normal conversation scroller otherwise. */
+.conversation-shell[data-expanded-text="true"] { height: auto; min-height: 100dvh; overflow: visible; }
+.conversation-shell[data-expanded-text="true"] .chat-surface { min-height: 24rem; }
+@media (max-width: 1023px) {
+  .workspace-main { padding-bottom: var(--bottom-nav-height, calc(5rem + env(safe-area-inset-bottom))); }
+  .conversation-shell { height: max(var(--app-height, 100dvh), 32rem); }
+  .conversation-shell[data-keyboard="true"] { height: var(--app-height, 100dvh); }
+  .app-shell[data-keyboard="true"] .mobile-bottom-bar { display: none; }
+  .app-shell[data-keyboard="true"] .workspace-main { padding-bottom: env(safe-area-inset-bottom); }
+  .conversation-shell[data-keyboard="true"] { position: fixed; inset-inline: 0; top: var(--viewport-top, 0px); }
+}
+@media (min-width: 1024px) {
+  .conversation-shell .workspace-main { padding-bottom: 0; }
 }
 
 /* Accessibility: Visible Focus Indicators and Reduced Motion Compliance */

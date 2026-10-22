@@ -7,6 +7,7 @@ import { api } from '@/lib/api/browser-client';
 import { VoiceInputButton } from '@/components/chat/voice-input-button';
 import { PhotoTextInput } from '@/components/capture/photo-text-input';
 import type { CapturePhoto } from '@/lib/capture-photo';
+import { createClient } from '@/lib/supabase/client';
 
 type Proposal = {
   person_name: string | null; organization_name: string | null; project_name: string | null;
@@ -20,10 +21,27 @@ type Draft = { draft_id: string; proposal: Proposal; mode: string };
 
 export default function CapturePage() {
   const [text, setText] = useState('');
-  const { people } = usePeople();
   const [personId, setPersonId] = useState('');
   const [source, setSource] = useState<'manual' | 'voice' | 'image_text'>('manual');
   const [draft, setDraft] = useState<Draft | null>(null);
+  const { people } = usePeople({ enabled: Boolean(draft) });
+  const [draftKey, setDraftKey] = useState<string | null>(null);
+  const [draftNotice, setDraftNotice] = useState('');
+  useEffect(() => {
+    let active = true;
+    void createClient().auth.getSession().then(({data:{session}}) => {
+      if (!active || !session?.user.id) return;
+      const key = `second-brain:capture:${session.user.id}`;
+      try { const savedText = sessionStorage.getItem(key); if (savedText) setText(previous => previous || savedText.slice(0,16000)); setDraftKey(key); }
+      catch { setDraftNotice('Draft recovery is unavailable in this browser. Keep this tab open until you save.'); }
+    });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    if (!draftKey) return;
+    try { if (text) sessionStorage.setItem(draftKey,text); else sessionStorage.removeItem(draftKey); }
+    catch { setDraftNotice('Draft recovery is unavailable. Keep this tab open until you save.'); }
+  }, [draftKey,text]);
   const [busy, setBusy] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -49,10 +67,10 @@ export default function CapturePage() {
     } finally { setBusy(false); }
   }
   return <div className="mx-auto max-w-2xl space-y-6">
-    <div><h1 className="text-3xl font-semibold">Capture context</h1>
-      <p className="mt-2 text-muted-foreground">Save a conversation, meeting note, or something you promised. Review the connections before saving.</p></div>
+    <div><h1 className="text-2xl sm:text-3xl font-semibold">Capture</h1>
+      <p className="mt-2 text-base text-muted-foreground">What do you want to remember? Review the details before saving.</p></div>
     <label className="block space-y-2"><span>What happened?</span>
-      <textarea aria-label="Capture text" rows={7} value={text} maxLength={16000}
+      <textarea aria-label="Capture text" rows={5} value={text} maxLength={16000}
         onChange={event => { setText(event.target.value); setDraft(null); setPersonId(''); }}
         className="w-full rounded-lg border bg-background p-3" placeholder="Met Ahmed at an event. We discussed fundraising and I promised to send a deck." /></label>
     <div className="flex flex-wrap items-center gap-3">
@@ -62,9 +80,10 @@ export default function CapturePage() {
         setDraft(proposed);
         setOccurredAt(localDateTime(proposed.proposal.when_met || new Date().toISOString()));
       })} className="min-h-11 rounded-lg bg-primary px-5 text-primary-foreground disabled:opacity-50">{busy ? 'Working…' : 'Review capture'}</button>
-      <Link href="/documents" className="underline">Upload a document</Link>
+      <Link href="/documents" className="inline-flex min-h-11 items-center underline">Upload a document</Link>
     </div>
-    <PhotoTextInput onBusy={setPhotoBusy} disabled={busy || photos.length >= 2} onPhoto={photo => { setPhotos(previous => [...previous, photo]); setSource('image_text'); }} onText={value => { setText(previous => [previous, value].filter(Boolean).join('\n\n').slice(0, 16000)); setDraft(null); setSource('image_text'); }} />
+    <details className="rounded-xl border px-3"><summary className="flex min-h-11 cursor-pointer items-center">Add a photo or business card</summary><div className="pb-3"><PhotoTextInput onBusy={setPhotoBusy} disabled={busy || photos.length >= 2} onPhoto={photo => { setPhotos(previous => [...previous, photo]); setSource('image_text'); }} onText={value => { setText(previous => [previous, value].filter(Boolean).join('\n\n').slice(0, 16000)); setDraft(null); setSource('image_text'); }} /></div></details>
+    {draftNotice&&<p role="status" className="text-sm text-muted-foreground">{draftNotice}</p>}
     {!!photos.length && <div className="flex flex-wrap gap-4">{photos.map(photo => <figure className="max-w-full space-y-2" key={photo.requestId}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={photo.preview} alt={photo.kind === 'business_card' ? 'Business card preview' : 'Moment preview'} className="max-h-40 max-w-full rounded-lg" />

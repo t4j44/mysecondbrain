@@ -35,10 +35,10 @@ export function PhotoTextInput({ onText, onPhoto, onBusy, disabled }: { onText: 
   }
   return <section className="space-y-2 rounded-lg border p-3">
     <label className="block text-sm">Read a business card<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={disabled || busy}
-      className="mt-2 block max-w-full" onChange={event => { const file = event.target.files?.[0]; if (file) void extract(file, 'business_card'); event.target.value = ''; }} /></label>
+      className="mt-2 block min-h-11 w-full max-w-full text-base file:min-h-11" onChange={event => { const file = event.target.files?.[0]; if (file) void extract(file, 'business_card'); event.target.value = ''; }} /></label>
     {onPhoto && <label className="block text-sm">Add a moment photo<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={disabled || busy}
-      className="mt-2 block max-w-full" onChange={event => { const file = event.target.files?.[0]; if (file) void extract(file, 'moment'); event.target.value = ''; }} /></label>}
-    <p className="text-xs text-muted-foreground">English text recognition runs on this device. Compressed photos are saved privately when you confirm. Embedded photo metadata is removed. Avoid highly sensitive or confidential information during this beta.</p>
+      className="mt-2 block min-h-11 w-full max-w-full text-base file:min-h-11" onChange={event => { const file = event.target.files?.[0]; if (file) void extract(file, 'moment'); event.target.value = ''; }} /></label>}
+    <p className="text-sm text-muted-foreground">English text recognition runs on this device. Compressed photos are saved privately when you confirm. Embedded photo metadata is removed. Avoid highly sensitive or confidential information during this beta.</p>
     {status && <p role="status" className="text-sm">{status}</p>}
   </section>;
 }

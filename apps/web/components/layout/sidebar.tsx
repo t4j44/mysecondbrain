@@ -9,9 +9,9 @@ interface SidebarProps { className?: string; onOpenQuickCapture?: () => void }
 
 export function Sidebar({ className = '' }: SidebarProps) {
   const pathname = usePathname();
-  return <aside aria-label="Main Navigation" className={`flex w-64 shrink-0 flex-col border-r border-border bg-card ${className}`}>
-    <Link href="/dashboard" className="flex items-center gap-3 border-b p-5">
-      <Users className="h-6 w-6 text-primary" /><span><span className="block font-semibold">Second Brain</span><span className="text-xs text-muted-foreground">Your relationships, remembered</span></span>
+  return <aside aria-label="Main Navigation" className={`flex w-[240px] shrink-0 flex-col border-r border-border bg-card ${className}`}>
+    <Link href="/dashboard" className="flex min-w-0 items-center gap-2 border-b p-4">
+      <Users className="h-5 w-5 shrink-0 text-primary" /><span className="min-w-0 font-semibold [overflow-wrap:anywhere]">Second Brain</span>
     </Link>
     <nav aria-label="Primary Navigation" className="flex-1 space-y-2 p-3">{primaryNavigation.map(item => {
       const active = isPrimaryActive(item.href, pathname); const Icon = item.icon;
