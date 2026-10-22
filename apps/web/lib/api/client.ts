@@ -50,6 +50,8 @@ export class FastApiClient {
         body: body !== undefined ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
         signal: controller.signal,
         ...fetchOptions,
+        // Personal context must never enter a shared HTTP/Next.js cache.
+        cache: 'no-store',
       });
 
       clearTimeout(timeoutId);

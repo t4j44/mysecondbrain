@@ -14,14 +14,14 @@ test.describe('Unauthenticated and public form negatives', () => {
     await page.goto('/ventures');
     await expect(page).toHaveURL(/\/login/);
     await expect(page.getByLabel(/email address/i)).toBeVisible();
-    await expect(page.getByLabel(/security passkey/i)).toBeVisible();
+    await expect(page.getByLabel(/^password$/i)).toBeVisible();
   });
 
   test('login form validation rejects invalid email', async ({ page }) => {
     await page.goto('/login');
     await page.getByLabel(/email address/i).fill('not-an-email');
-    await page.getByLabel(/security passkey/i).fill('x');
-    await page.getByRole('button', { name: /initialize session/i }).click();
+    await page.getByLabel(/^password$/i).fill('x');
+    await page.getByRole('button', { name: /^sign in$/i }).click();
     // Native email validation runs before React Hook Form submits.
     expect(await page.getByLabel(/email address/i).evaluate((input: HTMLInputElement) => input.validity.typeMismatch)).toBe(true);
     await expect(page).toHaveURL(/\/login/);
@@ -31,7 +31,7 @@ test.describe('Unauthenticated and public form negatives', () => {
     await page.goto('/login');
     await expect(page).toHaveTitle(/Second Brain|Login/i);
     await expect(page.getByLabel(/email address/i)).toBeVisible();
-    await expect(page.getByLabel(/security passkey/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /initialize session/i })).toBeVisible();
+    await expect(page.getByLabel(/^password$/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /^sign in$/i })).toBeVisible();
   });
 });

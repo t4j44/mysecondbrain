@@ -92,3 +92,20 @@ jobs:
           NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000/api/v1"
         run: |
           pnpm --filter @second-brain/web build
+
+      - name: Exercise mobile layout and recovery in Chromium and WebKit
+        run: |
+          node scripts/mobile-tools.mjs
+          pnpm --filter @second-brain/web exec playwright install --with-deps webkit
+          cd apps/web
+          node scripts/mobile-audit-run.mjs matrix
+
+      - name: Preserve synthetic mobile evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-layout-evidence
+          path: |
+            .test-tmp/mobile-overhaul/matrix-results.json
+            .test-tmp/mobile-overhaul/playwright-report
+            .test-tmp/mobile-overhaul/after

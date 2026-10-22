@@ -1,0 +1,27 @@
+{
+  "status": "PASS",
+  "approvedByUser": true,
+  "rows": [
+    {
+      "origin": "https://second-brain-web-staging-git-co-699a83-thenadish-4808s-projects.vercel.app",
+      "expectedAllowed": true,
+      "status": 200,
+      "allowOrigin": "https://second-brain-web-staging-git-co-699a83-thenadish-4808s-projects.vercel.app",
+      "credentials": "true"
+    },
+    {
+      "origin": "https://second-brain-web-staging-e0g5izzai-thenadish-4808s-projects.vercel.app",
+      "expectedAllowed": true,
+      "status": 200,
+      "allowOrigin": "https://second-brain-web-staging-e0g5izzai-thenadish-4808s-projects.vercel.app",
+      "credentials": "true"
+    },
+    {
+      "origin": "https://untrusted.example.invalid",
+      "expectedAllowed": false,
+      "status": 400,
+      "allowOrigin": null,
+      "credentials": "true"
+    }
+  ]
+}

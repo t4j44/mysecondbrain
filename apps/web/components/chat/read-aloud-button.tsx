@@ -50,7 +50,7 @@ export function ReadAloudButton({ text }: ReadAloudButtonProps) {
       onClick={toggleSpeech}
       aria-label={isSpeaking ? 'Stop reading response' : 'Read response aloud'}
       title={isSpeaking ? 'Stop reading' : 'Read aloud'}
-      className="rounded-md border border-white/10 bg-slate-950/60 p-1.5 text-slate-400 opacity-0 transition-all hover:text-white group-hover:opacity-100 focus:opacity-100"
+      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border px-3 text-muted-foreground hover:text-foreground focus-ring"
     >
       {isSpeaking ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
     </button>

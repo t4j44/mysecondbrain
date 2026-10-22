@@ -8,10 +8,11 @@ import { MobileBottomBar } from '@/components/layout/mobile-bottom-bar';
 import { isPrimaryActive } from '@/lib/navigation';
 
 describe('Global App Shell & Navigation', () => {
-  it('renders Breadcrumbs formatting pathname segments into terminal uppercase titles', () => {
+  it('renders a plain-language title and predictable back navigation', () => {
     // Note: usePathname is mocked to '/dashboard/ventures' in test/setup.ts
     render(<Breadcrumbs />);
-    expect(screen.getByText('VENTURES')).toBeInTheDocument();
+    expect(screen.getByText('Ventures')).toBeInTheDocument();
+    expect(screen.getByRole('link', {name: 'Back to Home'})).toHaveAttribute('href','/dashboard');
   });
 
   it('keeps desktop and mobile navigation in the same relationship-first order', () => {

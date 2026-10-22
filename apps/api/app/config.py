@@ -18,7 +18,9 @@ def _is_sqlite_url(url: str) -> bool:
 class Settings(BaseSettings):
     APP_NAME: str = "Taj's Second Brain API"
     APP_VERSION: str = "1.0.0"
-    RELEASE_SHA: str = Field(default='', validation_alias=AliasChoices('RELEASE_SHA', 'RENDER_GIT_COMMIT'))
+    # Render supplies the checked-out commit for each deploy. A manually pinned
+    # release label must not hide a newer deployment from health verification.
+    RELEASE_SHA: str = Field(default='', validation_alias=AliasChoices('RENDER_GIT_COMMIT', 'RELEASE_SHA'))
     API_V1_PREFIX: str = "/api/v1"
     APP_ENV: str = "development"
     ENVIRONMENT: str = "development"

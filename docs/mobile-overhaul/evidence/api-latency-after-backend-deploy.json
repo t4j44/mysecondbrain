@@ -1,0 +1,117 @@
+[
+  {
+    "phase": "after-backend-deploy",
+    "route": "/health",
+    "sample": 0,
+    "timestamp": "2026-10-22T17:48:06.035Z",
+    "label": "first_observed_not_proven_cold",
+    "status": 200,
+    "ms": 535,
+    "bytes": 166,
+    "cacheControl": null,
+    "releaseSha": "060a12a414c09eb7fea501122a2baad132c54cab"
+  },
+  {
+    "phase": "after-backend-deploy",
+    "route": "/health",
+    "sample": 1,
+    "timestamp": "2026-10-22T17:48:06.150Z",
+    "label": "subsequent_warm_candidate",
+    "status": 200,
+    "ms": 93,
+    "bytes": 166,
+    "cacheControl": null,
+    "releaseSha": "060a12a414c09eb7fea501122a2baad132c54cab"
+  },
+  {
+    "phase": "after-backend-deploy",
+    "route": "/health",
+    "sample": 2,
+    "timestamp": "2026-10-22T17:48:06.262Z",
+    "label": "subsequent_warm_candidate",
+    "status": 200,
+    "ms": 110,
+    "bytes": 166,
+    "cacheControl": null,
+    "releaseSha": "060a12a414c09eb7fea501122a2baad132c54cab"
+  },
+  {
+    "phase": "after-backend-deploy",
+    "route": "/health",
+    "sample": 3,
+    "timestamp": "2026-10-22T17:48:06.351Z",
+    "label": "subsequent_warm_candidate",
+    "status": 200,
+    "ms": 88,
+    "bytes": 166,
+    "cacheControl": null,
+    "releaseSha": "060a12a414c09eb7fea501122a2baad132c54cab"
+  },
+  {
+    "phase": "after-backend-deploy",
+    "route": "/health",
+    "sample": 4,
+    "timestamp": "2026-10-22T17:48:06.445Z",
+    "label": "subsequent_warm_candidate",
+    "status": 200,
+    "ms": 93,
+    "bytes": 166,
+    "cacheControl": null,
+    "releaseSha": "060a12a414c09eb7fea501122a2baad132c54cab"
+  },
+  {
+    "phase": "after-backend-deploy",
+    "route": "/health/ready",
+    "sample": 0,
+    "timestamp": "2026-10-22T17:48:06.693Z",
+    "label": "first_observed_not_proven_cold",
+    "status": 200,
+    "ms": 247,
+    "bytes": 41,
+    "cacheControl": null
+  },
+  {
+    "phase": "after-backend-deploy",
+    "route": "/health/ready",
+    "sample": 1,
+    "timestamp": "2026-10-22T17:48:06.797Z",
+    "label": "subsequent_warm_candidate",
+    "status": 200,
+    "ms": 102,
+    "bytes": 41,
+    "cacheControl": null
+  },
+  {
+    "phase": "after-backend-deploy",
+    "route": "/health/ready",
+    "sample": 2,
+    "timestamp": "2026-10-22T17:48:06.914Z",
+    "label": "subsequent_warm_candidate",
+    "status": 200,
+    "ms": 115,
+    "bytes": 41,
+    "cacheControl": null
+  },
+  {
+    "phase": "after-backend-deploy",
+    "route": "/health/ready",
+    "sample": 3,
+    "timestamp": "2026-10-22T17:48:07.027Z",
+    "label": "subsequent_warm_candidate",
+    "status": 200,
+    "ms": 111,
+    "bytes": 41,
+    "cacheControl": null
+  },
+  {
+    "phase": "after-backend-deploy",
+    "route": "/health/ready",
+    "sample": 4,
+    "timestamp": "2026-10-22T17:48:07.132Z",
+    "label": "subsequent_warm_candidate",
+    "status": 200,
+    "ms": 98,
+    "bytes": 41,
+    "cacheControl": null
+  }
+]

@@ -9,12 +9,13 @@ import type { ListResponse, Person, PersonCreateInput } from '@/lib/api/domains'
 export type { Person, PersonCreateInput };
 
 type PeopleOptions = {
+  enabled?: boolean;
   search?: string;
   tag?: string;
   pageSize?: number;
 };
 
-export function usePeople({ search = '', tag = 'all', pageSize = 100 }: PeopleOptions = {}) {
+export function usePeople({ search = '', tag = 'all', pageSize = 100, enabled = true }: PeopleOptions = {}) {
   const [people, setPeople] = useState<Person[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -31,6 +32,7 @@ export function usePeople({ search = '', tag = 'all', pageSize = 100 }: PeopleOp
 
   const refetch = useCallback(async () => {
     const current = ++requestVersion.current;
+    if (!enabled) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     try {
@@ -43,7 +45,7 @@ export function usePeople({ search = '', tag = 'all', pageSize = 100 }: PeopleOp
     } finally {
       if (current === requestVersion.current) setLoading(false);
     }
-  }, [params]);
+  }, [params, enabled]);
 
   useEffect(() => {
     void refetch();
