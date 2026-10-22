@@ -11,7 +11,7 @@ export function MobileBottomBar(_props: MobileBottomBarProps) {
     <div className="mx-auto grid max-w-md grid-cols-5">{primaryNavigation.map(item => {
       const active = isPrimaryActive(item.href, pathname); const Icon = item.icon;
       return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined}
-        className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 text-xs ${active ? 'text-primary' : 'text-muted-foreground'} ${item.title === 'Capture' ? 'bg-primary/10 font-semibold' : ''}`}>
+        className={`sb-interactive flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 text-xs ${active ? 'text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'} ${item.title === 'Capture' ? 'bg-primary/10 font-semibold' : ''}`}>
         <Icon className="h-5 w-5" /><span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{item.title}</span>
       </Link>;
     })}</div>
