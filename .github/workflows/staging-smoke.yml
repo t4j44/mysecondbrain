@@ -56,6 +56,23 @@ jobs:
           assert metadata.get('authorization_servers'), 'MCP OAuth issuer not advertised'
           print('PASS public MCP discovery metadata (not an authenticated MCP test)')
 
+          # Black-box auth boundary checks; never create credentials or accounts.
+          def unauthenticated_status(path):
+              request = Request(os.environ['API'] + path,
+                  headers={'User-Agent': 'SecondBrain-Staging-AuthBoundary/1.0'})
+              try:
+                  with urlopen(request, timeout=30) as response:
+                      return response.status
+              except HTTPError as err:
+                  return err.code
+
+          for path in ('/api/v1/meetings/usage', '/api/v1/mcp/oauth/connections'):
+              result = unauthenticated_status(path)
+              assert result in (401, 403), (
+                  f'FAIL: protected endpoint {path} returned HTTP {result} without a token')
+              print(f'PASS protected endpoint {path} denies anonymous access: HTTP {result}')
+
+
           # Next.js can render the auth form after hydration; raw HTML is not a
           # browser DOM. This is an HTTP application-shell check, not a signup test.
           from html.parser import HTMLParser
@@ -84,5 +101,5 @@ jobs:
               assert '/_next/' in body, f'Next.js application assets not found at {path}'
               print(f'PASS hosted Next.js application shell {path}, HTTP {status} (client-side auth flow NOT tested)')
 
-          print('PASS public shell/health/discovery smoke; browser auth, Gemini, MCP OAuth remain separate.')
+          print('PASS public shell/health/OAuth discovery and anonymous-access boundaries; real auth, Gemini, authorized MCP remain separate.')
           PY
