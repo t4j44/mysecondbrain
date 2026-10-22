@@ -17,7 +17,7 @@ export function TopBar({ onOpenQuickCapture }: TopBarProps) {
     <header className="sticky top-0 z-30 flex h-16 w-full min-w-0 items-center justify-between gap-2 border-b border-[#251238] bg-[#0a0510]/95 px-2.5 sm:px-6 backdrop-blur">
       <div className="flex min-w-0 items-center gap-2 sm:gap-4">
         <MobileNavigation />
-        <Breadcrumbs />
+        <div className="hidden min-w-0 md:block"><Breadcrumbs /></div>
       </div>
 
       <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
