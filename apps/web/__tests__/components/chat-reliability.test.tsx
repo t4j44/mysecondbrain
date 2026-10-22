@@ -23,6 +23,10 @@ describe('assistant request reliability',()=>{
   expect(result.current.error).not.toBeNull();
   expect(result.current.messages[0].content).toBe('Keep my question');
   expect(result.current.messages.at(-1)?.status).toBe('error');
+  fetchMock.mockResolvedValue(new Response(JSON.stringify({generated_text:'Recovered answer'}),{headers:{'content-type':'application/json'}}));
+  await act(async()=>{await result.current.reload();});
+  expect(result.current.messages.filter(message=>message.role==='user')).toHaveLength(1);
+  expect(result.current.messages.at(-1)?.content).toBe('Recovered answer');
  });
  it('decodes an SSE final line without a newline and calls onFinish once',async()=>{
   const finish=vi.fn();

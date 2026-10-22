@@ -3,6 +3,9 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import event, select
 
+from app.models import (
+    interactions as _interaction_models,  # noqa: F401 - include production participant mapping
+)
 from app.models.entities import (
     AuditLog,
     ContextEvent,

@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, Field, model_validator
 from sqlalchemy import func, or_, select
+from sqlalchemy.orm import lazyload
 
 from app.ai.indexing import SOURCES, owned_record
 from app.ai.message_draft import (
@@ -87,7 +88,9 @@ class RelationshipService:
         self.db, self.owner = db, str(owner)
 
     async def rows(self, model, *clauses, limit=100, order=None):
-        statement = select(model).where(*active(model, self.owner), *clauses)
+        # These previews use scalar columns and explicitly owner-scoped queries.
+        # Do not implicitly preload entire participant/capture relationships.
+        statement = select(model).options(lazyload('*')).where(*active(model, self.owner), *clauses)
         if order is not None:
             statement = statement.order_by(order)
         return (await self.db.execute(statement.limit(limit))).scalars().all()
@@ -290,7 +293,7 @@ class RelationshipService:
         ranked = select(Interaction.id, func.row_number().over(partition_by=Interaction.project_id,
             order_by=(Interaction.date.desc(), Interaction.id)).label('position')).where(
                 *active(Interaction, self.owner), Interaction.project_id.in_(identities), Interaction.person_id.is_not(None)).subquery()
-        rows = (await self.db.execute(select(Interaction, Person).join(ranked, ranked.c.id == Interaction.id)
+        rows = (await self.db.execute(select(Interaction, Person).options(lazyload('*')).join(ranked, ranked.c.id == Interaction.id)
             .join(Person, Person.id == Interaction.person_id).where(ranked.c.position <= 30, *active(Person, self.owner))
             .order_by(Interaction.date.desc(), Interaction.id))).all()
         for interaction, person in rows:

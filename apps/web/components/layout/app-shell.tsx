@@ -93,7 +93,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main
           id="main-content"
           tabIndex={-1}
-          style={conversation ? undefined : {paddingBottom: 'calc(var(--bottom-nav-height, 4rem) + 1rem)'}}
+          style={{paddingBottom: 'calc(var(--bottom-nav-height, 4rem) + 1rem)'}}
           className={`workspace-main min-h-0 min-w-0 flex-1 ${conversation ? 'flex flex-col' : 'p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-5 md:p-6 md:pb-8'}`}
         >
           {children}

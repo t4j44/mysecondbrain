@@ -14,6 +14,9 @@ from sqlalchemy import event
 
 import app.services.relationship_metrics as metrics
 import app.services.relationships as relationships
+from app.models import (
+    interactions as _interaction_models,  # noqa: F401 - register production eager-load mappings
+)
 from app.models.entities import Base
 from tests.conftest import TestingSessionLocal, test_engine
 from tests.test_mobile_home import seed_home
@@ -35,6 +38,7 @@ async def main():
         await conn.run_sync(Base.metadata.create_all)
     owner, other = '00000000-0000-4000-a000-000000000001', '99999999-9999-4000-a999-999999999999'
     class ReleaseService(relationships.RelationshipService):
+        rows = baseline_function('apps/api/app/services/relationships.py', 'rows')
         home = baseline_function('apps/api/app/services/relationships.py', 'home')
         people_for_record = baseline_function('apps/api/app/services/relationships.py', 'people_for_record')
     old_activation = baseline_function('apps/api/app/services/relationship_metrics.py', 'activation')

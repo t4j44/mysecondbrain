@@ -118,17 +118,20 @@ test('drawer and page search trap focus, close on Escape and restore trigger foc
 test('200 percent text remains usable without horizontal overflow',async({page},info)=>{
  for(const route of ['dashboard','people','assistant','capture','work']){
   await page.goto('/'+route);await page.locator('html').evaluate(element=>{element.style.fontSize='200%';});await noOverflow(page);
-  if(route==='assistant'){await page.getByRole('textbox',{name:'Your question'}).fill('Readable at 200%');await expect(page.getByRole('button',{name:'Send question'})).toBeInViewport();await capture(page,'assistant-text-200',info.project.name);}
+  if(route==='assistant'){
+   await page.getByRole('textbox',{name:'Your question'}).fill('Readable at 200%');
+   const send=page.getByRole('button',{name:'Send question'});
+   // Enlarged text intentionally uses document scrolling. The send control must
+   // remain reachable and uncovered, rather than being clipped by a fixed shell.
+   await send.scrollIntoViewIfNeeded();await expect(send).toBeInViewport();
+   expect(await send.evaluate(button=>{const box=button.getBoundingClientRect();return button.contains(document.elementFromPoint(box.x+box.width/2,box.y+box.height/2));})).toBe(true);
+   await capture(page,'assistant-text-200',info.project.name);
+  }
  }
 });
 
-test('slow home request keeps a loading state until real data arrives',async({page,browserName,context})=>{
+test('slow home request keeps a loading state until real data arrives',async({page})=>{
  await page.goto('/dashboard');
- if(browserName==='chromium'){
-  const cdp=await context.newCDPSession(page);
-  await cdp.send('Network.enable');
-  await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:400,downloadThroughput:50*1024,uploadThroughput:20*1024});
- }
  let release!:()=>void;
  const pending=new Promise<void>(resolve=>{release=resolve;});
  await page.route('**/api/v1/relationships/home',async route=>{await pending;await route.fulfill({contentType:'application/json',body:JSON.stringify(home)});});
@@ -147,4 +150,28 @@ test('offline assistant preserves the question and recovers after reconnecting',
  await context.setOffline(false);await page.getByRole('button',{name:'Try again',exact:true}).click();
  await expect(page.getByRole('navigation',{name:'Supporting sources'})).toBeVisible();
  await expect(page.getByRole('article',{name:'Your question'})).toHaveCount(1);await noOverflow(page);
+});
+
+test('saved tools load actual records, paginate, and distinguish service errors',async({page},info)=>{
+ test.skip(![320,390,768,1440].includes(page.viewportSize()!.width),'Secondary route sweep at four representative widths.');
+ for(const route of ['organizations','memories','ideas','achievements','kpis','content']){
+  await page.goto('/'+route);await expect(page.locator('main article')).toHaveCount(20);await noOverflow(page);
+  await page.getByRole('button',{name:'Load more saved records'}).click();await expect.poll(()=>page.locator('main article').count()).toBeGreaterThan(20);
+  await capture(page,route,info.project.name);
+  if(info.project.name.endsWith('-390')){
+   const scan=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();expect(scan.violations.map((item:{id:string})=>item.id)).toEqual([]);
+  }
+ }
+ await page.route('**/api/v1/memories?**',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:{code:'UNAVAILABLE',message:'Synthetic failure'}})}));
+ await page.goto('/memories');await expect(page.getByRole('alert')).toContainText('service error');await expect(page.getByText(/No records saved here/)).toHaveCount(0);
+});
+
+test('note form saves canonical fields, opens the source and survives refresh',async({page},info)=>{
+ const title=`Fictional note ${info.project.name} ${Date.now()}`;
+ let payload:Record<string,unknown>={};
+ page.on('request',request=>{if(request.method()==='POST'&&request.url().endsWith('/api/v1/memories'))payload=request.postDataJSON();});
+ await page.goto('/memories/new');await page.getByRole('textbox',{name:'Title',exact:true}).fill(title);await page.getByRole('textbox',{name:'Note',exact:true}).fill('Fictional evidence বাংলা kept after refresh.');
+ await page.getByRole('button',{name:'Save note',exact:true}).click();await expect(page).toHaveURL(/\/sources\/memory\//);
+ await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();await page.reload();await expect(page.getByText('Fictional evidence বাংলা kept after refresh.',{exact:true})).toBeVisible();
+ expect(payload).toMatchObject({title,body:'Fictional evidence বাংলা kept after refresh.',type:'note',visibility:'private'});expect(payload).not.toHaveProperty('content');await noOverflow(page);
 });

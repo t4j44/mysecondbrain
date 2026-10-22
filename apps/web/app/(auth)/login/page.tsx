@@ -49,16 +49,16 @@ export default function LoginPage() {
 
     if (error) {
       toast({
-        title: 'AUTHENTICATION REJECTED',
-        description: error.message || 'Invalid credentials provided for operator login.',
+        title: 'Could not sign in',
+        description: error.message || 'Check your email and password, then try again.',
         variant: 'destructive',
       });
       return;
     }
 
     toast({
-      title: 'ACCESS GRANTED',
-      description: 'Redirecting operator to Command Center...',
+      title: 'Signed in',
+      description: 'Opening your saved context…',
     });
 
     router.push(redirectUrl);
@@ -68,45 +68,45 @@ export default function LoginPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <div className="inline-block rounded px-2 py-0.5 text-[11px] font-mono font-semibold bg-[#251238] text-[#00ff9d] border border-[#00ff9d]/30 uppercase tracking-widest">
-          Operator Authentication
+        <div className="inline-block rounded px-2 py-0.5 text-[11px] font-semibold bg-[#251238] text-[#00ff9d] border border-[#00ff9d]/30 uppercase tracking-widest">
+          Welcome back
         </div>
         <h2 className="text-3xl font-extrabold tracking-tight text-[#f7f4ea]">
-          Sign in to Terminal
+          Sign in
         </h2>
         <p className="text-sm text-muted-foreground">
-          Enter your operator email and passkey to access your ventures.
+          Use your email and password to open Second Brain.
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-xs font-mono uppercase text-muted-foreground">
+          <Label htmlFor="email" className="text-xs uppercase text-muted-foreground">
             Email Address
           </Label>
           <Input
             id="email"
             type="email"
-            placeholder="taj@tajssecondbrain.ai"
+            placeholder="you@example.com"
             autoComplete="email"
             disabled={isLoading}
             {...register('email')}
           />
           {errors.email && (
-            <p className="text-xs font-mono text-destructive">{errors.email.message}</p>
+            <p className="text-xs text-destructive">{errors.email.message}</p>
           )}
         </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label htmlFor="password" className="text-xs font-mono uppercase text-muted-foreground">
-              Security Passkey
+            <Label htmlFor="password" className="text-xs uppercase text-muted-foreground">
+              Password
             </Label>
             <Link
               href="/forgot-password"
-              className="text-xs font-mono text-[#00ff9d] hover:underline"
+              className="text-xs text-[#00ff9d] hover:underline"
             >
-              Forgot passkey?
+              Forgot password?
             </Link>
           </div>
           <Input
@@ -118,19 +118,19 @@ export default function LoginPage() {
             {...register('password')}
           />
           {errors.password && (
-            <p className="text-xs font-mono text-destructive">{errors.password.message}</p>
+            <p className="text-xs text-destructive">{errors.password.message}</p>
           )}
         </div>
 
-        <Button type="submit" className="w-full h-11 font-mono tracking-wider text-sm font-bold mt-2" disabled={isLoading}>
+        <Button type="submit" className="w-full h-11 tracking-wider text-sm font-bold mt-2" disabled={isLoading}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              AUTHENTICATING...
+              Signing in…
             </>
           ) : (
             <>
-              INITIALIZE SESSION
+              Sign in
               <ArrowRight className="ml-2 h-4 w-4" />
             </>
           )}
@@ -142,16 +142,16 @@ export default function LoginPage() {
           <div className="w-full border-t border-border" />
         </div>
         <div className="relative flex justify-center text-xs uppercase font-mono">
-          <span className="bg-[#12081d] px-2 text-muted-foreground">Or access via</span>
+          <span className="bg-[#12081d] px-2 text-muted-foreground">Or continue with</span>
         </div>
       </div>
 
       <GoogleSignIn next={redirectUrl} />
 
       <div className="text-center text-sm text-muted-foreground font-mono">
-        Need operator authorization?{' '}
+        New to Second Brain?{' '}
         <Link href="/signup" className="text-[#00ff9d] hover:underline font-semibold font-sans">
-          Request system credentials
+          Create an account
         </Link>
       </div>
     </div>

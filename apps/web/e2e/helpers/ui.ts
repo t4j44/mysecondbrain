@@ -9,8 +9,8 @@ export async function loginViaUi(page: Page, user: E2EUser): Promise<void> {
   await page.goto('/login');
   await expect(page.getByLabel(/email address/i)).toBeVisible();
   await page.getByLabel(/email address/i).fill(user.email);
-  await page.getByLabel(/security passkey/i).fill(user.password);
-  await page.getByRole('button', { name: /initialize session/i }).click();
+  await page.getByLabel(/^password$/i).fill(user.password);
+  await page.getByRole('button', { name: /^sign in$/i }).click();
   await expect(page).toHaveURL(/\/dashboard/);
 }
 

@@ -20,7 +20,7 @@ function source(file) {
 }
 const { build } = createRequire(require.resolve('vite/package.json'))('esbuild');
 const modules = {
-  'next/navigation': `export const usePathname=()=>location.pathname;export const useRouter=()=>({push:(url)=>location.assign(url),refresh:()=>location.reload(),back:()=>history.back()});export const useSearchParams=()=>new URLSearchParams(location.search);export const useParams=()=>({personId:location.pathname.split('/')[2]});`,
+  'next/navigation': `export const usePathname=()=>location.pathname;export const useRouter=()=>({push:(url)=>location.assign(url),refresh:()=>location.reload(),back:()=>history.back()});export const useSearchParams=()=>new URLSearchParams(location.search);export const useParams=()=>({personId:location.pathname.split('/')[2],kind:location.pathname.split('/')[2],id:location.pathname.split('/')[3]});`,
   'next/link': `import React from 'react';export default function Link({href,children,prefetch,...props}){return <a href={href} {...props}>{children}</a>;}`,
   'next-themes': `export const useTheme=()=>({theme:'dark',setTheme(){}});`,
   '@/lib/env': `export const env={NEXT_PUBLIC_API_BASE_URL:location.origin+'/api/v1'};`,
@@ -41,6 +41,7 @@ const css=await require('postcss')([require('tailwindcss')(tailwindConfig),requi
 const files=new Map(bundle.outputFiles.map(f=>['/'+path.basename(f.path),f.contents]));
 const people=Array.from({length:125},(_,i)=>({id:`person-${i}`,name:i===124?'Farzana বাংলা দীর্ঘ নাম':`Fictional Person ${String(i).padStart(3,'0')}`,role:'Designer',company:'Fictional Studio',relationship_type:'contact',notes:'Met at a fictional event. '+(i===0?'বাংলা '+ 'long-context-'.repeat(20):''),created_at:'2026-10-01',updated_at:'2026-10-01'}));
 const home={followups:[],meetings:[],projects:[],recent_activity:[],opportunities:[],limits:'Fixture data only.',activation:{counts:{people:0,interactions:0,projects:0,commitments:0,ask_answers:0},targets:{people:5,interactions:3,projects:1,commitments:1,ask_answers:1},first_activated_at:null}};
+const notes=Array.from({length:23},(_,i)=>({id:`synthetic-note-${i}`,title:`Fictional saved note ${i}`,body:'Fictional saved context বাংলা',updated_at:'2026-10-22T10:00:00Z'}));
 let requests=[];
 const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
@@ -51,6 +52,15 @@ const server=http.createServer(async(req,res)=>{
     res.setHeader('Content-Type','application/json');
     await new Promise(resolve=>setTimeout(resolve,Number(req.headers['x-fixture-delay']||0)));
     if(url.pathname.endsWith('/relationships/home')) return res.end(JSON.stringify(home));
+    if(/^\/api\/v1\/(memories|ideas|organizations|achievements|kpis|content)$/.test(url.pathname)){
+      if(req.method==='POST'){let body='';for await(const chunk of req)body+=chunk;const note={...JSON.parse(body),id:randomUUID(),updated_at:'2026-10-22T10:00:00Z'};notes.unshift(note);return res.end(JSON.stringify(note));}
+      const offset=Number(url.searchParams.get('offset')||0),limit=Number(url.searchParams.get('limit')||20);
+      return res.end(JSON.stringify({items:notes.slice(offset,offset+limit),total:notes.length}));
+    }
+    if(/^\/api\/v1\/sources\/[^/]+\/[^/]+$/.test(url.pathname)){
+      const note=notes.find(row=>row.id===url.pathname.split('/').at(-1));
+      return res.end(JSON.stringify(note?{...note,text:note.body}:{title:'Fictional conversation',text:'Fictional source evidence বাংলা.',updated_at:'2026-10-22T10:00:00Z'}));
+    }
     if(url.pathname.endsWith('/people')) {
       if(req.method==='POST'){let body='';for await(const chunk of req)body+=chunk;const row={...JSON.parse(body),id:randomUUID()};people.unshift(row);return res.end(JSON.stringify(row));}
       const q=url.searchParams.get('q')?.toLowerCase()||'';const tag=url.searchParams.get('relationship_type');

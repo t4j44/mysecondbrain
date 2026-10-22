@@ -69,7 +69,7 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
   }, []);
 
   const sendMessage = useCallback(
-    async (customContent?: string) => {
+    async (customContent?: string, retryUserId?: string) => {
       const messageText = (customContent !== undefined ? customContent : input).trim();
       if (!messageText || isLoading || inFlightRef.current) return;
       inFlightRef.current = true;
@@ -106,7 +106,12 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
       // Read before queueing the new messages: state updaters run lazily, so a value
       // captured inside one may not exist yet when the request body is built.
       const conversation = recentCapsules(messagesRef.current);
-      setMessages((prev) => [...prev, userMessage, pendingAssistantMessage]);
+      setMessages(prev => {
+        const retryIndex = retryUserId ? prev.findIndex(message => message.id === retryUserId) : -1;
+        return retryIndex >= 0
+          ? [...prev.slice(0, retryIndex + 1), pendingAssistantMessage]
+          : [...prev, userMessage, pendingAssistantMessage];
+      });
 
       setIsLoading(true);
       setIsThinking(true);
@@ -359,7 +364,7 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
     if (messages.length === 0 || isLoading) return;
     const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
     if (lastUserMsg) {
-      await sendMessage(lastUserMsg.content);
+        await sendMessage(lastUserMsg.content, lastUserMsg.id);
     }
   }, [isLoading, messages, sendMessage]);
 
