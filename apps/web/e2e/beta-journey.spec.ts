@@ -9,7 +9,7 @@ test.describe('Closed beta capture, retrieve, act and share', () => {
     const marker = uniqueId('betaproof').replace(/-/g, '');
     const note = `${marker} tested a prototype and promised to send a demo. Outcomes are not yet measured.`;
     await page.goto('/capture');
-    await expect(page.getByRole('complementary', { name: 'Closed beta privacy notice' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Beta version.*privacy and data information/i })).toBeVisible();
     await page.getByLabel('Capture text').fill(note);
     await page.getByRole('button', { name: 'Review capture', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Check before saving' })).toBeVisible();
