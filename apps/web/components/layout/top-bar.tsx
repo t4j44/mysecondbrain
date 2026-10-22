@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Breadcrumbs } from './breadcrumbs';
 import { CommandMenu } from './command-menu';
 import { UserMenu } from './user-menu';
+import { BetaNotice } from '../shared/beta-notice';
 import { MobileNavigation } from './mobile-navigation';
 import { Plus } from 'lucide-react';
 
@@ -13,10 +14,10 @@ interface TopBarProps {
 
 export function TopBar({ onOpenQuickCapture }: TopBarProps) {
   return (
-    <header className="app-top-bar sticky top-0 z-30 flex h-[56px] w-full shrink-0 items-center justify-between gap-2 border-b bg-background/95 px-3 sm:px-6">
+    <header className="app-top-bar sticky top-0 z-30 flex h-[56px] w-full min-w-0 shrink-0 items-center justify-between gap-2 border-b bg-background/95 px-2.5 sm:px-6">
       <div className="flex min-w-0 items-center gap-2 sm:gap-4">
         <MobileNavigation />
-        <Breadcrumbs />
+        <div className="hidden min-w-0 md:block"><Breadcrumbs /></div>
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -37,6 +38,7 @@ export function TopBar({ onOpenQuickCapture }: TopBarProps) {
         )}
 
         <CommandMenu />
+        <BetaNotice />
         <UserMenu />
       </div>
     </header>
