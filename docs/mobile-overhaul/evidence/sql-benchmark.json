@@ -1,0 +1,1642 @@
+[
+  {
+    "phase": "before",
+    "run": 0,
+    "query_count": 80,
+    "sql_ms": 139.03,
+    "wall_ms": 339.165,
+    "payload_bytes": 7765,
+    "response_equal": true,
+    "queries": [
+      {
+        "operation": "SELECT",
+        "ms": 3.762
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.924
+      },
+      {
+        "operation": "SELECT",
+        "ms": 3.401
+      },
+      {
+        "operation": "SELECT",
+        "ms": 3.236
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.678
+      },
+      {
+        "operation": "SELECT",
+        "ms": 3.181
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.703
+      },
+      {
+        "operation": "SELECT",
+        "ms": 3.365
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.586
+      },
+      {
+        "operation": "SELECT",
+        "ms": 3.442
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.982
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.29
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.89
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.998
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.041
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.887
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.906
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.01
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.082
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.586
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.479
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.62
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.651
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.802
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.835
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.03
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.156
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.057
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.246
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.238
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.953
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.968
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.255
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.615
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.929
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.431
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.951
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.653
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.184
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.095
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.19
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.545
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.77
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.698
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.588
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.436
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.324
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.808
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.401
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.79
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.84
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.498
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.981
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.066
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.83
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.933
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.329
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.306
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.981
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.851
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.898
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.897
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.938
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.476
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.945
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.082
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.211
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.399
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.912
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.235
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.002
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.938
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.592
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.933
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.773
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.683
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.633
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.449
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.87
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.901
+      }
+    ]
+  },
+  {
+    "phase": "before",
+    "run": 1,
+    "query_count": 80,
+    "sql_ms": 92.144,
+    "wall_ms": 187.126,
+    "payload_bytes": 7765,
+    "response_equal": true,
+    "queries": [
+      {
+        "operation": "SELECT",
+        "ms": 1.534
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.873
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.749
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.976
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.894
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.909
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.698
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.713
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.019
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.113
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.007
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.132
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.615
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.675
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.612
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.557
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.622
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.075
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.628
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.36
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.6
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.07
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.44
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.061
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.03
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.072
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.919
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.224
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.98
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.821
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.44
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.851
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.787
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.288
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.707
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.552
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.256
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.258
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.934
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.748
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.866
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.128
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.867
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.896
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.366
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.953
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.156
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.788
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.748
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.426
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.158
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.108
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.746
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.285
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.615
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.228
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.714
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.714
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.642
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.702
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.281
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.523
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.943
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.532
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.294
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.791
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.868
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.946
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.685
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.943
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.025
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.208
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.287
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.671
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.63
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.504
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.667
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.097
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.495
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.849
+      }
+    ]
+  },
+  {
+    "phase": "before",
+    "run": 2,
+    "query_count": 80,
+    "sql_ms": 114.274,
+    "wall_ms": 217.495,
+    "payload_bytes": 7765,
+    "response_equal": true,
+    "queries": [
+      {
+        "operation": "SELECT",
+        "ms": 2.422
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.179
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.202
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.206
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.027
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.269
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.142
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.272
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.905
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.563
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.85
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.85
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.146
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.242
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.744
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.402
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.038
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.077
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.681
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.07
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.648
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.075
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.985
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.873
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.056
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.189
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.08
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.441
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.157
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.898
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.005
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.36
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.411
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.199
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.814
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.967
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.316
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.15
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.612
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.054
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.624
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.967
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.907
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.349
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.045
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.901
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.699
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.342
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.499
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.449
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.042
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.827
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.921
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.938
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.538
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.64
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.385
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.057
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.64
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.807
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.949
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.186
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.001
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.307
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.272
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.566
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.322
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.01
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.35
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.777
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.235
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.657
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.401
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.588
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.546
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.61
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.873
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.964
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.247
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.259
+      }
+    ]
+  },
+  {
+    "phase": "before",
+    "run": 3,
+    "query_count": 80,
+    "sql_ms": 107.266,
+    "wall_ms": 200.081,
+    "payload_bytes": 7765,
+    "response_equal": true,
+    "queries": [
+      {
+        "operation": "SELECT",
+        "ms": 1.269
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.998
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.407
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.968
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.962
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.537
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.403
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.624
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.717
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.019
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.093
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.826
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.424
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.227
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.514
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.636
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.541
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.371
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.143
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.42
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.928
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.712
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.782
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.143
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.319
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.408
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.896
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.641
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.403
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.928
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.871
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.906
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.002
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.825
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.468
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.062
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.581
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.047
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.423
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.446
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.637
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.892
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.792
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.709
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.802
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.055
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.396
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.823
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.364
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.105
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.385
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.539
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.595
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.612
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.282
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.015
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.775
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.249
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.392
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.147
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.958
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.587
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.857
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.227
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.074
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.118
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.218
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.212
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.064
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.178
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.704
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.529
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.063
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.879
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.814
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.133
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.765
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.276
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.538
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.616
+      }
+    ]
+  },
+  {
+    "phase": "after",
+    "run": 0,
+    "query_count": 17,
+    "sql_ms": 25.046,
+    "wall_ms": 88.529,
+    "payload_bytes": 7765,
+    "response_equal": true,
+    "queries": [
+      {
+        "operation": "SELECT",
+        "ms": 2.296
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.124
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.161
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.127
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.139
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.755
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.396
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.146
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.907
+      },
+      {
+        "operation": "SELECT",
+        "ms": 3.385
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.531
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.898
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.127
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.367
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.569
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.227
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.891
+      }
+    ]
+  },
+  {
+    "phase": "after",
+    "run": 1,
+    "query_count": 17,
+    "sql_ms": 22.768,
+    "wall_ms": 53.245,
+    "payload_bytes": 7765,
+    "response_equal": true,
+    "queries": [
+      {
+        "operation": "SELECT",
+        "ms": 1.975
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.142
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.809
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.812
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.647
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.624
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.141
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.501
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.388
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.895
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.332
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.417
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.727
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.348
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.188
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.965
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.857
+      }
+    ]
+  },
+  {
+    "phase": "after",
+    "run": 2,
+    "query_count": 17,
+    "sql_ms": 25.758,
+    "wall_ms": 58.428,
+    "payload_bytes": 7765,
+    "response_equal": true,
+    "queries": [
+      {
+        "operation": "SELECT",
+        "ms": 1.301
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.466
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.027
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.336
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.779
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.046
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.322
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.254
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.407
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.379
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.345
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.52
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.105
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.081
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.501
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.405
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.484
+      }
+    ]
+  },
+  {
+    "phase": "after",
+    "run": 3,
+    "query_count": 17,
+    "sql_ms": 23.671,
+    "wall_ms": 57.585,
+    "payload_bytes": 7765,
+    "response_equal": true,
+    "queries": [
+      {
+        "operation": "SELECT",
+        "ms": 1.638
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.981
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.134
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.105
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.758
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.149
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.054
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.094
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.845
+      },
+      {
+        "operation": "SELECT",
+        "ms": 2.177
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.453
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.85
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.044
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.094
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.741
+      },
+      {
+        "operation": "SELECT",
+        "ms": 1.632
+      },
+      {
+        "operation": "SELECT",
+        "ms": 0.922
+      }
+    ]
+  }
+]

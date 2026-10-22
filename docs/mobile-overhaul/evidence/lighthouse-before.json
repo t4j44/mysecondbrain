@@ -1,0 +1,47 @@
+[
+  {
+    "phase": "before",
+    "run": 0,
+    "url": "http://127.0.0.1:4176/login",
+    "lighthouse": "13.5.0",
+    "performance": 79,
+    "accessibility": 98,
+    "lcp": 3701.186,
+    "cls": 0,
+    "tbt": 422.4069999999999,
+    "fcp": 930.1859999999999,
+    "transferBytes": 353745,
+    "inp": null,
+    "scope": "Production Next.js login, mock public config, Lighthouse default mobile throttling; no authenticated or field-INP claim"
+  },
+  {
+    "phase": "before",
+    "run": 1,
+    "url": "http://127.0.0.1:4176/login",
+    "lighthouse": "13.5.0",
+    "performance": 81,
+    "accessibility": 98,
+    "lcp": 3581.5,
+    "cls": 0.009034112944179613,
+    "tbt": 388,
+    "fcp": 1391.25,
+    "transferBytes": 353745,
+    "inp": null,
+    "scope": "Production Next.js login, mock public config, Lighthouse default mobile throttling; no authenticated or field-INP claim"
+  },
+  {
+    "phase": "before",
+    "run": 2,
+    "url": "http://127.0.0.1:4176/login",
+    "lighthouse": "13.5.0",
+    "performance": 84,
+    "accessibility": 98,
+    "lcp": 3532.1028999999994,
+    "cls": 0.009034112944179613,
+    "tbt": 283,
+    "fcp": 1381.65435,
+    "transferBytes": 353745,
+    "inp": null,
+    "scope": "Production Next.js login, mock public config, Lighthouse default mobile throttling; no authenticated or field-INP claim"
+  }
+]
