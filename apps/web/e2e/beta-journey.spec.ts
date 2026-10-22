@@ -41,8 +41,8 @@ test.describe('Closed beta capture, retrieve, act and share', () => {
     await page.reload();
     await expect(page.getByTestId('task-row').filter({ hasText: `Send ${marker} demo` })).toBeVisible();
     await page.goto('/assistant');
-    await page.getByPlaceholder('Ask your Second Brain about tasks, ventures, mentors, or strategic choices...').fill(marker);
-    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Your question' }).fill(marker);
+    await page.getByRole('button', { name: 'Send question', exact: true }).click();
     const citation = page.locator('a[href^="/sources/"]').first();
     await expect(citation).toBeVisible({ timeout: 60000 });
     await citation.click();

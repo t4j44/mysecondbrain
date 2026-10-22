@@ -30,11 +30,12 @@ export default function CapturePage() {
   useEffect(() => {
     let active = true;
     void createClient().auth.getSession().then(({data:{session}}) => {
-      if (!active || !session?.user.id) return;
+      if (!active) return;
+      if (!session?.user.id) { setDraftNotice('Draft recovery is unavailable. Keep this tab open until you save.'); return; }
       const key = `second-brain:capture:${session.user.id}`;
       try { const savedText = sessionStorage.getItem(key); if (savedText) setText(previous => previous || savedText.slice(0,16000)); setDraftKey(key); }
       catch { setDraftNotice('Draft recovery is unavailable in this browser. Keep this tab open until you save.'); }
-    });
+    }).catch(() => { if (active) setDraftNotice('Draft recovery is unavailable. Keep this tab open until you save.'); });
     return () => { active = false; };
   }, []);
   useEffect(() => {
@@ -42,6 +43,14 @@ export default function CapturePage() {
     try { if (text) sessionStorage.setItem(draftKey,text); else sessionStorage.removeItem(draftKey); }
     catch { setDraftNotice('Draft recovery is unavailable. Keep this tab open until you save.'); }
   }, [draftKey,text]);
+  function updateText(value: string) {
+    // Save in the input event: a fast reload must not outrun a React effect.
+    if (draftKey) {
+      try { if (value) sessionStorage.setItem(draftKey,value); else sessionStorage.removeItem(draftKey); }
+      catch { setDraftNotice('Draft recovery is unavailable. Keep this tab open until you save.'); }
+    }
+    setText(value);
+  }
   const [busy, setBusy] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -69,12 +78,13 @@ export default function CapturePage() {
   return <div className="mx-auto max-w-2xl space-y-6">
     <div><h1 className="text-2xl sm:text-3xl font-semibold">Capture</h1>
       <p className="mt-2 text-base text-muted-foreground">What do you want to remember? Review the details before saving.</p></div>
+    {!draftKey && !draftNotice && <p role="status" className="text-sm text-muted-foreground">Preparing private draft recovery…</p>}
     <label className="block space-y-2"><span>What happened?</span>
-      <textarea aria-label="Capture text" rows={5} value={text} maxLength={16000}
-        onChange={event => { setText(event.target.value); setDraft(null); setPersonId(''); }}
+      <textarea aria-label="Capture text" rows={5} value={text} maxLength={16000} disabled={!draftKey && !draftNotice}
+        onChange={event => { updateText(event.target.value); setDraft(null); setPersonId(''); }}
         className="w-full rounded-lg border bg-background p-3" placeholder="Met Ahmed at an event. We discussed fundraising and I promised to send a deck." /></label>
     <div className="flex flex-wrap items-center gap-3">
-      <VoiceInputButton value={text} onChange={value => { setText(value); setDraft(null); setSource('voice'); }} disabled={busy} />
+      <VoiceInputButton value={text} onChange={value => { updateText(value); setDraft(null); setSource('voice'); }} disabled={busy || (!draftKey && !draftNotice)} />
       <button disabled={busy || photoBusy || !text.trim()} onClick={() => run(async () => {
         const proposed = await api.post<Draft>('/capture/propose', { text, source, timezone: zone }, { timeoutMs: 45000 });
         setDraft(proposed);
@@ -147,7 +157,7 @@ export default function CapturePage() {
             event_type: photos.some(p => p.kind === 'business_card') ? 'business_card_scan' : photos.length ? 'moment' : 'manual_capture' });
           setRecords(result.records);
           photos.forEach(photo => URL.revokeObjectURL(photo.preview)); uploads.current.clear(); setPhotos([]); setCreateNew(false);
-          setText(''); setDraft(null); setPersonId(''); setSource('manual'); setSaved(true); setMessage('Saved. Your context and confirmed connections are ready. Search indexing runs separately.');
+          updateText(''); setDraft(null); setPersonId(''); setSource('manual'); setSaved(true); setMessage('Saved. Your context and confirmed connections are ready. Search indexing runs separately.');
         })}>Confirm and save</button>
     </section>}
     {message && <p role={saved ? 'status' : 'alert'} className="rounded border p-3">{message}</p>}
