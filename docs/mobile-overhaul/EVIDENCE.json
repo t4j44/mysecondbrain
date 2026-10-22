@@ -1,0 +1,799 @@
+{
+  "generatedAt": "2026-10-22T19:04:14.069Z",
+  "baseline": "1c4d5372ea719c6e2307c8d11746a1d13c63d506",
+  "testedImplementation": "734ed7ac7aaa51059e161257fd4667994e0e1399",
+  "performanceMeasurementSource": "9ad17b103e5de1da6134eeaa8081d1f5c191de66; subsequent change only enlarged-text conversation navigation CSS",
+  "releaseStatus": "Automated gates and protected-preview primary workflow PASS; overall physical-device/provider/human acceptance PARTIAL",
+  "historicalCI": {
+    "source": "dc54f462e9972034bd5be894ac518f3c6dcf7ca8",
+    "security": {
+      "url": "https://github.com/t4j44/mysecondbrain/actions/runs/39792746110",
+      "status": "PASS",
+      "backendTests": 475,
+      "frontendTests": 74,
+      "mobile": {
+        "pass": 308,
+        "fail": 0,
+        "skip": 16,
+        "total": 324
+      }
+    },
+    "postgres": {
+      "url": "https://github.com/t4j44/mysecondbrain/actions/runs/39792755814",
+      "status": "PASS",
+      "integrationTests": 67,
+      "upgradeRestoreAndDocker": "PASS"
+    }
+  },
+  "local": {
+    "preComposerFixMatrix": {
+      "startTime": "2026-10-22T13:52:57.134Z",
+      "duration": 895155.412,
+      "expected": 304,
+      "skipped": 16,
+      "unexpected": 4,
+      "flaky": 0
+    },
+    "currentZoomAndOffline": {
+      "startTime": "2026-10-22T17:42:47.996Z",
+      "duration": 81594.42599999999,
+      "expected": 10,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "draftAndFormFix": {
+      "startTime": "2026-10-22T18:17:16.318Z",
+      "duration": 23873.239999999998,
+      "expected": 6,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "publicNextAuth": {
+      "startTime": "2026-10-22T17:47:17.472Z",
+      "duration": 230636.565,
+      "expected": 54,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "realStagingViaAllowedLocalOrigin": {
+      "startTime": "2026-10-22T18:18:04.327Z",
+      "duration": 228847.83,
+      "expected": 9,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "providerJourneyInitial": {
+      "startTime": "2026-10-22T18:22:18.440Z",
+      "duration": 142525.139,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 1,
+      "flaky": 0
+    },
+    "providerJourneyFinal": {
+      "startTime": "2026-10-22T18:29:07.845Z",
+      "duration": 70108.36799999999,
+      "expected": 2,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "releaseMetadataAndHomeTests": {
+      "pass": 13,
+      "fail": 0,
+      "scope": "Local SQLite disposable tests; runtime commit must override pinned release label"
+    },
+    "frontendComponentTests": {
+      "pass": 74,
+      "files": 17,
+      "status": "PASS after form and draft fixes"
+    },
+    "earlyRealStagingFailures": "Preserved locally: initial local API URL misconfiguration, premature test reload, intermittent redirect to Home, pre-hydration form input and WebKit draft loss; corrected startup paths passed the subsequent 9-case phone run. A clean rerun does not prove absence of intermittent auth issues."
+  },
+  "deployment": {
+    "preview": {
+      "url": "https://second-brain-web-staging-git-co-699a83-thenadish-4808s-projects.vercel.app",
+      "immutableBuildUrl": "https://second-brain-web-staging-n31s3p125-thenadish-4808s-projects.vercel.app",
+      "id": "dpl_G8jp1Q3K9yMTrVz4JRHR9LccCUZY",
+      "source": "734ed7ac7aaa51059e161257fd4667994e0e1399",
+      "state": "READY",
+      "browser": "PASS: authenticated Chrome, real Home data, 390px Ask retrieval and supporting-source navigation; no horizontal overflow",
+      "protection": "Enabled; no bypass link. Use branch alias: only the explicitly approved origins are allowed by staging API CORS."
+    },
+    "api": {
+      "service": "srv-dbbjrp4s728c738mhsj0",
+      "deploy": "dep-dbd5nsafngtc73fnc71g",
+      "state": "live",
+      "source": "ac7d4bf3b2aa899a0d5dbd458c9445f03ca98dbb",
+      "healthMetadata": "Runtime commit verified after security patch; later redeploy uses identical audited source plus explicitly approved CORS additions"
+    }
+  },
+  "performance": {
+    "lighthouse": {
+      "before": {
+        "scope": "Production Next.js login, mock public config, Lighthouse default mobile throttling; no authenticated or field-INP claim",
+        "samples": [
+          {
+            "phase": "before",
+            "run": 0,
+            "url": "http://127.0.0.1:4176/login",
+            "lighthouse": "13.5.0",
+            "performance": 79,
+            "accessibility": 98,
+            "lcp": 3701.186,
+            "cls": 0,
+            "tbt": 422.4069999999999,
+            "fcp": 930.1859999999999,
+            "transferBytes": 353745,
+            "inp": null,
+            "scope": "Production Next.js login, mock public config, Lighthouse default mobile throttling; no authenticated or field-INP claim"
+          },
+          {
+            "phase": "before",
+            "run": 1,
+            "url": "http://127.0.0.1:4176/login",
+            "lighthouse": "13.5.0",
+            "performance": 81,
+            "accessibility": 98,
+            "lcp": 3581.5,
+            "cls": 0.009034112944179613,
+            "tbt": 388,
+            "fcp": 1391.25,
+            "transferBytes": 353745,
+            "inp": null,
+            "scope": "Production Next.js login, mock public config, Lighthouse default mobile throttling; no authenticated or field-INP claim"
+          },
+          {
+            "phase": "before",
+            "run": 2,
+            "url": "http://127.0.0.1:4176/login",
+            "lighthouse": "13.5.0",
+            "performance": 84,
+            "accessibility": 98,
+            "lcp": 3532.1028999999994,
+            "cls": 0.009034112944179613,
+            "tbt": 283,
+            "fcp": 1381.65435,
+            "transferBytes": 353745,
+            "inp": null,
+            "scope": "Production Next.js login, mock public config, Lighthouse default mobile throttling; no authenticated or field-INP claim"
+          }
+        ],
+        "median": {
+          "performance": 81,
+          "lcpMs": 3581.5,
+          "tbtMs": 388,
+          "cls": 0.009034112944179613,
+          "accessibility": 98,
+          "transferBytes": 353745
+        }
+      },
+      "after": {
+        "scope": "Production Next.js login, mock public config, Lighthouse default mobile throttling; no authenticated or field-INP claim",
+        "samples": [
+          {
+            "phase": "after",
+            "run": 0,
+            "url": "http://127.0.0.1:4176/login",
+            "lighthouse": "13.5.0",
+            "performance": 68,
+            "accessibility": 100,
+            "lcp": 3746.3639999999996,
+            "cls": 0.009493737181934886,
+            "tbt": 958,
+            "fcp": 1094.046,
+            "transferBytes": 220352,
+            "inp": null,
+            "scope": "Production Next.js login, mock public config, Lighthouse default mobile throttling; no authenticated or field-INP claim"
+          },
+          {
+            "phase": "after",
+            "run": 1,
+            "url": "http://127.0.0.1:4176/login",
+            "lighthouse": "13.5.0",
+            "performance": 92,
+            "accessibility": 100,
+            "lcp": 3127.793,
+            "cls": 0.009493737181934886,
+            "tbt": 129,
+            "fcp": 1078.1895,
+            "transferBytes": 220352,
+            "inp": null,
+            "scope": "Production Next.js login, mock public config, Lighthouse default mobile throttling; no authenticated or field-INP claim"
+          },
+          {
+            "phase": "after",
+            "run": 2,
+            "url": "http://127.0.0.1:4176/login",
+            "lighthouse": "13.5.0",
+            "performance": 90,
+            "accessibility": 100,
+            "lcp": 3251.001,
+            "cls": 0.009493737181934886,
+            "tbt": 200,
+            "fcp": 1086.0014999999999,
+            "transferBytes": 220352,
+            "inp": null,
+            "scope": "Production Next.js login, mock public config, Lighthouse default mobile throttling; no authenticated or field-INP claim"
+          }
+        ],
+        "median": {
+          "performance": 90,
+          "lcpMs": 3251.001,
+          "tbtMs": 200,
+          "cls": 0.009493737181934886,
+          "accessibility": 100,
+          "transferBytes": 220352
+        }
+      }
+    },
+    "sql": {
+      "scope": "SQLite harness using identical fictional graph and exact response equality, not hosted PostgreSQL timing",
+      "results": {
+        "before": {
+          "queryCount": 80,
+          "warmMedianWallMs": 200.081,
+          "warmMedianSqlMs": 107.266,
+          "payloadBytes": 7765,
+          "responseEqual": true
+        },
+        "after": {
+          "queryCount": 17,
+          "warmMedianWallMs": 57.585,
+          "warmMedianSqlMs": 23.671,
+          "payloadBytes": 7765,
+          "responseEqual": true
+        }
+      }
+    },
+    "build": {
+      "before": {
+        "method": "Unique JS from page plus all ancestor layouts; gzip per file.",
+        "routes": [
+          {
+            "route": "/(auth)/login/page",
+            "jsBytes": 808665,
+            "gzipBytes": 232443
+          },
+          {
+            "route": "/(dashboard)/capture/page",
+            "jsBytes": 813084,
+            "gzipBytes": 232692
+          },
+          {
+            "route": "/(dashboard)/assistant/page",
+            "jsBytes": 813261,
+            "gzipBytes": 232201
+          },
+          {
+            "route": "/(dashboard)/dashboard/page",
+            "jsBytes": 812255,
+            "gzipBytes": 231525
+          },
+          {
+            "route": "/(dashboard)/people/page",
+            "jsBytes": 818787,
+            "gzipBytes": 235208
+          },
+          {
+            "route": "/(dashboard)/work/page",
+            "jsBytes": 790529,
+            "gzipBytes": 224591
+          }
+        ]
+      },
+      "after": {
+        "method": "Unique JS from page plus all ancestor layouts; gzip per file.",
+        "routes": [
+          {
+            "route": "/(auth)/login/page",
+            "jsBytes": 533341,
+            "gzipBytes": 160372
+          },
+          {
+            "route": "/(dashboard)/assistant/page",
+            "jsBytes": 844202,
+            "gzipBytes": 246750
+          },
+          {
+            "route": "/(dashboard)/dashboard/page",
+            "jsBytes": 848236,
+            "gzipBytes": 246366
+          },
+          {
+            "route": "/(dashboard)/capture/page",
+            "jsBytes": 849851,
+            "gzipBytes": 248412
+          },
+          {
+            "route": "/(dashboard)/people/page",
+            "jsBytes": 849275,
+            "gzipBytes": 248298
+          },
+          {
+            "route": "/(dashboard)/work/page",
+            "jsBytes": 838870,
+            "gzipBytes": 244763
+          }
+        ]
+      }
+    },
+    "messageRenders": {
+      "before": [
+        {
+          "phase": "before",
+          "run": 0,
+          "historyMessages": 60,
+          "scope": "Development React Profiler, actual components, fictional history, 29 typed characters; not production CPU or INP.",
+          "commits": 60,
+          "renderMs": 91.99999999534339,
+          "messageRenderCalls": 3600
+        },
+        {
+          "phase": "before",
+          "run": 1,
+          "historyMessages": 60,
+          "scope": "Development React Profiler, actual components, fictional history, 29 typed characters; not production CPU or INP.",
+          "commits": 59,
+          "renderMs": 83.30000000167638,
+          "messageRenderCalls": 3540
+        },
+        {
+          "phase": "before",
+          "run": 2,
+          "historyMessages": 60,
+          "scope": "Development React Profiler, actual components, fictional history, 29 typed characters; not production CPU or INP.",
+          "commits": 52,
+          "renderMs": 82.39999999850988,
+          "messageRenderCalls": 3120
+        }
+      ],
+      "after": [
+        {
+          "phase": "after",
+          "run": 0,
+          "historyMessages": 60,
+          "scope": "Development React Profiler, actual components, fictional history, 29 typed characters; not production CPU or INP.",
+          "commits": 31,
+          "renderMs": 38.79999999795109,
+          "messageRenderCalls": 0
+        },
+        {
+          "phase": "after",
+          "run": 1,
+          "historyMessages": 60,
+          "scope": "Development React Profiler, actual components, fictional history, 29 typed characters; not production CPU or INP.",
+          "commits": 31,
+          "renderMs": 27.99999999627471,
+          "messageRenderCalls": 0
+        },
+        {
+          "phase": "after",
+          "run": 2,
+          "historyMessages": 60,
+          "scope": "Development React Profiler, actual components, fictional history, 29 typed characters; not production CPU or INP.",
+          "commits": 31,
+          "renderMs": 29,
+          "messageRenderCalls": 0
+        }
+      ]
+    },
+    "publicApi": {
+      "before": [
+        {
+          "route": "/health",
+          "sample": 0,
+          "timestamp": "2026-10-22T13:57:21.574Z",
+          "error": "TimeoutError",
+          "ms": 25022
+        },
+        {
+          "phase": "before-backend-deploy",
+          "route": "/health",
+          "sample": 1,
+          "timestamp": "2026-10-22T13:57:40.927Z",
+          "label": "subsequent_warm_candidate",
+          "status": 200,
+          "ms": 19339,
+          "bytes": 166,
+          "cacheControl": null,
+          "releaseSha": "060a12a414c09eb7fea501122a2baad132c54cab"
+        },
+        {
+          "route": "/health",
+          "sample": 2,
+          "timestamp": "2026-10-22T13:57:51.539Z",
+          "error": "TypeError",
+          "causeCode": "UND_ERR_CONNECT_TIMEOUT",
+          "ms": 10608
+        },
+        {
+          "route": "/health",
+          "sample": 3,
+          "timestamp": "2026-10-22T13:58:02.161Z",
+          "error": "TypeError",
+          "causeCode": "UND_ERR_CONNECT_TIMEOUT",
+          "ms": 10620
+        },
+        {
+          "route": "/health",
+          "sample": 4,
+          "timestamp": "2026-10-22T13:58:12.764Z",
+          "error": "TypeError",
+          "causeCode": "UND_ERR_CONNECT_TIMEOUT",
+          "ms": 10597
+        },
+        {
+          "route": "/health/ready",
+          "sample": 0,
+          "timestamp": "2026-10-22T13:58:23.434Z",
+          "error": "TypeError",
+          "causeCode": "UND_ERR_CONNECT_TIMEOUT",
+          "ms": 10668
+        },
+        {
+          "phase": "before-backend-deploy",
+          "route": "/health/ready",
+          "sample": 1,
+          "timestamp": "2026-10-22T13:58:24.262Z",
+          "label": "subsequent_warm_candidate",
+          "status": 200,
+          "ms": 825,
+          "bytes": 41,
+          "cacheControl": null
+        },
+        {
+          "phase": "before-backend-deploy",
+          "route": "/health/ready",
+          "sample": 2,
+          "timestamp": "2026-10-22T13:58:24.408Z",
+          "label": "subsequent_warm_candidate",
+          "status": 200,
+          "ms": 144,
+          "bytes": 41,
+          "cacheControl": null
+        },
+        {
+          "phase": "before-backend-deploy",
+          "route": "/health/ready",
+          "sample": 3,
+          "timestamp": "2026-10-22T13:58:24.554Z",
+          "label": "subsequent_warm_candidate",
+          "status": 200,
+          "ms": 144,
+          "bytes": 41,
+          "cacheControl": null
+        },
+        {
+          "phase": "before-backend-deploy",
+          "route": "/health/ready",
+          "sample": 4,
+          "timestamp": "2026-10-22T13:58:24.672Z",
+          "label": "subsequent_warm_candidate",
+          "status": 200,
+          "ms": 117,
+          "bytes": 41,
+          "cacheControl": null
+        }
+      ],
+      "after": [
+        {
+          "phase": "after-backend-deploy",
+          "route": "/health",
+          "sample": 0,
+          "timestamp": "2026-10-22T17:48:06.035Z",
+          "label": "first_observed_not_proven_cold",
+          "status": 200,
+          "ms": 535,
+          "bytes": 166,
+          "cacheControl": null,
+          "releaseSha": "060a12a414c09eb7fea501122a2baad132c54cab"
+        },
+        {
+          "phase": "after-backend-deploy",
+          "route": "/health",
+          "sample": 1,
+          "timestamp": "2026-10-22T17:48:06.150Z",
+          "label": "subsequent_warm_candidate",
+          "status": 200,
+          "ms": 93,
+          "bytes": 166,
+          "cacheControl": null,
+          "releaseSha": "060a12a414c09eb7fea501122a2baad132c54cab"
+        },
+        {
+          "phase": "after-backend-deploy",
+          "route": "/health",
+          "sample": 2,
+          "timestamp": "2026-10-22T17:48:06.262Z",
+          "label": "subsequent_warm_candidate",
+          "status": 200,
+          "ms": 110,
+          "bytes": 166,
+          "cacheControl": null,
+          "releaseSha": "060a12a414c09eb7fea501122a2baad132c54cab"
+        },
+        {
+          "phase": "after-backend-deploy",
+          "route": "/health",
+          "sample": 3,
+          "timestamp": "2026-10-22T17:48:06.351Z",
+          "label": "subsequent_warm_candidate",
+          "status": 200,
+          "ms": 88,
+          "bytes": 166,
+          "cacheControl": null,
+          "releaseSha": "060a12a414c09eb7fea501122a2baad132c54cab"
+        },
+        {
+          "phase": "after-backend-deploy",
+          "route": "/health",
+          "sample": 4,
+          "timestamp": "2026-10-22T17:48:06.445Z",
+          "label": "subsequent_warm_candidate",
+          "status": 200,
+          "ms": 93,
+          "bytes": 166,
+          "cacheControl": null,
+          "releaseSha": "060a12a414c09eb7fea501122a2baad132c54cab"
+        },
+        {
+          "phase": "after-backend-deploy",
+          "route": "/health/ready",
+          "sample": 0,
+          "timestamp": "2026-10-22T17:48:06.693Z",
+          "label": "first_observed_not_proven_cold",
+          "status": 200,
+          "ms": 247,
+          "bytes": 41,
+          "cacheControl": null
+        },
+        {
+          "phase": "after-backend-deploy",
+          "route": "/health/ready",
+          "sample": 1,
+          "timestamp": "2026-10-22T17:48:06.797Z",
+          "label": "subsequent_warm_candidate",
+          "status": 200,
+          "ms": 102,
+          "bytes": 41,
+          "cacheControl": null
+        },
+        {
+          "phase": "after-backend-deploy",
+          "route": "/health/ready",
+          "sample": 2,
+          "timestamp": "2026-10-22T17:48:06.914Z",
+          "label": "subsequent_warm_candidate",
+          "status": 200,
+          "ms": 115,
+          "bytes": 41,
+          "cacheControl": null
+        },
+        {
+          "phase": "after-backend-deploy",
+          "route": "/health/ready",
+          "sample": 3,
+          "timestamp": "2026-10-22T17:48:07.027Z",
+          "label": "subsequent_warm_candidate",
+          "status": 200,
+          "ms": 111,
+          "bytes": 41,
+          "cacheControl": null
+        },
+        {
+          "phase": "after-backend-deploy",
+          "route": "/health/ready",
+          "sample": 4,
+          "timestamp": "2026-10-22T17:48:07.132Z",
+          "label": "subsequent_warm_candidate",
+          "status": 200,
+          "ms": 98,
+          "bytes": 41,
+          "cacheControl": null
+        }
+      ]
+    },
+    "authenticatedStaging": {
+      "scope": "Real staging HTTP with two disposable synthetic accounts; no customer data",
+      "measurements": [
+        {
+          "route": "/relationships/home",
+          "method": "GET",
+          "status": 200,
+          "ms": 1053,
+          "bytes": 721,
+          "cacheControl": "private, no-store",
+          "serverTiming": null
+        },
+        {
+          "route": "/relationships/home",
+          "method": "GET",
+          "status": 200,
+          "ms": 209,
+          "bytes": 721,
+          "cacheControl": "private, no-store",
+          "serverTiming": null
+        },
+        {
+          "route": "/relationships/home",
+          "method": "GET",
+          "status": 200,
+          "ms": 213,
+          "bytes": 721,
+          "cacheControl": "private, no-store",
+          "serverTiming": null
+        },
+        {
+          "route": "/relationships/home",
+          "method": "GET",
+          "status": 200,
+          "ms": 201,
+          "bytes": 721,
+          "cacheControl": "private, no-store",
+          "serverTiming": null
+        },
+        {
+          "route": "/relationships/home",
+          "method": "GET",
+          "status": 200,
+          "ms": 195,
+          "bytes": 721,
+          "cacheControl": "private, no-store",
+          "serverTiming": null
+        },
+        {
+          "route": "/people",
+          "method": "POST",
+          "status": 201,
+          "ms": 215,
+          "bytes": 523,
+          "cacheControl": "private, no-store",
+          "serverTiming": null
+        },
+        {
+          "route": "/people/:synthetic-id",
+          "method": "GET",
+          "status": 200,
+          "ms": 167,
+          "bytes": 523,
+          "cacheControl": "private, no-store",
+          "serverTiming": null
+        },
+        {
+          "route": "/people/:synthetic-id",
+          "method": "GET",
+          "status": 404,
+          "ms": 142,
+          "bytes": 144,
+          "cacheControl": "private, no-store",
+          "serverTiming": null
+        },
+        {
+          "route": "/people/:synthetic-id",
+          "method": "DELETE",
+          "status": 204,
+          "ms": 549,
+          "bytes": 0,
+          "cacheControl": "private, no-store",
+          "serverTiming": null
+        }
+      ],
+      "checks": [
+        {
+          "name": "Dashboard audit write and private no-store responses",
+          "status": "PASS"
+        },
+        {
+          "name": "Person persists and second account cannot read it",
+          "status": "PASS"
+        },
+        {
+          "name": "Synthetic person cleanup",
+          "status": "PASS"
+        }
+      ],
+      "status": "PASS"
+    }
+  },
+  "cors": {
+    "status": "PASS",
+    "approvedByUser": true,
+    "rows": [
+      {
+        "origin": "https://second-brain-web-staging-git-co-699a83-thenadish-4808s-projects.vercel.app",
+        "expectedAllowed": true,
+        "status": 200,
+        "allowOrigin": "https://second-brain-web-staging-git-co-699a83-thenadish-4808s-projects.vercel.app",
+        "credentials": "true"
+      },
+      {
+        "origin": "https://second-brain-web-staging-e0g5izzai-thenadish-4808s-projects.vercel.app",
+        "expectedAllowed": true,
+        "status": 200,
+        "allowOrigin": "https://second-brain-web-staging-e0g5izzai-thenadish-4808s-projects.vercel.app",
+        "credentials": "true"
+      },
+      {
+        "origin": "https://untrusted.example.invalid",
+        "expectedAllowed": false,
+        "status": 400,
+        "allowOrigin": null,
+        "credentials": "true"
+      }
+    ]
+  },
+  "cleanup": {
+    "status": "PASS",
+    "archivedFailedTestContacts": 3,
+    "scope": "Only Synthetic বাংলা prefix owned by dedicated disposable account A; no customer data; capture/source proof retained"
+  },
+  "blocked": [
+    "Physical iPhone/Android, real software keyboards, VoiceOver/TalkBack and human five-task test",
+    "Field INP, proven process-cold authenticated latency and representative populated RLS query plans",
+    "Actual Gemini delivery, OCR/upload and all secondary settings/meeting workflows have not passed a complete mobile acceptance matrix"
+  ],
+  "security": {
+    "productionChanged": false,
+    "hostedSchemaMigration": false,
+    "sharedPrivateCache": false,
+    "newInfrastructure": false,
+    "credentials": "Ignored local E2E file only; never in this report",
+    "data": "Only synthetic staging accounts and fictional test records; account A contact was inaccessible to account B and cleaned up"
+  },
+  "latest": {
+    "source": "734ed7ac7aaa51059e161257fd4667994e0e1399",
+    "ci": {
+      "securityQuality": {
+        "status": "PASS",
+        "url": "https://github.com/t4j44/mysecondbrain/actions/runs/39833678992",
+        "backendTests": 477,
+        "frontendTests": 74,
+        "mobilePassed": 308,
+        "mobileFailed": 0,
+        "mobileIntentionalSkips": 16,
+        "meetingViewportScenarios": 3,
+        "bothDependencyAudits": "No known vulnerabilities found",
+        "typecheckLintBuild": "PASS"
+      },
+      "postgres": {
+        "status": "PASS",
+        "url": "https://github.com/t4j44/mysecondbrain/actions/runs/39833688981",
+        "integrationTests": 67,
+        "upgradeRestoreDocker": "PASS"
+      }
+    },
+    "preview": {
+      "state": "READY",
+      "deploymentId": "dpl_G8jp1Q3K9yMTrVz4JRHR9LccCUZY",
+      "protected": true,
+      "url": "https://second-brain-web-staging-git-co-699a83-thenadish-4808s-projects.vercel.app"
+    },
+    "stagingBackend": {
+      "state": "live",
+      "deploymentId": "dep-dbd5nsafngtc73fnc71g",
+      "source": "ac7d4bf3b2aa899a0d5dbd458c9445f03ca98dbb",
+      "approvedConfigChange": "Only the two user-approved protected preview origins appended to both existing exact CORS lists; existing origins preserved"
+    },
+    "protectedBrowser": {
+      "status": "PASS",
+      "scope": "Authenticated Chrome with disposable staging account; Home real records; Ask at 390x844 retrieved the fictional test capture with six source links; first link opened the matching private user-confirmed outcome; document scroll width equaled viewport width 390px",
+      "physicalDevice": false,
+      "verifiedHomeWidths": [
+        320,
+        390,
+        430,
+        768,
+        1024
+      ]
+    },
+    "limits": [
+      "Full production release acceptance is not claimed",
+      "Physical phones, assistive technology, human usability, real provider/media delivery and representative field performance remain separate gates"
+    ]
+  }
+}

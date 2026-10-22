@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, Field, model_validator
 from sqlalchemy import func, or_, select
+from sqlalchemy.orm import lazyload
 
 from app.ai.indexing import SOURCES, owned_record
 from app.ai.message_draft import (
@@ -23,6 +24,7 @@ from app.models.crm import Relationship
 from app.models.entities import (
     AuditLog,
     Commitment,
+    ContextEvent,
     EmailContact,
     EntityEdge,
     Interaction,
@@ -86,7 +88,9 @@ class RelationshipService:
         self.db, self.owner = db, str(owner)
 
     async def rows(self, model, *clauses, limit=100, order=None):
-        statement = select(model).where(*active(model, self.owner), *clauses)
+        # These previews use scalar columns and explicitly owner-scoped queries.
+        # Do not implicitly preload entire participant/capture relationships.
+        statement = select(model).options(lazyload('*')).where(*active(model, self.owner), *clauses)
         if order is not None:
             statement = statement.order_by(order)
         return (await self.db.execute(statement.limit(limit))).scalars().all()
@@ -248,36 +252,24 @@ class RelationshipService:
         people = await self.rows(Person, Person.id.in_(people_ids), limit=100)
         names = {str(p.id): p.name for p in people}
         projects = await self.rows(Project, Project.status.in_(['active', 'planned']), limit=6, order=Project.updated_at.desc())
-        work = []
-        for project in projects:
-            connections = await self.rows(Interaction, Interaction.project_id == project.id, Interaction.person_id.is_not(None), limit=30, order=Interaction.date.desc())
-            # Resolve project contacts in one owner-scoped query rather than
-            # issuing a SELECT for every interaction (N+1 database queries).
-            connection_ids = {str(row.person_id) for row in connections}
-            connection_people = await self.rows(
-                Person, Person.id.in_(connection_ids), limit=30,
-            ) if connection_ids else []
-            people_by_id = {str(person.id): person for person in connection_people}
-            linked = []
-            seen = set()
-            for row in connections:
-                person = people_by_id.get(str(row.person_id))
-                if person is None or str(person.id) in seen:
-                    continue
-                seen.add(str(person.id))
-                linked.append({'person_id': str(person.id), 'name': person.name, 'reason': row.summary or row.title, 'evidence': source(row, 'interaction')})
-            for person in await self.people_for_record('project', project.id):
-                if person['id'] not in seen:
-                    seen.add(person['id'])
-                    linked.append({'person_id': person['id'], 'name': person['title'], 'reason': person['reason'], 'evidence': source(project, 'project')})
-            work.append({**source(project, 'project'), 'people': linked[:5]})
+        connections = await self._home_project_connections(projects)
+        work = [{**source(project, 'project'), 'people': connections[str(project.id)][:5]} for project in projects]
         meetings = await self.rows(Meeting, Meeting.start_time >= datetime.now(timezone.utc), Meeting.status != 'cancelled', limit=6, order=Meeting.start_time.asc())
-        upcoming = []
-        for meeting in meetings:
-            ids = (await self.db.execute(select(MeetingParticipant.person_id).where(MeetingParticipant.user_id == self.owner,
-                MeetingParticipant.meeting_id == meeting.id))).scalars().all()
-            participants = await self.rows(Person, Person.id.in_(ids), limit=20)
-            upcoming.append({**source(meeting, 'meeting'), 'date': meeting.start_time, 'people': [source(p, 'person') for p in participants]})
+        participants: dict[str, list[dict]] = {str(meeting.id): [] for meeting in meetings}
+        if meetings:
+            ranked_participants = select(MeetingParticipant.id, func.row_number().over(
+                partition_by=MeetingParticipant.meeting_id, order_by=(Person.name, Person.id)).label('position'))\
+                .join(Person, Person.id == MeetingParticipant.person_id).where(
+                    MeetingParticipant.user_id == self.owner, *active(Person, self.owner),
+                    MeetingParticipant.meeting_id.in_([meeting.id for meeting in meetings])).subquery()
+            rows = (await self.db.execute(select(MeetingParticipant.meeting_id, Person)
+                .join(ranked_participants, ranked_participants.c.id == MeetingParticipant.id)
+                .join(Person, Person.id == MeetingParticipant.person_id).where(ranked_participants.c.position <= 20)
+                .order_by(Person.name, Person.id))).all()
+            for meeting_id, person in rows:
+                if len(participants[str(meeting_id)]) < 20:
+                    participants[str(meeting_id)].append(source(person, 'person'))
+        upcoming = [{**source(meeting, 'meeting'), 'date': meeting.start_time, 'people': participants[str(meeting.id)]} for meeting in meetings]
         return {'followups': followups, 'meetings': upcoming, 'projects': work,
             'recent_activity': [{**source(row, 'interaction'), 'date': row.date, 'summary': row.summary,
                 'person_id': str(row.person_id), 'name': names[str(row.person_id)]} for row in recent if str(row.person_id) in names],
@@ -285,6 +277,58 @@ class RelationshipService:
                 'evidence': source(row, 'interaction'), 'basis': 'Recorded offer or opportunity; verify whether it is still available.'}
                 for row in recent if str(row.person_id) in names and any(word in (row.summary or '').casefold() for word in ('introduc', 'offered', 'opportunity'))],
             'limits': 'Up to 50 follow-ups from 500 contacts, 6 active projects and meetings, 12 recent interactions.'}
+
+    async def _home_project_connections(self, projects):
+        """Batch the home preview without weakening deleted-source/owner checks.
+
+        Window limits apply per project, so one busy project cannot crowd out
+        the other five. Query count does not grow with contacts or projects.
+        """
+        result: dict[str, list[dict]] = {str(project.id): [] for project in projects}
+        if not projects:
+            return result
+        identities = [project.id for project in projects]
+        by_id = {str(project.id): project for project in projects}
+        seen: dict[str, set[str]] = {str(project.id): set() for project in projects}
+        ranked = select(Interaction.id, func.row_number().over(partition_by=Interaction.project_id,
+            order_by=(Interaction.date.desc(), Interaction.id)).label('position')).where(
+                *active(Interaction, self.owner), Interaction.project_id.in_(identities), Interaction.person_id.is_not(None)).subquery()
+        rows = (await self.db.execute(select(Interaction, Person).options(lazyload('*')).join(ranked, ranked.c.id == Interaction.id)
+            .join(Person, Person.id == Interaction.person_id).where(ranked.c.position <= 30, *active(Person, self.owner))
+            .order_by(Interaction.date.desc(), Interaction.id))).all()
+        for interaction, person in rows:
+            project_id, person_id = str(interaction.project_id), str(person.id)
+            if person_id not in seen[project_id]:
+                seen[project_id].add(person_id)
+                result[project_id].append({'person_id': person_id, 'name': person.name,
+                    'reason': interaction.summary or interaction.title, 'evidence': source(interaction, 'interaction')})
+        ranked_edges = select(EntityEdge.id, func.row_number().over(partition_by=EntityEdge.target_entity_id,
+            order_by=(EntityEdge.created_at.desc(), EntityEdge.id)).label('position')).where(
+                EntityEdge.user_id == self.owner, EntityEdge.valid_to.is_(None),
+                EntityEdge.source_entity_type == 'person', EntityEdge.target_entity_type == 'project',
+                EntityEdge.target_entity_id.in_(identities)).subquery()
+        edges = (await self.db.execute(select(EntityEdge, Person).join(ranked_edges, ranked_edges.c.id == EntityEdge.id)
+            .join(Person, Person.id == EntityEdge.source_entity_id).where(ranked_edges.c.position <= 100,
+                *active(Person, self.owner)).order_by(EntityEdge.created_at.desc(), EntityEdge.id))).all()
+        event_ids = {edge.source_event_id for edge, _ in edges if edge.source_event_id}
+        evidence_ids = {(edge.metadata_payload or {}).get('interaction_id') for edge, _ in edges} - {None}
+        events = set((await self.db.execute(select(ContextEvent.id).where(*active(ContextEvent, self.owner),
+            ContextEvent.id.in_(event_ids)))).scalars().all()) if event_ids else set()
+        evidence = {str(value) for value in (await self.db.execute(select(Interaction.id).where(*active(Interaction, self.owner),
+            Interaction.id.in_(evidence_ids)))).scalars().all()} if evidence_ids else set()
+        for edge, person in edges:
+            if edge.source_event_id and edge.source_event_id not in events:
+                continue
+            interaction_id = (edge.metadata_payload or {}).get('interaction_id')
+            if interaction_id and str(interaction_id) not in evidence:
+                continue
+            project_id, person_id = str(edge.target_entity_id), str(person.id)
+            if person_id not in seen[project_id]:
+                seen[project_id].add(person_id)
+                result[project_id].append({'person_id': person_id, 'name': person.name,
+                    'reason': (edge.metadata_payload or {}).get('reason') or 'Linked through confirmed relationship context.',
+                    'evidence': source(by_id[project_id], 'project')})
+        return result
 
     async def followups(self, person_id=None, limit=50):
         people = await self.rows(Person, *([Person.id == str(person_id)] if person_id else []), limit=500, order=Person.name.asc())

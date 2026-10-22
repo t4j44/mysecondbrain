@@ -7,6 +7,7 @@ import { api } from '@/lib/api/browser-client';
 import { VoiceInputButton } from '@/components/chat/voice-input-button';
 import { PhotoTextInput } from '@/components/capture/photo-text-input';
 import type { CapturePhoto } from '@/lib/capture-photo';
+import { createClient } from '@/lib/supabase/client';
 
 type Proposal = {
   person_name: string | null; organization_name: string | null; project_name: string | null;
@@ -20,10 +21,36 @@ type Draft = { draft_id: string; proposal: Proposal; mode: string };
 
 export default function CapturePage() {
   const [text, setText] = useState('');
-  const { people } = usePeople();
   const [personId, setPersonId] = useState('');
   const [source, setSource] = useState<'manual' | 'voice' | 'image_text'>('manual');
   const [draft, setDraft] = useState<Draft | null>(null);
+  const { people } = usePeople({ enabled: Boolean(draft) });
+  const [draftKey, setDraftKey] = useState<string | null>(null);
+  const [draftNotice, setDraftNotice] = useState('');
+  useEffect(() => {
+    let active = true;
+    void createClient().auth.getSession().then(({data:{session}}) => {
+      if (!active) return;
+      if (!session?.user.id) { setDraftNotice('Draft recovery is unavailable. Keep this tab open until you save.'); return; }
+      const key = `second-brain:capture:${session.user.id}`;
+      try { const savedText = sessionStorage.getItem(key); if (savedText) setText(previous => previous || savedText.slice(0,16000)); setDraftKey(key); }
+      catch { setDraftNotice('Draft recovery is unavailable in this browser. Keep this tab open until you save.'); }
+    }).catch(() => { if (active) setDraftNotice('Draft recovery is unavailable. Keep this tab open until you save.'); });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    if (!draftKey) return;
+    try { if (text) sessionStorage.setItem(draftKey,text); else sessionStorage.removeItem(draftKey); }
+    catch { setDraftNotice('Draft recovery is unavailable. Keep this tab open until you save.'); }
+  }, [draftKey,text]);
+  function updateText(value: string) {
+    // Save in the input event: a fast reload must not outrun a React effect.
+    if (draftKey) {
+      try { if (value) sessionStorage.setItem(draftKey,value); else sessionStorage.removeItem(draftKey); }
+      catch { setDraftNotice('Draft recovery is unavailable. Keep this tab open until you save.'); }
+    }
+    setText(value);
+  }
   const [busy, setBusy] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -49,22 +76,24 @@ export default function CapturePage() {
     } finally { setBusy(false); }
   }
   return <div className="mx-auto max-w-2xl space-y-6">
-    <div><h1 className="text-3xl font-semibold">Capture context</h1>
-      <p className="mt-2 text-muted-foreground">Save a conversation, meeting note, or something you promised. Review the connections before saving.</p></div>
+    <div><h1 className="text-2xl sm:text-3xl font-semibold">Capture</h1>
+      <p className="mt-2 text-base text-muted-foreground">What do you want to remember? Review the details before saving.</p></div>
+    {!draftKey && !draftNotice && <p role="status" className="text-sm text-muted-foreground">Preparing private draft recovery…</p>}
     <label className="block space-y-2"><span>What happened?</span>
-      <textarea aria-label="Capture text" rows={7} value={text} maxLength={16000}
-        onChange={event => { setText(event.target.value); setDraft(null); setPersonId(''); }}
+      <textarea aria-label="Capture text" rows={5} value={text} maxLength={16000} disabled={!draftKey && !draftNotice}
+        onChange={event => { updateText(event.target.value); setDraft(null); setPersonId(''); }}
         className="w-full rounded-lg border bg-background p-3" placeholder="Met Ahmed at an event. We discussed fundraising and I promised to send a deck." /></label>
     <div className="flex flex-wrap items-center gap-3">
-      <VoiceInputButton value={text} onChange={value => { setText(value); setDraft(null); setSource('voice'); }} disabled={busy} />
+      <VoiceInputButton value={text} onChange={value => { updateText(value); setDraft(null); setSource('voice'); }} disabled={busy || (!draftKey && !draftNotice)} />
       <button disabled={busy || photoBusy || !text.trim()} onClick={() => run(async () => {
         const proposed = await api.post<Draft>('/capture/propose', { text, source, timezone: zone }, { timeoutMs: 45000 });
         setDraft(proposed);
         setOccurredAt(localDateTime(proposed.proposal.when_met || new Date().toISOString()));
       })} className="min-h-11 rounded-lg bg-primary px-5 text-primary-foreground disabled:opacity-50">{busy ? 'Working…' : 'Review capture'}</button>
-      <Link href="/documents" className="underline">Upload a document</Link>
+      <Link href="/documents" className="inline-flex min-h-11 items-center underline">Upload a document</Link>
     </div>
-    <PhotoTextInput onBusy={setPhotoBusy} disabled={busy || photos.length >= 2} onPhoto={photo => { setPhotos(previous => [...previous, photo]); setSource('image_text'); }} onText={value => { setText(previous => [previous, value].filter(Boolean).join('\n\n').slice(0, 16000)); setDraft(null); setSource('image_text'); }} />
+    <details className="rounded-xl border px-3"><summary className="flex min-h-11 cursor-pointer items-center">Add a photo or business card</summary><div className="pb-3"><PhotoTextInput onBusy={setPhotoBusy} disabled={busy || photos.length >= 2} onPhoto={photo => { setPhotos(previous => [...previous, photo]); setSource('image_text'); }} onText={value => { setText(previous => [previous, value].filter(Boolean).join('\n\n').slice(0, 16000)); setDraft(null); setSource('image_text'); }} /></div></details>
+    {draftNotice&&<p role="status" className="text-sm text-muted-foreground">{draftNotice}</p>}
     {!!photos.length && <div className="flex flex-wrap gap-4">{photos.map(photo => <figure className="max-w-full space-y-2" key={photo.requestId}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={photo.preview} alt={photo.kind === 'business_card' ? 'Business card preview' : 'Moment preview'} className="max-h-40 max-w-full rounded-lg" />
@@ -128,7 +157,7 @@ export default function CapturePage() {
             event_type: photos.some(p => p.kind === 'business_card') ? 'business_card_scan' : photos.length ? 'moment' : 'manual_capture' });
           setRecords(result.records);
           photos.forEach(photo => URL.revokeObjectURL(photo.preview)); uploads.current.clear(); setPhotos([]); setCreateNew(false);
-          setText(''); setDraft(null); setPersonId(''); setSource('manual'); setSaved(true); setMessage('Saved. Your context and confirmed connections are ready. Search indexing runs separately.');
+          updateText(''); setDraft(null); setPersonId(''); setSource('manual'); setSaved(true); setMessage('Saved. Your context and confirmed connections are ready. Search indexing runs separately.');
         })}>Confirm and save</button>
     </section>}
     {message && <p role={saved ? 'status' : 'alert'} className="rounded border p-3">{message}</p>}

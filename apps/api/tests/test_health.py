@@ -41,3 +41,16 @@ async def test_health_exposes_only_valid_release_sha(async_client, monkeypatch, 
     assert response.json()['release_sha'] == expected
     if expected is None:
         assert configured not in response.text
+
+
+@pytest.mark.parametrize('runtime_sha', ['b' * 40, None])
+def test_release_metadata_prefers_runtime_commit_over_pinned_label(monkeypatch, runtime_sha):
+    from app.config import Settings
+
+    monkeypatch.setenv('RELEASE_SHA', 'a' * 40)
+    if runtime_sha:
+        monkeypatch.setenv('RENDER_GIT_COMMIT', runtime_sha)
+    else:
+        monkeypatch.delenv('RENDER_GIT_COMMIT', raising=False)
+    configuration = Settings(_env_file=None)
+    assert configuration.verified_release_sha == (runtime_sha or 'a' * 40)

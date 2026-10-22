@@ -56,7 +56,7 @@ export default function PersonDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#12081d] text-[#f7f4ea] font-mono p-8 flex items-center justify-center">
+      <div className="flex min-h-24 items-center justify-center text-foreground">
         <p className="animate-pulse">Loading contact...</p>
       </div>
     );
@@ -64,8 +64,8 @@ export default function PersonDetailPage() {
 
   if (error || !person) {
     return (
-      <div className="min-h-screen bg-[#12081d] text-[#f7f4ea] p-8">
-        <Link href="/people" className="font-mono text-xs text-[#00ff9d] hover:underline mb-6 inline-flex items-center gap-1">
+      <div className="mx-auto max-w-5xl">
+        <Link href="/people" className="mb-4 inline-flex min-h-11 items-center gap-2 text-sm text-primary underline">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to directory
         </Link>
         <ErrorState title="Contact not found" message={error ?? 'Record unavailable'} onRetry={fetchPerson} />
@@ -74,19 +74,19 @@ export default function PersonDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#12081d] text-[#f7f4ea] font-sans p-4 sm:p-6">
-      <Link href="/people" className="font-mono text-xs text-[#00ff9d] hover:underline mb-6 inline-flex items-center gap-1">
+    <div className="mx-auto min-w-0 max-w-5xl text-foreground">
+      <Link href="/people" className="mb-4 inline-flex min-h-11 items-center gap-2 text-sm text-primary underline">
         <ArrowLeft className="h-3.5 w-3.5" /> Back to directory
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 max-w-5xl mx-auto">
         <section className="lg:col-span-1 space-y-4">
-          <div className="border border-[#301642] bg-[#0a0510] p-6 rounded-xl">
+          <div className="min-w-0 rounded-xl border bg-card p-4">
             <div className="w-16 h-16 bg-[#301642] text-[#00ff9d] border border-[#482264] font-mono text-2xl flex items-center justify-center font-extrabold uppercase mb-4 rounded-lg">
               {person.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
             </div>
 
-            <h1 className="text-2xl font-mono font-extrabold mb-1">{person.name}</h1>
+            <h1 className="mb-1 text-2xl font-semibold [overflow-wrap:anywhere]">{person.name}</h1>
             <p className="text-sm text-slate-300 mb-4">
               {person.role || 'Contact'}
               {person.company ? (

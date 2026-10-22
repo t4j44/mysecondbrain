@@ -14,6 +14,6 @@ setup('authenticate primary operator', async ({ page }) => {
 
   fs.mkdirSync(path.dirname(AUTH_STATE_PATH), { recursive: true });
   await loginViaUi(page, user);
-  await expect(page.getByRole('button', { name: 'User account options' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Account options' })).toBeVisible();
   await page.context().storageState({ path: AUTH_STATE_PATH });
 });
