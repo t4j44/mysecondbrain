@@ -38,6 +38,7 @@ export default function PrivacyPage() {
   return <div className="mx-auto max-w-2xl space-y-6"><h1 className="text-3xl font-semibold">Privacy &amp; Data</h1>
     <section className="rounded-xl border p-4 space-y-3"><h2 className="text-xl">AI data mode: {mode}</h2>
       <p>Free mode minimizes identifying text before sending relevant excerpts to Gemini. Redaction can miss details. Do not submit highly sensitive or confidential information.</p>
+      <p className="text-sm text-muted-foreground">Early beta: Google Gemini processes selected text when AI features are used. Free-tier processing may be subject to the provider’s data-use policies. Connected AI assistants follow their own policies. Avoid uploading sensitive information during the pilot.</p>
       <div className="flex flex-wrap gap-4"><Link className="underline" href="/settings/integrations">Connected integrations</Link><Link className="underline" href="/portfolio">Public portfolio links</Link></div>
     </section>
     <section className="rounded-xl border p-4 space-y-3"><h2 className="text-xl">Export your records</h2><p>Download portable JSON, CSV and Markdown, including archived records. Credentials are excluded. This archive does not contain original uploaded files.</p><button disabled={busy || closing} onClick={download} className="min-h-11 rounded border px-4">Download account export</button></section>
