@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { TopBar } from './top-bar';
 import { MobileBottomBar } from './mobile-bottom-bar';
-import { BetaNotice } from '../shared/beta-notice';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -56,7 +55,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main Content Workspace Column */}
       <div className="flex flex-1 flex-col min-w-0">
         <TopBar onOpenQuickCapture={() => router.push('/capture')} />
-        <BetaNotice />
         <main
           id="main-content"
           className="flex-1 overflow-x-hidden p-3 sm:p-5 md:p-6 pb-24 md:pb-8"
