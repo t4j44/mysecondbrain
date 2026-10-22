@@ -86,22 +86,22 @@ export function CommandMenu() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex items-center justify-between rounded-md border border-border bg-[#0e0716] px-3 py-1.5 text-xs font-mono text-muted-foreground hover:border-[#00ff9d] hover:text-[#f7f4ea] transition-all duration-200 w-64 md:w-80 shadow-inner"
+        className="sb-interactive inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-[#0e0716] p-2 text-xs font-mono text-muted-foreground hover:border-[#00ff9d] hover:text-[#f7f4ea] sm:h-10 sm:w-44 sm:justify-between sm:px-3 md:w-56 lg:w-64"
         aria-label="Open command menu"
       >
         <span className="inline-flex items-center">
-          <Terminal className="mr-2 h-3.5 w-3.5 text-[#00ff9d]" />
-          <span>Find a page...</span>
+          <Search className="h-4 w-4 shrink-0 text-[#00ff9d] sm:mr-2" />
+          <span className="hidden truncate sm:inline">Find a page...</span>
         </span>
-        <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-[#1d0e2e] px-1.5 text-[10px] font-mono font-medium opacity-100">
+        <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border border-border bg-[#1d0e2e] px-1.5 text-[10px] font-mono font-medium opacity-100 sm:inline-flex">
           <span className="text-xs">⌘</span>K
         </kbd>
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center px-3 pt-[8vh] sm:pt-[15vh] bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
           <div
-            className="w-full max-w-xl rounded-lg border border-[#3b1e5a] bg-[#0a0510] shadow-[0_10px_50px_rgba(0,255,157,0.15)] overflow-hidden animate-in zoom-in-95 duration-150"
+            className="w-full max-w-xl rounded-xl border border-[#3b1e5a] bg-[#0a0510] shadow-[0_10px_50px_rgba(0,255,157,0.15)] overflow-hidden animate-in zoom-in-95 duration-150"
             role="dialog"
             aria-modal="true"
             aria-label="Command Palette"
@@ -115,7 +115,7 @@ export function CommandMenu() {
                 onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0); }}
                 onKeyDown={handleInputKeyDown}
                 placeholder="Find people, work or settings..."
-                className="flex-1 bg-transparent text-sm font-sans text-[#f7f4ea] placeholder:text-muted-foreground focus:outline-none"
+                className="min-w-0 flex-1 bg-transparent text-base sm:text-sm font-sans text-[#f7f4ea] placeholder:text-muted-foreground focus:outline-none"
               />
               <span className="text-[10px] font-mono uppercase bg-[#251238] text-muted-foreground px-2 py-0.5 rounded border border-border">
                 ESC to cancel
