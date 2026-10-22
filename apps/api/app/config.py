@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # Separate development/staging PostgreSQL (never production) used by the migration
     # bootstrap and the postgres integration suite. Empty = postgres integration BLOCKED.
     POSTGRES_TEST_DATABASE_URL: str = ""
+    STAGING_EXPECTED_DB_HOST: str = ""  # Public hostname only, for staging diagnostics
 
     # Security & Encryption Credentials
     JWT_SECRET: str = "placeholder_jwt_secret_key_at_least_32_chars_long_for_testing"
