@@ -875,7 +875,9 @@ class AuditLog(Base):
     event_type: Any = Column(
         String(100), nullable=False
     )  # profile_update, integration_connected, etc.
-    target_entity: Any = Column("resource_type", Text, nullable=True)
+    # The migrated PostgreSQL schema requires a resource type, including for
+    # workspace-wide observations that do not refer to one entity.
+    target_entity: Any = Column("resource_type", Text, nullable=False, default="workspace")
     target_id: Any = Column("resource_id", FlexibleUUID, nullable=True)
     # Canonical name records the redaction guarantee: only non-sensitive event data is stored.
     details: Any = Column("safe_event_metadata", JSONEncodedDict, default=dict)

@@ -22,18 +22,21 @@ class WillingnessInput(BaseModel):
 
 
 async def activation(db, owner):
-    counts = {}
-    for name, model in [('people', Person), ('interactions', Interaction), ('projects', Project), ('commitments', Commitment)]:
-        counts[name] = await db.scalar(select(func.count()).select_from(model).where(*active(model, owner)))
-    counts['ask_answers'] = await db.scalar(select(func.count()).select_from(AuditLog).where(AuditLog.user_id == owner,
-        AuditLog.event_type == 'relationship_ask_answered'))
-    counts['connections'] = await db.scalar(select(func.count()).select_from(EntityEdge).where(EntityEdge.user_id == owner))
+    # Independent scalar counts in one round trip, with ownership on every subquery.
+    columns = [select(func.count()).select_from(model).where(*active(model, owner)).scalar_subquery().label(name)
+        for name, model in [('people', Person), ('interactions', Interaction), ('projects', Project), ('commitments', Commitment)]]
+    columns.extend([
+        select(func.count()).select_from(AuditLog).where(AuditLog.user_id == owner,
+            AuditLog.event_type == 'relationship_ask_answered').scalar_subquery().label('ask_answers'),
+        select(func.count()).select_from(EntityEdge).where(EntityEdge.user_id == owner).scalar_subquery().label('connections'),
+    ])
+    counts = dict((await db.execute(select(*columns))).mappings().one())
     targets = {'people': 5, 'interactions': 3, 'projects': 1, 'commitments': 1, 'ask_answers': 1}
     activated = all(counts[key] >= target for key, target in targets.items())
     first_activation = await db.scalar(select(func.min(AuditLog.timestamp)).where(AuditLog.user_id == owner, AuditLog.event_type == 'relationship_activated'))
     if activated and not first_activation:
         first_activation = datetime.now(timezone.utc)
-        db.add(AuditLog(user_id=owner, event_type='relationship_activated', details={'definition': 1}))
+        db.add(AuditLog(user_id=owner, event_type='relationship_activated', target_entity='relationship_home', details={'definition': 1}))
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     successes = await db.scalar(select(func.count()).select_from(RelationshipAction).where(RelationshipAction.user_id == owner,
         RelationshipAction.action.in_(['completed', 'sent']), RelationshipAction.created_at >= cutoff))
@@ -50,14 +53,14 @@ async def record_home_observation(db, owner, followups):
     seen = await db.scalar(select(AuditLog.id).where(AuditLog.user_id == owner,
         AuditLog.event_type == 'relationship_home_view', AuditLog.timestamp >= cutoff).limit(1))
     if not seen:
-        db.add(AuditLog(user_id=owner, event_type='relationship_home_view', details={}))
+        db.add(AuditLog(user_id=owner, event_type='relationship_home_view', target_entity='relationship_home', details={}))
     keys = {hashlib.sha256(item['key'].encode()).hexdigest() for item in followups}
     hashes = set((await db.execute(select(AuditLog.request_id).where(AuditLog.user_id == owner,
         AuditLog.event_type == 'relationship_suggestion_served', AuditLog.request_id.in_(keys)))).scalars().all())
     for item in followups:
         key = hashlib.sha256(item['key'].encode()).hexdigest()
         if key not in hashes:
-            db.add(AuditLog(user_id=owner, event_type='relationship_suggestion_served', request_id=key, details={}))
+            db.add(AuditLog(user_id=owner, event_type='relationship_suggestion_served', target_entity='relationship_home', request_id=key, details={}))
             hashes.add(key)
 
 
