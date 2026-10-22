@@ -1,9 +1,6 @@
 name: Closed beta staging E2E
 on:
   workflow_dispatch:
-  push:
-    branches: [codex/second-brain-release-hardening]
-    paths: ['.github/workflows/beta-e2e.yml']
 permissions:
   contents: read
 jobs:
