@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePeople } from '@/hooks/usePeople';
 import Link from 'next/link';
-import { Camera, FileText, Mic, Sparkles } from 'lucide-react';
+import { Camera, FileText, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api/browser-client';
 import { VoiceInputButton } from '@/components/chat/voice-input-button';
 import { PhotoTextInput } from '@/components/capture/photo-text-input';
