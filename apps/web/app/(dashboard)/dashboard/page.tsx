@@ -6,9 +6,8 @@ import { api } from '@/lib/api/browser-client';
 import { displayDate, type HomeData } from '@/lib/relationships';
 import { FollowupCard } from '@/components/relationships/followup-card';
 import { IntentPeople } from '@/components/relationships/intent-people';
-import { PageHeader } from '@/components/shared/page-header';
 import { RequestError } from '@/components/shared/request-error';
-import { ArrowRight, Mic, Users, MessageCircle, Sparkles } from 'lucide-react';
+import { ArrowRight, Users, MessageCircle, Sparkles } from 'lucide-react';
 
 export default function HomePage() {
   const [data, setData] = useState<HomeData | null>(null);
