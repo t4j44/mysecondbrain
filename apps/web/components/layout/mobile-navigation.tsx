@@ -11,7 +11,7 @@ export function MobileNavigation() {
   const pathname = usePathname();
   React.useEffect(() => { setOpen(false); }, [pathname]);
   return <Dialog.Root open={open} onOpenChange={setOpen}>
-    <Dialog.Trigger asChild><button type="button" className="inline-flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-lg border text-primary lg:hidden" aria-label="Open navigation"><Menu className="h-5 w-5" /></button></Dialog.Trigger>
+    <Dialog.Trigger asChild><button type="button" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-foreground hover:bg-muted lg:hidden" aria-label="Open navigation"><Menu className="h-5 w-5" /></button></Dialog.Trigger>
     <Dialog.Portal>
       <Dialog.Overlay className="fixed inset-0 z-[200] bg-black/70" />
       <Dialog.Content aria-describedby={undefined} className="fixed inset-y-0 left-0 z-[201] w-80 max-w-[90vw] overflow-y-auto bg-background shadow-xl">

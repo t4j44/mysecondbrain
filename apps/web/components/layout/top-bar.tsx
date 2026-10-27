@@ -1,12 +1,13 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { Breadcrumbs } from './breadcrumbs';
 import { CommandMenu } from './command-menu';
 import { UserMenu } from './user-menu';
 import { BetaNotice } from '../shared/beta-notice';
 import { MobileNavigation } from './mobile-navigation';
-import { Plus } from 'lucide-react';
+import { Plus, BrainCircuit } from 'lucide-react';
 
 interface TopBarProps {
   onOpenQuickCapture?: () => void;
@@ -17,7 +18,8 @@ export function TopBar({ onOpenQuickCapture }: TopBarProps) {
     <header className="app-top-bar sticky top-0 z-30 flex h-[56px] w-full min-w-0 shrink-0 items-center justify-between gap-2 border-b bg-background/95 px-2.5 sm:px-6">
       <div className="flex min-w-0 items-center gap-2 sm:gap-4">
         <MobileNavigation />
-        <div className="hidden min-w-0 md:block"><Breadcrumbs /></div>
+        <Link href="/dashboard" aria-label="Second Brain Home" className="flex min-w-0 items-center gap-2 text-sm font-semibold tracking-tight lg:hidden"><BrainCircuit className="h-5 w-5 text-primary" /><span className="truncate">Second Brain</span></Link>
+        <div className="hidden min-w-0 lg:block"><Breadcrumbs /></div>
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -38,7 +40,7 @@ export function TopBar({ onOpenQuickCapture }: TopBarProps) {
         )}
 
         <CommandMenu />
-        <BetaNotice />
+        <div className="hidden sm:block"><BetaNotice /></div>
         <UserMenu />
       </div>
     </header>

@@ -14,12 +14,31 @@ import { CapturePanel } from '@/components/meetings/capture-panel';
 import { useMeetings } from '@/hooks/useMeetings';
 import { statusLabel, timerLabel } from '@/lib/meetings/types';
 import MeetingDetailPage from '@/app/(dashboard)/meetings/[meetingId]/page';
+import MeetingsPage from '@/app/(dashboard)/meetings/page';
 
 async function consent() { await waitFor(() => expect(screen.getByText(/3h 10m/)).toBeInTheDocument()); screen.getAllByRole('checkbox').forEach(box => fireEvent.click(box)); }
 beforeEach(() => { vi.clearAllMocks(); mocks.usage.mockResolvedValue({ used_seconds: 11400, limit_seconds:18000, remaining_seconds:6600, percentage_used:63.33, data_mode:'free_redacted' }); mocks.create.mockResolvedValue({id:'meeting-1',title:'Meeting'}); mocks.start.mockResolvedValue(undefined); mocks.stop.mockResolvedValue(new Blob(['audio'], {type:'audio/webm'})); mocks.dispose.mockResolvedValue(undefined); mocks.authorize.mockResolvedValue({upload_url:null,local_upload_endpoint:'/meetings/meeting-1/audio',mime_type:'audio/webm',max_bytes:104857600}); mocks.finalize.mockResolvedValue({id:'meeting-1'}); mocks.upload.mockResolvedValue(undefined); mocks.list.mockResolvedValue({items:[{id:'m',title:'Actual API meeting'}],total:1}); });
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('meeting capture', () => {
+  it('keeps the recorder mounted when collapsed and prevents hiding active capture', async () => {
+    mocks.list.mockResolvedValue({ items: [], total: 0 });
+    render(<MeetingsPage />);
+    fireEvent.click(screen.getByRole('button', { name: '+ Record or upload' }));
+    await consent();
+    fireEvent.change(screen.getByLabelText('Meeting name (optional)'), { target: { value: 'Retained title' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Hide recorder' }));
+    fireEvent.click(screen.getByRole('button', { name: '+ Record or upload' }));
+    expect(screen.getByLabelText('Meeting name (optional)')).toHaveValue('Retained title');
+    expect(screen.getByRole('button', { name: 'Record meeting' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Record meeting' }));
+    await screen.findByText('● Recording');
+    expect(screen.getByRole('button', { name: 'Hide recorder' })).toBeDisabled();
+    expect(mocks.dispose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'End meeting' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Hide recorder' })).toBeEnabled());
+    expect(mocks.finalize).toHaveBeenCalledWith('meeting-1');
+  });
   it('shows quota and requires recording consent and free-tier acceptance', async () => { render(<CapturePanel onSaved={() => undefined} />); await waitFor(() => expect(screen.getByText(/3h 10m/)).toBeInTheDocument()); expect(screen.getByRole('button',{name:'Record meeting'})).toBeDisabled(); expect(screen.getByText(/Avoid confidential meetings/)).toBeInTheDocument(); await consent(); expect(screen.getByRole('button',{name:'Record meeting'})).toBeEnabled(); });
   it('records, pauses, resumes and uploads the source independently of live text', async () => { const saved=vi.fn(); render(<CapturePanel onSaved={saved} />); await consent(); fireEvent.click(screen.getByRole('button',{name:'Record meeting'})); await screen.findByText('● Recording'); fireEvent.click(screen.getByRole('button',{name:'Pause'})); expect(mocks.pause).toHaveBeenCalled(); fireEvent.click(screen.getByRole('button',{name:'Resume'})); expect(mocks.resume).toHaveBeenCalled(); fireEvent.click(screen.getByRole('button',{name:'End meeting'})); await waitFor(() => expect(mocks.finalize).toHaveBeenCalledWith('meeting-1')); expect(mocks.save).toHaveBeenCalled(); expect(mocks.upload).toHaveBeenCalled(); expect(mocks.remove).toHaveBeenCalledWith('meeting-1'); expect(saved).toHaveBeenCalled(); });
   it('explains microphone denial without claiming a recording exists', async () => { mocks.start.mockRejectedValue(new DOMException('Denied','NotAllowedError')); render(<CapturePanel onSaved={() => undefined} />); await consent(); fireEvent.click(screen.getByRole('button',{name:'Record meeting'})); expect(await screen.findByRole('alert')).toHaveTextContent('Microphone access was denied'); expect(mocks.finalize).not.toHaveBeenCalled(); });

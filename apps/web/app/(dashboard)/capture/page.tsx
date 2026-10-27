@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePeople } from '@/hooks/usePeople';
 import Link from 'next/link';
+import { Camera, FileText, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api/browser-client';
 import { VoiceInputButton } from '@/components/chat/voice-input-button';
 import { PhotoTextInput } from '@/components/capture/photo-text-input';
@@ -76,23 +77,22 @@ export default function CapturePage() {
     } finally { setBusy(false); }
   }
   return <div className="mx-auto max-w-2xl space-y-6">
-    <div><h1 className="text-2xl sm:text-3xl font-semibold">Capture</h1>
-      <p className="mt-2 text-base text-muted-foreground">What do you want to remember? Review the details before saving.</p></div>
+    <div><h1 className="text-[25px] sm:text-3xl font-semibold">Capture a moment</h1>
+      <p className="mt-1 text-sm text-muted-foreground">A thought, a conversation or a commitment. Save it once, find it later.</p></div>
     {!draftKey && !draftNotice && <p role="status" className="text-sm text-muted-foreground">Preparing private draft recovery…</p>}
-    <label className="block space-y-2"><span>What happened?</span>
-      <textarea aria-label="Capture text" rows={5} value={text} maxLength={16000} disabled={!draftKey && !draftNotice}
+    <label className="block space-y-2"><span className="text-sm font-medium">What would you like to remember?</span>
+      <textarea aria-label="Capture text" rows={4} value={text} maxLength={16000} disabled={!draftKey && !draftNotice}
         onChange={event => { updateText(event.target.value); setDraft(null); setPersonId(''); }}
-        className="w-full rounded-lg border bg-background p-3" placeholder="Met Ahmed at an event. We discussed fundraising and I promised to send a deck." /></label>
-    <div className="flex flex-wrap items-center gap-3">
+        className="w-full rounded-2xl border bg-card p-4 leading-relaxed" placeholder="Met Ahmed at an event. We discussed fundraising and I promised to send a deck." /></label>
+    <div className="flex flex-wrap items-center gap-2">
       <VoiceInputButton value={text} onChange={value => { updateText(value); setDraft(null); setSource('voice'); }} disabled={busy || (!draftKey && !draftNotice)} />
       <button disabled={busy || photoBusy || !text.trim()} onClick={() => run(async () => {
         const proposed = await api.post<Draft>('/capture/propose', { text, source, timezone: zone }, { timeoutMs: 45000 });
         setDraft(proposed);
         setOccurredAt(localDateTime(proposed.proposal.when_met || new Date().toISOString()));
-      })} className="min-h-11 rounded-lg bg-primary px-5 text-primary-foreground disabled:opacity-50">{busy ? 'Working…' : 'Review capture'}</button>
-      <Link href="/documents" className="inline-flex min-h-11 items-center underline">Upload a document</Link>
+      })} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-semibold text-primary-foreground disabled:opacity-50"><Sparkles className="h-4 w-4" />{busy ? 'Working…' : 'Review capture'}</button>
     </div>
-    <details className="rounded-xl border px-3"><summary className="flex min-h-11 cursor-pointer items-center">Add a photo or business card</summary><div className="pb-3"><PhotoTextInput onBusy={setPhotoBusy} disabled={busy || photos.length >= 2} onPhoto={photo => { setPhotos(previous => [...previous, photo]); setSource('image_text'); }} onText={value => { setText(previous => [previous, value].filter(Boolean).join('\n\n').slice(0, 16000)); setDraft(null); setSource('image_text'); }} /></div></details>
+    <div className="grid grid-cols-2 gap-2"><Link href="/documents" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border bg-card px-3 text-sm"><FileText className="h-4 w-4 text-primary" />Document</Link><details className="min-w-0 rounded-xl border bg-card px-3"><summary className="flex min-h-12 cursor-pointer items-center justify-center gap-2 text-sm"><Camera className="h-4 w-4 text-primary" />Photo / card</summary><div className="pb-3"><PhotoTextInput onBusy={setPhotoBusy} disabled={busy || photos.length >= 2} onPhoto={photo => { setPhotos(previous => [...previous, photo]); setSource('image_text'); }} onText={value => { setText(previous => [previous, value].filter(Boolean).join('\n\n').slice(0, 16000)); setDraft(null); setSource('image_text'); }} /></div></details></div>
     {draftNotice&&<p role="status" className="text-sm text-muted-foreground">{draftNotice}</p>}
     {!!photos.length && <div className="flex flex-wrap gap-4">{photos.map(photo => <figure className="max-w-full space-y-2" key={photo.requestId}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
