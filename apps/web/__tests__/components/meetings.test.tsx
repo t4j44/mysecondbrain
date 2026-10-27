@@ -13,6 +13,7 @@ vi.mock('@/lib/meetings/upload', () => ({ BrowserAudioUploadClient: class { uplo
 import { CapturePanel } from '@/components/meetings/capture-panel';
 import { useMeetings } from '@/hooks/useMeetings';
 import { statusLabel, timerLabel } from '@/lib/meetings/types';
+import { ApiError } from '@/lib/api/errors';
 import MeetingDetailPage from '@/app/(dashboard)/meetings/[meetingId]/page';
 import MeetingsPage from '@/app/(dashboard)/meetings/page';
 
@@ -50,7 +51,7 @@ describe('meeting capture', () => {
 });
 it('useMeetings reads items and total from the actual API shape', async () => { function List() { const {meetings,total}=useMeetings(); return <div>{total}{meetings.map(m => <p key={m.id}>{m.title}</p>)}</div>; } render(<List />); expect(await screen.findByText('Actual API meeting')).toBeInTheDocument(); expect(mocks.list).toHaveBeenCalled(); });
 
-function ready(state='awaiting_review') { return {id:'meeting-1', title:'Meeting with Sarah', meeting_date:'2026-10-08T00:00:00Z',duration_minutes:10, transcript_text:'I will send the report.', capture:{state, confirmed_at:state==='completed'?'2026-10-08T01:00:00Z':null, audio_deleted_at:'2026-10-08', receipt:{selected:[]}, speaker_mappings:{}, transcript_segments:[{speaker_local_id:'c0:spk_1'}],intelligence:{summary:'Discussed the report',commitments:[{description:'Send report',evidence_text:'I will send the report.',confidence:.9}]}}}; }
+function ready(state='awaiting_review') { return {id:'meeting-1', review_token:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', title:'Meeting with Sarah', meeting_date:'2026-10-08T00:00:00Z',duration_minutes:10, transcript_text:'I will send the report.', capture:{state, confirmed_at:state==='completed'?'2026-10-08T01:00:00Z':null, audio_deleted_at:'2026-10-08', receipt:{selected:[]}, speaker_mappings:{}, transcript_segments:[{speaker_local_id:'c0:spk_1'}],intelligence:{summary:'Discussed the report',commitments:[{description:'Send report',evidence_text:'I will send the report.',confidence:.9}]}}}; }
 it('retries a failed detail request without leaving the error visible after recovery', async () => {
   mocks.get.mockRejectedValueOnce(new Error('Synthetic unavailable')).mockResolvedValue(ready());
   mocks.people.mockResolvedValue([]);
@@ -61,5 +62,21 @@ it('retries a failed detail request without leaving the error visible after reco
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 it('detail reads the direct meeting response and shows final processing status', async () => { mocks.get.mockResolvedValue(ready('transcribing')); mocks.people.mockResolvedValue([]); render(<MeetingDetailPage />); expect(await screen.findByText('Meeting with Sarah')).toBeInTheDocument(); expect(screen.getByRole('status')).toHaveTextContent('Processing...'); expect(screen.queryByRole('button',{name:'Save all'})).not.toBeInTheDocument(); });
-it('maps a speaker explicitly and confirms the selected suggestions', async () => { mocks.get.mockResolvedValue(ready()); mocks.people.mockResolvedValue([{id:'person-1',name:'Sarah'}]); mocks.map.mockResolvedValue(undefined); mocks.confirm.mockResolvedValue({}); render(<MeetingDetailPage />); await screen.findByText('Meeting with Sarah'); await screen.findByRole('option',{name:'Sarah'}); fireEvent.change(screen.getByRole('combobox',{name:'Map speaker 1'}),{target:{value:'person-1'}}); await waitFor(()=>expect(mocks.map).toHaveBeenCalledWith('meeting-1','c0:spk_1',{kind:'person',person_id:'person-1'})); await waitFor(()=>expect(screen.getByRole('button',{name:'Save all'})).toBeEnabled()); fireEvent.click(screen.getByRole('button',{name:'Save all'})); await waitFor(()=>expect(mocks.confirm).toHaveBeenCalledWith('meeting-1',['commitments:0'])); });
+it('maps a speaker explicitly and confirms the selected suggestions', async () => { mocks.get.mockResolvedValue(ready()); mocks.people.mockResolvedValue([{id:'person-1',name:'Sarah'}]); mocks.map.mockResolvedValue(undefined); mocks.confirm.mockResolvedValue({}); render(<MeetingDetailPage />); await screen.findByText('Meeting with Sarah'); await screen.findByRole('option',{name:'Sarah'}); fireEvent.change(screen.getByRole('combobox',{name:'Map speaker 1'}),{target:{value:'person-1'}}); await waitFor(()=>expect(mocks.map).toHaveBeenCalledWith('meeting-1','c0:spk_1',{kind:'person',person_id:'person-1'},'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')); await waitFor(()=>expect(screen.getByRole('button',{name:'Save all'})).toBeEnabled()); fireEvent.click(screen.getByRole('button',{name:'Save all'})); await waitFor(()=>expect(mocks.confirm).toHaveBeenCalledWith('meeting-1',['commitments:0'],'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')); });
 it('labels a deselected suggestion as not saved after confirmation', async () => { mocks.get.mockResolvedValue(ready('completed')); mocks.people.mockResolvedValue([]); render(<MeetingDetailPage />); await screen.findByText('Meeting with Sarah'); expect(screen.getByText('Not saved')).toBeInTheDocument(); expect(screen.queryByRole('button',{name:'Save all'})).not.toBeInTheDocument(); });
+
+it('requires a fresh explicit review after a conflict and drops stale selections on reload', async () => {
+  mocks.get.mockResolvedValue(ready()); mocks.people.mockResolvedValue([]);
+  mocks.confirm.mockRejectedValueOnce(new ApiError(409, 'Conflict')).mockResolvedValue({});
+  render(<MeetingDetailPage />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Save all' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Reload the meeting');
+  expect(mocks.confirm).toHaveBeenCalledTimes(1);
+  const current = ready(); current.review_token = 'b'.repeat(64); current.capture.intelligence.commitments = [];
+  mocks.get.mockResolvedValue(current);
+  fireEvent.click(screen.getByRole('button', { name: 'Reload meeting' }));
+  const save = await screen.findByRole('button', { name: 'Save meeting' });
+  expect(mocks.confirm).toHaveBeenCalledTimes(1);
+  fireEvent.click(save);
+  await waitFor(() => expect(mocks.confirm).toHaveBeenLastCalledWith('meeting-1', [], 'b'.repeat(64)));
+});
