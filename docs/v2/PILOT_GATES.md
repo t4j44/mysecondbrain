@@ -5,10 +5,10 @@
 | Gate | Status | Needed evidence |
 |---|---|---|
 | Source ancestry and preserved prior work | PASS | Live refs and isolated base documented in CURRENT_TRUTH |
-| Locked Python audit after pypdf repair | PASS (local) | pip-audit 2.10.1, require-hashes, no known vulnerabilities; final CI still required |
-| Exact-SHA security/quality and PostgreSQL CI | NOT_RUN | Final commit run links, fresh/upgrade/restore, Docker |
+| Locked Python and browser audits | PASS at `ea6a779` | No known vulnerabilities in CI; see RELEASE_MANIFEST |
+| Exact-SHA security/quality and PostgreSQL CI | PASS at `ea6a779` only | Security 40494495931; Postgres 40525464787; later changes require fresh CI |
 | Complete V2 UI and canonical workflow | IN PROGRESS | Navigation, source review, correction, mobile browser evidence |
-| Web/API/worker release alignment | BLOCKED | No V2 staging deployment; older API identified; Vercel scope access pending |
+| Web/API/worker release alignment | BLOCKED | No aligned V2 staging deployment; older API identified; owner approved Vercel access but connector still returned 403 |
 | Real two-account isolation/private Storage | NOT_RUN | Authorized synthetic staging accounts and direct object denial |
 | Real meeting provider, retention/recovery | BLOCKED | Explicit allowed test audio and provider/privacy verification |
 | External MCP client OAuth/read/write/revoke | NOT_RUN | Supported actual client receipts |

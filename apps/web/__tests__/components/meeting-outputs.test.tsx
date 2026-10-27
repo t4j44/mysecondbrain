@@ -21,6 +21,7 @@ beforeEach(() => { vi.clearAllMocks(); get.mockImplementation(async (path: strin
 
 it('surfaces secondary discussions, canonical evidence and separate notes/minutes', async () => {
   render(<MeetingOutputs meeting={fixture()} refresh={vi.fn()} />);
+  fireEvent.click(screen.getByText('Detailed summary', { selector: 'summary' }));
   expect(screen.getByText('Other important discussions')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /Source c1:4/ })).toHaveAttribute('href', '#segment-c1%3A4');
   expect(screen.getByLabelText<HTMLTextAreaElement>('Meeting notes').value).toContain('UAE expansion');
@@ -40,6 +41,7 @@ it('does not replace unsaved notes when polling returns new AI drafts', async ()
 it('keeps the edit visible on a concurrent save conflict and submits its original version', async () => {
   put.mockRejectedValue(new ApiError(409, 'Conflict'));
   render(<MeetingOutputs meeting={fixture()} refresh={vi.fn()} />);
+  fireEvent.click(screen.getByText('Meeting notes', { selector: 'summary' }));
   fireEvent.change(screen.getByLabelText('Meeting notes'), { target: { value: 'Keep my edit' } });
   fireEvent.click(screen.getByRole('button', { name: /^Save notes$/ }));
   expect(await screen.findByRole('status')).toHaveTextContent('Conflict: your edit is not saved');
@@ -51,11 +53,26 @@ it('saves user notes independently without confirming graph/CRM writes', async (
   put.mockResolvedValue({ version: 1, markdown: 'Reviewed by me', author: 'user' });
   const refresh = vi.fn().mockResolvedValue(undefined);
   render(<MeetingOutputs meeting={fixture()} refresh={refresh} />);
+  fireEvent.click(screen.getByText('Meeting notes', { selector: 'summary' }));
   fireEvent.change(screen.getByLabelText('Meeting notes'), { target: { value: 'Reviewed by me' } });
   fireEvent.click(screen.getByRole('button', { name: /^Save notes$/ }));
   await waitFor(() => expect(refresh).toHaveBeenCalled());
   expect(await screen.findByRole('status')).toHaveTextContent('Notes saved.');
   expect(put.mock.calls.map(call => call[0])).toEqual(['/meetings/synthetic/notes']);
+});
+
+it('keeps unsaved notes when their disclosure is closed and reopened', async () => {
+  render(<MeetingOutputs meeting={fixture()} refresh={vi.fn()} />);
+  const summary = screen.getByText('Meeting notes', { selector: 'summary' });
+  expect(summary.closest('details')).not.toHaveAttribute('open');
+  fireEvent.click(summary);
+  fireEvent.change(screen.getByLabelText('Meeting notes'), { target: { value: 'Retain this draft' } });
+  fireEvent.click(summary);
+  expect(summary).toHaveTextContent('Unsaved edits');
+  fireEvent.click(summary);
+  expect(screen.getByLabelText('Meeting notes')).toHaveValue('Retain this draft');
+  expect(put).not.toHaveBeenCalled();
+  await screen.findByText(/Attendees: Not confirmed/);
 });
 
 it('keeps the manual title while exposing an editable AI proposal', async () => {

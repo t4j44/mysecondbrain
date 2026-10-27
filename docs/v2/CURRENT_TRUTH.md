@@ -35,4 +35,6 @@ Supabase security advisor returned six informational deny-by-default tables, one
 
 Local backend regression: **477 passed, 0 skipped**, Python 3.11.16, synthetic test configuration, JUnit `.test-tmp/v2/backend.xml`. Ruff passed; mypy passed for 171 source files; Bandit exited 0 (existing annotation warnings). CI uses Python 3.12 and remains a separate gate. Supplied specification files were subsequently located under `Downloads/2nd brain/`; they are not copied into the public repository.
 
-Finish PR0 exact-SHA CI and recorder/mobile regression. Then implement V2 navigation/capture and progressive meeting details, followed by canonical action correctness, default-off Telegram, briefs and research. See FEATURE_MATRIX and PILOT_GATES. Later features cannot inherit an earlier build's PASS.
+Integrity PR15 is green at `4f8c5a7f4259b8ab464c8b3702c28978c6f6d77e` (Security 40486715614, Postgres 40486721682). Navigation PR16 is green at `ea6a7794219de746b693a94d66471e22bc65a777` (Security 40494495931, Postgres 40525464787). The earlier pending-CI observations above are historical. See RELEASE_MANIFEST for exact receipts and the complete 91-case acceptance ledger.
+
+Progressive meeting details and evidence navigation are implemented on the next review branch. Continue canonical action correctness, default-off Telegram, briefs and research. See FEATURE_MATRIX and PILOT_GATES. Later features cannot inherit an earlier build's PASS.
