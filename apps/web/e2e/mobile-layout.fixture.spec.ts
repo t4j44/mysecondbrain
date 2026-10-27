@@ -9,19 +9,20 @@ const home={followups:[],projects:[],meetings:[],recent_activity:[],opportunitie
 async function noOverflow(page:Page){expect(await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:document.documentElement.clientWidth}))).toEqual(expect.objectContaining({width:expect.any(Number)}));expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)).toBe(true);}
 async function capture(page:Page,name:string,project:string){
  if(![320,390,430,768].includes(page.viewportSize()!.width))return;
- const out=path.resolve('../../.test-tmp/mobile-overhaul/after');await fs.mkdir(out,{recursive:true});
+ const out=path.resolve(process.env.MOBILE_AUDIT_OUTPUT||'../../.test-tmp/mobile-overhaul','after');await fs.mkdir(out,{recursive:true});
  await page.screenshot({path:path.join(out,`${name}-${project}.png`),fullPage:false,animations:'disabled'});
 }
 
-for(const route of ['dashboard','people','assistant','work','capture'])test(`${route}: readable layout, navigation and accessibility`,async({page},info)=>{
+for(const route of ['dashboard','people','assistant','work','capture','meetings'])test(`${route}: readable layout, navigation and accessibility`,async({page},info)=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto('/'+route);await expect(page.locator('main h1')).toBeVisible();
  await expect(page.locator('main [role="status"]').filter({hasText:/Loading your/})).toHaveCount(0);
  await noOverflow(page);
  if(page.viewportSize()!.width<768){
   const nav=page.getByRole('navigation',{name:'Mobile Primary Navigation'});await expect(nav).toBeVisible();
-  await expect(nav.getByRole('link')).toHaveCount(5);
-  for(const link of await nav.getByRole('link').all()){const box=await link.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(44);expect(box!.width).toBeGreaterThanOrEqual(44);}
+  await expect(nav.getByRole('link')).toHaveCount(4);
+  await expect(nav.getByRole('button',{name:'More',exact:true})).toBeVisible();
+  for(const link of await nav.locator('a, button').all()){const box=await link.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(44);expect(box!.width).toBeGreaterThanOrEqual(44);}
  }
  for(const button of await page.locator('main button:visible, header button:visible').all()){
   const box=await button.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(43.9);expect(box!.width).toBeGreaterThanOrEqual(43.9);
@@ -33,6 +34,48 @@ for(const route of ['dashboard','people','assistant','work','capture'])test(`${r
   expect(result.violations.map((v:{id:string;impact:string})=>({id:v.id,impact:v.impact}))).toEqual([]);
  }
  expect(errors).toEqual([]);
+});
+
+test('capture choices preserve a draft and open the real recorder consent step',async({page},info)=>{
+ await page.goto('/capture');
+ const note=page.getByRole('textbox',{name:'Capture text'});
+ await note.fill('A fictional note to keep.');
+ await page.getByRole('button',{name:'Quick note / voice',exact:true}).click();await expect(note).toBeFocused();
+ await page.getByRole('button',{name:'Document / photo',exact:true}).click();
+ await expect(page.getByRole('link',{name:'Upload a document',exact:true})).toHaveAttribute('href','/documents');
+ await page.getByText('Photo / business card',{exact:true}).click();
+ await expect(page.getByLabel('Read a business card')).toBeVisible();await noOverflow(page);
+ await capture(page,'capture-uploads',info.project.name);
+ await page.getByRole('button',{name:'Document / photo',exact:true}).click();await expect(note).toHaveValue('A fictional note to keep.');
+ await page.getByRole('link',{name:'Record meeting',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Hide recorder',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Record meeting',exact:true})).toBeDisabled();
+ await expect(page.getByText('● Recording',{exact:true})).toHaveCount(0);
+ await capture(page,'meeting-consent',info.project.name);await noOverflow(page);
+});
+
+test('existing dark theme and collapsed desktop sidebar remain usable',async({page},info)=>{
+ test.skip(![390,1440].includes(page.viewportSize()!.width),'Representative theme and sidebar widths');
+ for(const route of ['dashboard','capture','meetings']){
+  await page.goto('/'+route+'?theme=dark');await expect(page.locator('main h1')).toBeVisible();await noOverflow(page);
+  const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();expect(result.violations).toEqual([]);
+  await capture(page,`${route}-dark`,info.project.name);
+ }
+ if(page.viewportSize()!.width>=1024){
+  await page.getByRole('button',{name:'Collapse sidebar'}).click();
+  await expect(page.getByRole('navigation',{name:'Primary Navigation',exact:true}).getByRole('link',{name:'Meetings',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Expand sidebar'}).click();await noOverflow(page);
+ }
+});
+
+test('authentication forms stay readable in both themes without calling a provider',async({page},info)=>{
+ test.skip(page.viewportSize()!.width!==390,'Representative auth theme width');
+ for(const theme of ['light','dark']) for(const route of ['login','signup','forgot-password','reset-password','verify']){
+  await page.goto(`/${route}?theme=${theme}`);await expect(page.locator('main h2')).toBeVisible();await noOverflow(page);
+  const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();
+  expect(result.violations.map((v:{id:string;nodes:unknown[]})=>({id:v.id,nodes:v.nodes}))).toEqual([]);
+  await capture(page,`${route}-${theme}`,info.project.name);
+ }
 });
 
 test('home: conflict is distinct from empty and retry recovers',async({page},info)=>{
@@ -108,8 +151,9 @@ test('capture: restores only the same-session draft and does not prefetch contac
 test('drawer and page search trap focus, close on Escape and restore trigger focus',async({page})=>{
  await page.goto('/dashboard');
  if(page.viewportSize()!.width<768){
-  await page.getByRole('button',{name:'Open navigation',exact:true}).click();const drawer=page.getByRole('dialog',{name:'Navigation',exact:true});await expect(drawer).toBeVisible();
-  await page.keyboard.press('Tab');expect(await drawer.evaluate(element=>element.contains(document.activeElement))).toBe(true);await page.keyboard.press('Escape');await expect(drawer).toBeHidden();await expect(page.getByRole('button',{name:'Open navigation',exact:true})).toBeFocused();
+  await page.getByRole('button',{name:'More',exact:true}).click();const drawer=page.getByRole('dialog',{name:'Navigation',exact:true});await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole('link',{name:'Documents',exact:true})).toBeVisible();
+  await page.keyboard.press('Tab');expect(await drawer.evaluate(element=>element.contains(document.activeElement))).toBe(true);await page.keyboard.press('Escape');await expect(drawer).toBeHidden();await expect(page.getByRole('button',{name:'More',exact:true})).toBeFocused();
  }
  await page.getByRole('button',{name:'Find a page',exact:true}).click();const search=page.getByRole('dialog',{name:'Find a page',exact:true});await expect(search).toBeVisible();
  await page.getByRole('searchbox',{name:'Search pages'}).fill('privacy');await expect(search.getByRole('link',{name:'Privacy',exact:true})).toBeVisible();await page.keyboard.press('Escape');await expect(search).toBeHidden();await expect(page.getByRole('button',{name:'Find a page',exact:true})).toBeFocused();

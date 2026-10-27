@@ -42,16 +42,16 @@ export default function ResetPasswordPage() {
 
     if (error) {
       toast({
-        title: 'PASSKEY UPDATE FAILED',
-        description: error.message || 'Could not commit new passkey to secure enclave.',
+        title: 'Could not update password',
+        description: error.message || 'Could not update your password. Please try again.',
         variant: 'destructive',
       });
       return;
     }
 
     toast({
-      title: 'CREDENTIALS UPDATED',
-      description: 'Your operator passkey has been successfully reset.',
+      title: 'Password updated',
+      description: 'Your password has been updated.',
     });
 
     router.push('/login');
@@ -60,22 +60,22 @@ export default function ResetPasswordPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <div className="inline-flex items-center space-x-1.5 rounded px-2 py-0.5 text-[11px] font-mono font-semibold bg-[#251238] text-[#00ff9d] border border-[#00ff9d]/30 uppercase tracking-widest">
+        <div className="inline-flex items-center space-x-1.5 rounded px-2 py-0.5 text-[11px] font-mono font-semibold bg-primary/10 text-primary border border-primary/30 uppercase tracking-widest">
           <KeyRound className="h-3 w-3" />
           <span>Security Enclave</span>
         </div>
-        <h2 className="text-3xl font-extrabold tracking-tight text-[#f7f4ea]">
-          Set New Passkey
+        <h2 className="text-3xl font-extrabold tracking-tight text-foreground">
+          Set a new password
         </h2>
         <p className="text-sm text-muted-foreground">
-          Establish a high-entropy passkey to finalize account recovery.
+          Choose a strong password to finish recovering your account.
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="password" className="text-xs font-mono uppercase text-muted-foreground">
-            New Passkey
+            New password
           </Label>
           <Input
             id="password"
@@ -91,7 +91,7 @@ export default function ResetPasswordPage() {
 
         <div className="space-y-2">
           <Label htmlFor="confirmPassword" className="text-xs font-mono uppercase text-muted-foreground">
-            Confirm New Passkey
+            Confirm new password
           </Label>
           <Input
             id="confirmPassword"
