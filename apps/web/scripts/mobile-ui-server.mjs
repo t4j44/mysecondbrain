@@ -52,6 +52,7 @@ const server=http.createServer(async(req,res)=>{
     res.setHeader('Content-Type','application/json');
     await new Promise(resolve=>setTimeout(resolve,Number(req.headers['x-fixture-delay']||0)));
     if(url.pathname.endsWith('/relationships/home')) return res.end(JSON.stringify(home));
+    if(url.pathname.endsWith('/assistant/connections/telegram')) return res.end(JSON.stringify({available:false,status:'not_connected',linked_at:null,expires_at:null}));
     if(url.pathname.endsWith('/meetings/usage')) return res.end(JSON.stringify({used_seconds:0,limit_seconds:18000,remaining_seconds:18000,percentage_used:0,data_mode:'free_redacted',max_bytes:52428800,retention_days:7}));
     if(url.pathname.endsWith('/meetings')) return res.end(JSON.stringify({items:[],total:0,limit:100,offset:0,has_more:false}));
     if(/^\/api\/v1\/(memories|ideas|organizations|achievements|kpis|content)$/.test(url.pathname)){

@@ -13,6 +13,32 @@ async function capture(page:Page,name:string,project:string){
  await page.screenshot({path:path.join(out,`${name}-${project}.png`),fullPage:false,animations:'disabled'});
 }
 
+test('telegram settings: explicit linking, truthful pending state and revocation',async({page},info)=>{
+ let available=false, status='not_connected';
+ await page.route('**/api/v1/assistant/connections/telegram',async route=>{
+  if(route.request().method()==='DELETE')status='revoked';
+  await route.fulfill({contentType:'application/json',body:JSON.stringify({available,status,linked_at:null,expires_at:null})});
+ });
+ await page.route('**/api/v1/assistant/connections/telegram/start',async route=>{
+  status='pending';await route.fulfill({contentType:'application/json',body:JSON.stringify({url:'https://t.me/SyntheticBrainBot?start=synthetic',expires_at:'2026-10-28T10:10:00Z'})});
+ });
+ await page.goto('/settings/integrations');
+ await expect(page.getByText('Telegram setup is not available in this release.')).toBeVisible();
+ await expect(page.getByRole('button',{name:'Link my Telegram'})).toHaveCount(0);
+ available=true;await page.getByRole('button',{name:'Refresh Telegram status'}).click();
+ await page.getByRole('button',{name:'Link my Telegram'}).click();
+ await expect(page.getByRole('link',{name:'Open Telegram and tap Start'})).toHaveAttribute('href','https://t.me/SyntheticBrainBot?start=synthetic');
+ await expect(page.getByText('Waiting for you to start the bot in Telegram.')).toBeVisible();
+ await noOverflow(page);await capture(page,'telegram-pending',info.project.name);
+ if(info.project.name.endsWith('-390')){
+  const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();expect(result.violations).toEqual([]);
+ }
+ status='active';available=false;await page.getByRole('button',{name:'Refresh Telegram status'}).click();
+ await page.getByRole('button',{name:'Disconnect Telegram'}).click();
+ await expect(page.getByText('Telegram disconnected. Notification permission has been removed.')).toBeVisible();
+ await expect(page.getByRole('link',{name:'Open Telegram and tap Start'})).toHaveCount(0);
+});
+
 for(const route of ['dashboard','people','assistant','work','capture','meetings'])test(`${route}: readable layout, navigation and accessibility`,async({page},info)=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto('/'+route);await expect(page.locator('main h1')).toBeVisible();
