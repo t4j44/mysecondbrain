@@ -9,7 +9,7 @@ import { Loader2, ArrowRight, KeyRound } from 'lucide-react';
 
 import { GoogleSignIn } from '@/components/shared/google-sign-in';
 import { safeAuthReturnPath } from '@/lib/auth/redirect';
-import { loginSchema, type LoginFormValues } from '@/lib/validation/auth';
+import { loginSchema, type LoginFormInput, type LoginFormValues } from '@/lib/validation/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,7 +27,7 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormValues>({
+  } = useForm<LoginFormInput, unknown, LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',

@@ -18,11 +18,15 @@ The package minimum and both generated lockfiles now select 6.21.2. No advisory 
 
 ## Hosted observation, not V2 acceptance
 
+The first repaired run, [40485062887](https://github.com/t4j44/mysecondbrain/actions/runs/40485062887), passed Python audit, backend tests, types and all 82 frontend tests, then exposed a second audit blocker: Zod 3.25.76, [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5). Zod is now pinned to 4.6.6 with compatible form resolvers 6.0.1. Login input/output types preserve the remember-me default; five real resolver regression tests cover field errors, password confirmation and profile bounds. The production pnpm audit and focused six-test form/login run passed locally. No advisory is suppressed.
+
+The initial UI snapshot `3e0875206656087547da401732121f2c454b4aad` passed 308 local browser cases with 16 explicit viewport-specific skips, three meeting scenarios and a production build. Those local results do not include the later dependency or navigation changes. Its PostgreSQL CI passed in runs 40485063076 and 40485160130. The new dependency commit needs fresh CI.
+
 | Surface | Observed | Boundary |
 |---|---|---|
 | Render API staging | `srv-dbbjrp4s728c738mhsj0`, live deploy `dep-dbd5nsafngtc73fnc71g`, commit `ac7d4bf3b2aa899a0d5dbd458c9445f03ca98dbb`, auto deploy OFF | Older build; V2 not deployed |
 | Supabase staging | `rpkjmdrralzxhdsgceal`, ACTIVE_HEALTHY, ledger contains 37 entries through migration 36 (includes historical 21b) | Ledger names map to repo migrations; this is not two-account or storage acceptance |
-| Vercel staging | `second-brain-web-staging`, `prj_r27R5j3Oss8GpNlHLZO58h0MA2uJ` | Owner approved team access; subsequent deployment inspection still returned 403; no V2 deployed-SHA claim |
+| Vercel staging | `second-brain-web-staging`, `prj_r27R5j3Oss8GpNlHLZO58h0MA2uJ` | Owner approved team access; subsequent deployment inspection still returned 403. PR15 staging status says Canceled by Ignored Build Step, not a successful staging deployment. |
 | Production | Not modified or tested with customer records | No promotion authorization |
 
 Supabase security advisor returned six informational deny-by-default tables, one warning for `account_active` SECURITY DEFINER execution, and disabled leaked-password protection. The former needs the migration-36 self-owner guard checked against live DDL; never remove required policies or grant access merely to clear an advisor. Password protection remains an operator configuration decision. No hosted security finding is claimed remediated here.
