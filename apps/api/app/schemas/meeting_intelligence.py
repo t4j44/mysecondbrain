@@ -135,6 +135,7 @@ class NotesUpdate(StrictModel):
 
 class MeetingReview(StrictModel):
     expected_version: int = Field(ge=0)
+    expected_review_token: str | None = Field(default=None, pattern=r'^[0-9a-f]{64}$')
     title: str | None = Field(default=None, min_length=1, max_length=255)
     purpose: str | None = Field(default=None, max_length=4000)
     agenda: str | None = Field(default=None, max_length=16000)
@@ -173,6 +174,7 @@ class UploadAuthorize(StrictModel):
 
 
 class SpeakerMapping(StrictModel):
+    expected_review_token: str | None = Field(default=None, pattern=r'^[0-9a-f]{64}$')
     speaker: str = Field(min_length=1, max_length=100)
     kind: Literal['me', 'person', 'unknown']
     person_id: UUID | None = None
@@ -187,6 +189,7 @@ class SpeakerMapping(StrictModel):
 
 class ConfirmIntelligence(StrictModel):
     confirmed: Literal[True]
+    expected_review_token: str | None = Field(default=None, pattern=r'^[0-9a-f]{64}$')
     # None is Save All. An explicit list implements selective review.
     selections: list[str] | None = Field(default=None, max_length=700)
 

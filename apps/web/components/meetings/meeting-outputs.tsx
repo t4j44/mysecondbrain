@@ -46,6 +46,7 @@ export function MeetingOutputs({ meeting, refresh }: { meeting: Meeting; refresh
   const [zone, setZone] = useState(String(meeting.metadata?.timezone || ''));
   const [reviewDirty, setReviewDirty] = useState(false);
   const [reviewVersion, setReviewVersion] = useState(Number(meeting.metadata?.review_version || 0));
+  const [reviewToken, setReviewToken] = useState(meeting.review_token || '');
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [ventures, setVentures] = useState<{ id: string; name: string }[]>([]);
   const [projectId, setProjectId] = useState(String(meeting.metadata?.project_id || ''));
@@ -56,6 +57,7 @@ export function MeetingOutputs({ meeting, refresh }: { meeting: Meeting; refresh
     if (!reviewDirty) {
       setTitle(meeting.title); setPurpose(String(meeting.metadata?.purpose || '')); setAgenda(String(meeting.metadata?.agenda || '')); setZone(String(meeting.metadata?.timezone || ''));
       setReviewVersion(Number(meeting.metadata?.review_version || 0));
+      setReviewToken(meeting.review_token || '');
       setProjectId(String(meeting.metadata?.project_id || '')); setVentureId(meeting.venture_id || '');
     }
   }, [meeting, dirty, reviewDirty]);
@@ -93,7 +95,7 @@ export function MeetingOutputs({ meeting, refresh }: { meeting: Meeting; refresh
         <label className="block text-sm">Linked project<select className="mt-1 min-h-12 w-full rounded border bg-background p-3" value={projectId} onChange={e => { setProjectId(e.target.value); setReviewDirty(true); }}><option value="">Ignore / no project link</option>{projectId && !projects.some(p => p.id === projectId) && <option value={projectId}>Current project</option>}{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
         <label className="block text-sm">Linked venture<select className="mt-1 min-h-12 w-full rounded border bg-background p-3" value={ventureId} onChange={e => { setVentureId(e.target.value); setReviewDirty(true); }}><option value="">Ignore / no venture link</option>{ventureId && !ventures.some(v => v.id === ventureId) && <option value={ventureId}>Current venture</option>}{ventures.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
         <p className="text-sm text-muted-foreground">Create a missing project or venture explicitly in Work, then return to link it. Mentions alone create no records.</p>
-        <Button disabled={busy || !title.trim()} onClick={() => void perform(async () => { await api.put(`/meetings/${meeting.id}/review`, { expected_version: reviewVersion, title, purpose, agenda, timezone: zone || null, project_id: projectId || null, venture_id: ventureId || null }); setReviewDirty(false); await refresh(); setMessage('Meeting details reviewed.'); })}>Save reviewed details</Button>
+        <Button disabled={busy || !title.trim() || !reviewToken} onClick={() => void perform(async () => { await api.put(`/meetings/${meeting.id}/review`, { expected_version: reviewVersion, expected_review_token: reviewToken, title, purpose, agenda, timezone: zone || null, project_id: projectId || null, venture_id: ventureId || null }); setReviewDirty(false); await refresh(); setMessage('Meeting details reviewed.'); })}>Save reviewed details</Button>
       </div></details>}
       <p className="whitespace-pre-wrap break-words text-sm">{String(meeting.metadata?.purpose || 'Purpose not reviewed.')}<br />{String(meeting.metadata?.agenda || 'Agenda not provided.')}</p>
     </details>

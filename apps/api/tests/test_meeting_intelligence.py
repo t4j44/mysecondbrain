@@ -29,6 +29,12 @@ async def capture(client, headers, request_id=None):
     return response.json()
 
 
+async def reviewed(client, headers, path, **payload):
+    response = await client.get(path, headers=headers)
+    assert response.status_code == 200, response.text
+    return {**payload, 'expected_review_token': response.json()['review_token']}
+
+
 @pytest.fixture
 def audio_stub(monkeypatch):
     async def authorize(self, owner, meeting_id, mime):
@@ -198,9 +204,10 @@ async def test_end_to_end_review_confirmation_and_retry_once(async_client, auth_
     async with TestingSessionLocal() as db:
         assert await db.scalar(select(func.count()).select_from(Commitment)) == 0
     person = (await async_client.post('/api/v1/people', headers=auth_headers, json={'name':'Sarah'})).json()
-    assert (await async_client.post(path+'/speakers', headers=auth_headers, json={'speaker':'c0:spk_1','kind':'me','confirmed':True})).status_code == 200
-    assert (await async_client.post(path+'/speakers', headers=auth_headers, json={'speaker':'c0:spk_2','kind':'person','person_id':person['id'],'confirmed':True})).status_code == 200
-    responses = [await async_client.post(path+'/confirm', headers=auth_headers, json={'confirmed':True}) for _ in range(2)]
+    assert (await async_client.post(path+'/speakers', headers=auth_headers, json=await reviewed(async_client, auth_headers, path, speaker='c0:spk_1', kind='me', confirmed=True))).status_code == 200
+    assert (await async_client.post(path+'/speakers', headers=auth_headers, json=await reviewed(async_client, auth_headers, path, speaker='c0:spk_2', kind='person', person_id=person['id'], confirmed=True))).status_code == 200
+    payload = await reviewed(async_client, auth_headers, path, confirmed=True)
+    responses = [await async_client.post(path+'/confirm', headers=auth_headers, json=payload) for _ in range(2)]
     assert all(r.status_code == 200 for r in responses), [r.text for r in responses]
     assert responses[0].json() == responses[1].json()
     async with TestingSessionLocal() as db:
@@ -268,8 +275,9 @@ async def test_speaker_mapping_rejects_foreign_person(async_client, auth_headers
     meeting=await uploaded(async_client,auth_headers)
     await process(meeting['id'],test_user_id)
     person=(await async_client.post('/api/v1/people',headers=other_auth_headers,json={'name':'Private'})).json()
+    path = '/api/v1/meetings/' + meeting['id']
     response=await async_client.post('/api/v1/meetings/'+meeting['id']+'/speakers',headers=auth_headers,
-        json={'speaker':'c0:spk_1','kind':'person','person_id':person['id'],'confirmed':True})
+        json=await reviewed(async_client, auth_headers, path, speaker='c0:spk_1', kind='person', person_id=person['id'], confirmed=True))
     assert response.status_code==404
 
 
@@ -292,7 +300,7 @@ async def test_selective_save_keeps_deselected_promises_out_of_canonical_crm(asy
     await process(meeting['id'], test_user_id)
     path = '/api/v1/meetings/'+meeting['id']
     response = await async_client.post(path+'/confirm', headers=auth_headers,
-        json={'confirmed':True,'selections':['decisions:0']})
+        json=await reviewed(async_client, auth_headers, path, confirmed=True, selections=['decisions:0']))
     assert response.status_code == 200, response.text
     async with TestingSessionLocal() as db:
         assert await db.scalar(select(func.count()).select_from(Commitment)) == 0
@@ -307,7 +315,9 @@ async def test_deleting_meeting_erases_derived_context_and_queues_audio(async_cl
     meeting = await uploaded(async_client, auth_headers)
     await process(meeting['id'], test_user_id)
     path = '/api/v1/meetings/'+meeting['id']
-    await async_client.post(path+'/confirm', headers=auth_headers, json={'confirmed':True})
+    response = await async_client.post(path+'/confirm', headers=auth_headers,
+        json=await reviewed(async_client, auth_headers, path, confirmed=True))
+    assert response.status_code == 200, response.text
     response = await async_client.delete(path, headers=auth_headers)
     assert response.status_code == 204, response.text
     async with TestingSessionLocal() as db:

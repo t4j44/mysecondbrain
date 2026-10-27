@@ -45,10 +45,11 @@ async def review(identity: UUID, payload: MeetingReview, user: AuthenticatedUser
     meeting, capture = await service.capture_for(db, user.id, str(identity), lock=True)
     if capture.confirmed_at:
         raise ConflictError('Meeting context is already confirmed; existing historical links are preserved.')
+    service.require_review_snapshot(meeting, payload.expected_review_token)
     meta = meeting.meta or {}
     if meta.get('review_version', 0) != payload.expected_version:
         raise ConflictError('Meeting details changed in another tab. Reload before saving.')
-    values = payload.model_dump(exclude_unset=True, exclude={'expected_version'})
+    values = payload.model_dump(exclude_unset=True, exclude={'expected_version', 'expected_review_token'})
     for kind in ('project', 'venture'):
         linked_id = values.get(kind + '_id')
         if linked_id:
