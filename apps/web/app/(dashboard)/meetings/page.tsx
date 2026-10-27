@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CalendarDays, Search, Users, CheckCircle2, Clock3, ArrowRight } from 'lucide-react';
 import { ResponsivePageContainer } from '@/components/shared/responsive-page-container';
@@ -22,6 +22,9 @@ export default function MeetingsPage() {
   const [filter, setFilter] = useState<Filter>('all');
   const [captureOpen, setCaptureOpen] = useState(false);
   const [captureActive, setCaptureActive] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('capture') === '1') setCaptureOpen(true);
+  }, []);
   const counts = useMemo(() => ({
     total: meetings.length,
     review: meetings.filter(isReview).length,
@@ -60,7 +63,7 @@ export default function MeetingsPage() {
       <div className="flex flex-col gap-2 sm:flex-row">
         <label className="relative min-w-0 flex-1"><span className="sr-only">Search meetings</span><Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" aria-hidden="true" /><input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Find a conversation…" className="min-h-11 w-full rounded-xl border bg-background py-2 pl-10 pr-3 text-base" /></label>
         <div className="flex gap-1 rounded-xl border p-1" aria-label="Filter meetings">
-          {([['all','All'],['review','Review'],['processing','In progress']] as const).map(([value,label]) => <button type="button" key={value} onClick={() => setFilter(value)} aria-pressed={filter===value} className={`min-h-11 flex-1 whitespace-nowrap rounded-lg px-3 text-sm sm:flex-none ${filter===value?'bg-primary text-primary-foreground':'text-muted-foreground hover:bg-accent'}`}>{label}</button>)}
+          {([['all','All'],['review','Review'],['processing','In progress']] as const).map(([value,label]) => <button type="button" key={value} onClick={() => setFilter(value)} aria-pressed={filter===value} className={`min-h-11 min-w-11 flex-1 whitespace-nowrap rounded-lg px-3 text-sm sm:flex-none ${filter===value?'bg-primary text-primary-foreground':'text-muted-foreground hover:bg-accent'}`}>{label}</button>)}
         </div>
       </div>
       {loading && <p role="status" className="rounded-xl border p-4 text-sm text-muted-foreground">Loading your meetings…</p>}

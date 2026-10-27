@@ -6,8 +6,7 @@ import { Breadcrumbs } from './breadcrumbs';
 import { CommandMenu } from './command-menu';
 import { UserMenu } from './user-menu';
 import { BetaNotice } from '../shared/beta-notice';
-import { MobileNavigation } from './mobile-navigation';
-import { Plus, BrainCircuit } from 'lucide-react';
+import { Plus, BrainCircuit, MessageCircle } from 'lucide-react';
 
 interface TopBarProps {
   onOpenQuickCapture?: () => void;
@@ -17,12 +16,12 @@ export function TopBar({ onOpenQuickCapture }: TopBarProps) {
   return (
     <header className="app-top-bar sticky top-0 z-30 flex h-[56px] w-full min-w-0 shrink-0 items-center justify-between gap-2 border-b bg-background/95 px-2.5 sm:px-6">
       <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-        <MobileNavigation />
         <Link href="/dashboard" aria-label="Second Brain Home" className="flex min-w-0 items-center gap-2 text-sm font-semibold tracking-tight lg:hidden"><BrainCircuit className="h-5 w-5 text-primary" /><span className="truncate">Second Brain</span></Link>
         <div className="hidden min-w-0 lg:block"><Breadcrumbs /></div>
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <Link href="/assistant" aria-label="Ask Second Brain" title="Ask Second Brain" className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"><MessageCircle className="h-5 w-5" aria-hidden="true" /></Link>
         {/* Quick Capture Pill (Desktop / Tablet) */}
         {onOpenQuickCapture && (
           <button

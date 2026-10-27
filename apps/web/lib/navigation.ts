@@ -1,12 +1,22 @@
-import { Home, Plus, Users, Briefcase, MessageCircle } from 'lucide-react';
+import { Home, Plus, Users, Briefcase, MessageCircle, CalendarDays, FileText } from 'lucide-react';
 
 export const primaryNavigation = [
   { title: 'Home', href: '/dashboard', icon: Home },
-  { title: 'Capture', href: '/capture', icon: Plus },
   { title: 'People', href: '/people', icon: Users },
-  { title: 'Work', href: '/work', icon: Briefcase },
+  { title: 'Meetings', href: '/meetings', icon: CalendarDays },
+  { title: 'Capture', href: '/capture', icon: Plus },
   { title: 'Ask', href: '/assistant', icon: MessageCircle },
+  { title: 'Work', href: '/work', icon: Briefcase },
+  { title: 'Documents', href: '/documents', icon: FileText },
 ];
+
+export const mobileNavigation = ['/dashboard', '/people', '/capture', '/meetings'].map(
+  href => primaryNavigation.find(item => item.href === href)!,
+);
+
+export function isMoreActive(pathname: string) {
+  return !mobileNavigation.some(item => isPrimaryActive(item.href, pathname));
+}
 
 export const workNavigation = [
   { title: 'Projects', href: '/projects', description: 'What you are working toward and who can help.' },
@@ -19,7 +29,7 @@ export const workNavigation = [
 
 export function isPrimaryActive(href: string, pathname: string) {
   if (href === '/dashboard') return pathname === '/' || pathname === '/dashboard';
-  if (href === '/work') return ['/work', '/tasks', '/projects', '/ventures', '/meetings', '/documents'].some(path => pathname === path || pathname.startsWith(path + '/'));
+  if (href === '/work') return ['/work', '/tasks', '/projects', '/ventures', '/memories', '/ideas', '/achievements', '/kpis', '/content'].some(path => pathname === path || pathname.startsWith(path + '/'));
   if (href === '/people' && pathname.startsWith('/organizations')) return true;
   return pathname === href || pathname.startsWith(href + '/');
 }

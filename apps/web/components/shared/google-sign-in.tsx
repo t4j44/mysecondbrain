@@ -66,7 +66,7 @@ export function GoogleSignIn({ next = '/dashboard' }: { next?: string }) {
         type="button"
         onClick={() => void signInWithGoogle()}
         disabled={isEnabled !== true || loading}
-        className="flex w-full min-h-[44px] items-center justify-center gap-3 rounded-xl border border-[#3b1e5a] bg-[#1a1026] px-4 py-2.5 font-medium text-[#f7f4ea] transition-colors hover:border-[#00ff9d] disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex w-full min-h-[44px] items-center justify-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 font-medium text-foreground transition-colors hover:border-primary disabled:cursor-not-allowed disabled:opacity-60"
         aria-label="Continue with Google"
         data-testid="google-signin"
       >

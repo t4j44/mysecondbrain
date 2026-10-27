@@ -9,7 +9,7 @@ Baseline inspected at `5089044`. No row is PILOT_READY. Tests below must be fill
 | Meeting record/upload/recovery | components/meetings/capture-panel.tsx, services/meeting_intelligence.py, jobs/handlers/meeting_processing.py | Existing; recorder-collapse regression repaired | Real audio/provider/device pending |
 | Five meeting outputs, sources, review | meeting-outputs.tsx, meeting_evidence.py, meeting confirmation tests | Existing; progressive disclosure and correction audit pending | Pending |
 | Ask / documents / OCR / MCP | ai/, mcp/, documents services, photo-text-input.tsx | Existing; preserve canonical retrieval | Real external-client acceptance pending |
-| Mobile premium UX | PR13/14 plus existing mobile overhaul | Reconciled initial slice; complete V2 IA pending | Physical phones/usability pending |
+| Mobile premium UX | PR13/14 reconciliation plus V2 navigation/capture slice | Five mobile destinations, collapsed desktop sidebar, four capture choices, existing light/dark themes; meeting-detail refinement pending | Physical phones/usability pending |
 | Google Calendar/Drive | Google services and release_gates.py | Existing; release gate remains required | OAuth/refresh/revoke pending |
 | Telegram assistant/outbox/preferences | No Telegram domain implementation found in baseline services/jobs/endpoints | NOT BUILT | Must remain unavailable |
 | Daily/weekly assistant briefs | Founder deterministic brief and person context exist; no scheduled assistant digest | PARTIAL building blocks | Not advertised as scheduled delivery |
