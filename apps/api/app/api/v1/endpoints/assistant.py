@@ -1,14 +1,16 @@
 import hmac
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError as PydanticValidationError
+from sqlalchemy import select
 
 from app.core.config import settings
 from app.core.errors import AuthenticationError, ValidationError
 from app.dependencies.auth import AuthenticatedUser, get_current_user
 from app.dependencies.database import get_rls_db_session
-from app.models.assistant import AssistantPreferences
+from app.integrations.telegram_client import delivery_available
+from app.models.assistant import AssistantPreferences, NotificationOutbox
 from app.schemas.assistant import AssistantPreferencesUpdate, TelegramUpdate
 from app.services import assistant_connections as service
 
@@ -22,7 +24,20 @@ def private_response(value):
 @router.get('/assistant/connections/telegram')
 async def connection(user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
     row = await service.connection_for(db, user.id)
-    return private_response({'available': service.linking_available(), **service.connection_view(row)})
+    return private_response({'available': service.linking_available(), 'delivery_available': delivery_available(),
+        **service.connection_view(row)})
+
+
+@router.get('/assistant/activity')
+async def activity(limit: int = Query(default=20, ge=1, le=50), offset: int = Query(default=0, ge=0, le=10000),
+        user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    rows = (await db.scalars(select(NotificationOutbox).where(NotificationOutbox.user_id == user.id)
+        .order_by(NotificationOutbox.created_at.desc(), NotificationOutbox.id.desc()).offset(offset).limit(limit + 1))).all()
+    return private_response({'items': [{'id': str(row.id), 'commitment_id': str(row.commitment_id),
+        'status': row.status, 'scheduled_at': row.scheduled_at.isoformat(),
+        'delivered_at': row.delivered_at.isoformat() if row.delivered_at else None,
+        'attempt_count': row.attempt_count} for row in rows[:limit]],
+        'next_offset': offset + limit if len(rows) > limit else None})
 
 
 @router.post('/assistant/connections/telegram/start')

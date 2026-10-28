@@ -85,6 +85,7 @@ class CommitmentAction(Base):
 class NotificationOutbox(Base):
     __tablename__ = 'notification_outbox'
     __table_args__ = (
+        UniqueConstraint('user_id', 'id'),
         UniqueConstraint('user_id', 'commitment_id', 'commitment_revision', 'channel', 'slot'),
         ForeignKeyConstraint(['user_id', 'commitment_id'],
             ['commitments.user_id', 'commitments.id'], ondelete='CASCADE'),
@@ -106,8 +107,44 @@ class NotificationOutbox(Base):
     lease_token: Any = Column(FlexibleUUID)
     lease_until: Any = Column(DateTime(timezone=True))
     dispatch_started_at: Any = Column(DateTime(timezone=True))
+    attempt_count: Any = Column(Integer, nullable=False, default=0)
     delivered_at: Any = Column(DateTime(timezone=True))
     provider_message_id: Any = Column(String(100))
     error_code: Any = Column(String(50))
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+
+class NotificationDeliveryAttempt(Base):
+    __tablename__ = 'notification_delivery_attempts'
+    __table_args__ = (
+        UniqueConstraint('outbox_id', 'attempt_number'),
+        ForeignKeyConstraint(['user_id', 'outbox_id'],
+            ['notification_outbox.user_id', 'notification_outbox.id'], ondelete='CASCADE'),
+    )
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    outbox_id: Any = Column(FlexibleUUID, nullable=False)
+    attempt_number: Any = Column(Integer, nullable=False)
+    status: Any = Column(String(20), nullable=False, default='started')
+    error_code: Any = Column(String(50))
+    started_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    completed_at: Any = Column(DateTime(timezone=True))
+
+
+class MessagingCallbackToken(Base):
+    __tablename__ = 'messaging_callback_tokens'
+    __table_args__ = (
+        UniqueConstraint('token_hash'),
+        ForeignKeyConstraint(['user_id', 'outbox_id'],
+            ['notification_outbox.user_id', 'notification_outbox.id'], ondelete='CASCADE'),
+    )
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    outbox_id: Any = Column(FlexibleUUID, nullable=False)
+    token_hash: Any = Column(String(64), nullable=False)
+    action: Any = Column(String(20), nullable=False)
+    expires_at: Any = Column(DateTime(timezone=True), nullable=False)
+    used_at: Any = Column(DateTime(timezone=True))
+    acknowledgement: Any = Column(String(200))
+    created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)

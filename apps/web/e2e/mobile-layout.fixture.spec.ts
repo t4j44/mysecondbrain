@@ -45,6 +45,29 @@ test('commitment actions: sourced Help, explicit Snooze and conflict recovery',a
  await expect(page.getByRole('button',{name:'Done',exact:true})).toHaveCount(0);
 });
 
+test('telegram reminders: explicit consent and uncertain delivery history',async({page},info)=>{
+ let preferences={version:1,timezone:'Asia/Dhaka',quiet_start_minute:1320,quiet_end_minute:480,quiet_enabled:true,telegram_enabled:false,include_details:false,daily_cap:3};
+ await page.route('**/api/v1/assistant/connections/telegram',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({available:true,delivery_available:true,status:'active',linked_at:null,expires_at:null})}));
+ await page.route('**/api/v1/assistant/preferences',async route=>{
+  if(route.request().method()==='PUT'){
+   const payload=route.request().postDataJSON();expect(payload.consent).toBe(true);expect(payload.include_details).toBe(false);expect(payload.expected_version).toBe(1);
+   preferences={...preferences,telegram_enabled:payload.telegram_enabled,version:2};
+  }
+  await route.fulfill({contentType:'application/json',body:JSON.stringify(preferences)});
+ });
+ await page.route('**/api/v1/assistant/activity?*',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({items:[{id:'unknown-check-in',commitment_id:'synthetic-promise',status:'uncertain',scheduled_at:'2026-10-29T10:00:00Z'}],next_offset:null})}));
+ await page.goto('/settings/integrations');
+ const consent=page.getByLabel('Allow check-ins in my private Telegram chat');await expect(consent).not.toBeChecked();
+ await expect(page.getByLabel('Include commitment details in Telegram messages')).not.toBeChecked();
+ await consent.check();await page.getByRole('button',{name:'Save reminder preferences'}).click();
+ await expect(page.getByText(/Preferences saved. Choose a new check-in/)).toBeVisible();
+ await page.getByRole('button',{name:'View reminder history'}).click();
+ await expect(page.getByText('Delivery unknown',{exact:true})).toBeVisible();
+ await expect(page.getByText(/We will not resend automatically/)).toBeVisible();
+ await noOverflow(page);await page.getByRole('link',{name:'View commitment',exact:true}).evaluate(element=>element.scrollIntoView({block:'center'}));await capture(page,'telegram-history',info.project.name);
+ if(info.project.name.endsWith('-390'))expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+});
+
 test('telegram settings: explicit linking, truthful pending state and revocation',async({page},info)=>{
  let available=false, status='not_connected';
  await page.route('**/api/v1/assistant/connections/telegram',async route=>{

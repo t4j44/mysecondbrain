@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api/browser-client';
 import { Button } from '@/components/ui/button';
+import { TelegramActivity, TelegramPreferences } from './telegram-reminders';
 
-type Connection = { available: boolean; status: 'not_connected' | 'pending' | 'expired' | 'active' | 'revoked'; linked_at: string | null; expires_at: string | null };
+type Connection = { available: boolean; delivery_available: boolean; status: 'not_connected' | 'pending' | 'expired' | 'active' | 'revoked'; linked_at: string | null; expires_at: string | null };
 
 export function TelegramConnection() {
   const [connection, setConnection] = useState<Connection | null>(null);
@@ -48,10 +49,12 @@ export function TelegramConnection() {
       {['active', 'pending', 'expired'].includes(connection.status) && <Button variant="outline" disabled={busy} onClick={() => void run(async () => {
         await api.delete('/assistant/connections/telegram'); setLink(null); await load(); setMessage('Telegram disconnected. Notification permission has been removed.');
       })}>{connection.status === 'active' ? 'Disconnect Telegram' : 'Cancel connection'}</Button>}
-      <p className="text-xs text-muted-foreground">Reminder delivery is not available in this build. You can disconnect here or send /stop to the linked bot.</p>
+      <p className="text-xs text-muted-foreground">{connection.delivery_available ? 'You can disconnect here or send /stop to the linked bot.' : 'Reminder delivery is not available in this build. You can disconnect here or send /stop to the linked bot.'}</p>
+      {connection.status === 'active' && connection.delivery_available && <TelegramPreferences />}
     </>}
     <Button variant="outline" disabled={busy} onClick={() => void run(load)}>Refresh Telegram status</Button>
     {error && <p role="alert" className="text-sm">{error}</p>}
     {message && <p role="status" className="text-sm">{message}</p>}
+    <TelegramActivity />
   </section>;
 }
