@@ -92,6 +92,10 @@ async def act(db, owner, identity, payload: CommitmentActionInput):
     if payload.action != 'help':
         await db.flush()
         await db.refresh(row)
+        from app.services.notification_outbox import cancel_pending, enqueue_check_in
+        await cancel_pending(db, owner, row.id)
+        if payload.action == 'snooze':
+            await enqueue_check_in(db, owner, row)
         queue_index(db, row)
     result = {'commitment': CommitmentResponse.model_validate(row).model_dump(mode='json'),
         'action': payload.action, 'self_reported': payload.action == 'done', 'help': help_result}

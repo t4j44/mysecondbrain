@@ -28,6 +28,7 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
         "person_organization_roles",
         "commitments",
         "commitment_actions",
+        "notification_outbox",
         "relationships",
         "interactions",
         "meetings",
@@ -79,6 +80,12 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
 # Critical columns (name â†’ expected PostgreSQL udt/type family hints).
 # Type hints are matched loosely against information_schema / pg_catalog.
 APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
+    "notification_outbox": {
+        "user_id": "uuid", "commitment_id": "uuid", "commitment_revision": "int4",
+        "connection_id": "uuid", "preferences_version": "int4", "status": "varchar",
+        "lease_token": "uuid",  # nosec B105 -- PostgreSQL type name, not a credential
+        "lease_until": "timestamptz", "dispatch_started_at": "timestamptz",
+    },
     "commitment_actions": {"user_id": "uuid", "commitment_id": "uuid", "request_id": "uuid", "request_hash": "varchar", "receipt": "jsonb"},
     "assistant_preferences": {"user_id": "uuid", "timezone": "text", "version": "int4", "telegram_enabled": "bool", "consent_at": "timestamptz"},
     "messaging_update_receipts": {"user_id": "uuid", "connection_id": "uuid", "provider": "varchar", "update_id": "int8"},
@@ -359,6 +366,7 @@ MIGRATION_FILES: List[str] = [
     "20261021000036_limit_account_active_to_session_owner.sql",
     "20261028000037_assistant_connections.sql",
     "20261028000038_commitment_actions.sql",
+    "20261028000039_notification_outbox.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).
