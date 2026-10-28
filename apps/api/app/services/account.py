@@ -161,5 +161,11 @@ async def process_closures():
 
 
 async def require_active(db, owner):
-    if await db.get(AccountClosure, owner):
+    if db.bind.dialect.name == 'postgresql':
+        # The closure ledger is intentionally private to the server. Under owner
+        # RLS, use the self-only security-definer predicate; never widen its grants.
+        active = await db.scalar(text('SELECT public.account_active(CAST(:owner AS uuid))'), {'owner': owner})
+    else:
+        active = await db.get(AccountClosure, owner) is None
+    if not active:
         raise ConflictError('Account deletion is in progress. Only deletion status remains available.')
