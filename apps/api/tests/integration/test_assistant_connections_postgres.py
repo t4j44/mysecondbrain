@@ -24,6 +24,7 @@ async def assistant_owners(pg_engine, monkeypatch):
     monkeypatch.setattr(settings, 'TELEGRAM_LINKING_ENABLED', True)
     monkeypatch.setattr(settings, 'TELEGRAM_BOT_USERNAME', 'SyntheticBrainBot')
     monkeypatch.setattr(settings, 'TELEGRAM_WEBHOOK_SECRET', 'synthetic_webhook_secret_for_postgres_tests')
+    monkeypatch.setattr(settings, 'TOKEN_ENCRYPTION_KEY', 'synthetic_vault_key_for_isolated_postgres_tests')
     monkeypatch.setattr(database, 'AsyncSessionLocal', async_sessionmaker(pg_engine, expire_on_commit=False))
     async with pg_engine.begin() as db:
         for owner in owners:
