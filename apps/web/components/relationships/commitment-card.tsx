@@ -37,7 +37,7 @@ export function CommitmentCard({ row, onSaved, onReload }: { row: Commitment; on
       const result = await api.post<Result>(`/commitments/${row.id}/action`, request);
       setPending(null);
       if (result.help) setHelp(result.help);
-      else await onSaved(result.self_reported ? 'Marked done based on your confirmation.' : result.action === 'snooze' ? 'Check-in time saved. Telegram delivery is not enabled in this build.' : 'Marked as working.');
+      else await onSaved(result.self_reported ? 'Marked done based on your confirmation.' : result.action === 'snooze' ? 'Check-in time saved. Telegram reminders depend on your connection and notification preferences.' : 'Marked as working.');
     } catch (cause) {
       if (cause instanceof ApiError && [404, 409].includes(cause.status)) {
         setConflict(true); setPending(null);
@@ -81,7 +81,7 @@ export function CommitmentCard({ row, onSaved, onReload }: { row: Commitment; on
     {showSnooze && <form className="space-y-2 rounded-lg bg-muted/40 p-3" onSubmit={event => { event.preventDefault(); choose('snooze'); }}>
       <label htmlFor={`time-${row.id}`} className="block text-sm font-medium">Check-in time in {zone}</label>
       <Input id={`time-${row.id}`} type="datetime-local" required value={time} onChange={event => setTime(event.target.value)} disabled={blocked} />
-      <p className="text-xs text-muted-foreground">The promised deadline stays the same. Telegram delivery is not enabled in this build.</p>
+      <p className="text-xs text-muted-foreground">The promised deadline stays the same. Telegram reminders depend on your connection and notification preferences.</p>
       <Button type="submit" disabled={blocked}>Save check-in time</Button>
     </form>}
     {help && <div className="space-y-2 rounded-lg bg-muted/40 p-3">

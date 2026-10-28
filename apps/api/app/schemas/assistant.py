@@ -48,6 +48,21 @@ class TelegramMessage(BaseModel):
     text: str = Field(default='', max_length=4096)
 
 
+class TelegramCallbackMessage(BaseModel):
+    message_id: int = Field(gt=0, strict=True)
+    date: int = Field(ge=0, strict=True)
+    sender: TelegramActor | None = Field(default=None, alias='from')
+    chat: TelegramChat
+
+
+class TelegramCallback(BaseModel):
+    id: str = Field(min_length=1, max_length=256)
+    sender: TelegramActor = Field(alias='from')
+    message: TelegramCallbackMessage | None = None
+    data: str = Field(default='', max_length=64)
+
+
 class TelegramUpdate(BaseModel):
     update_id: int = Field(ge=0, le=2**63 - 1, strict=True)
     message: TelegramMessage | None = None
+    callback_query: TelegramCallback | None = None

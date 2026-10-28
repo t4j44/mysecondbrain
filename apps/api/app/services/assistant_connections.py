@@ -155,6 +155,10 @@ async def revoke(db, owner):
 
 
 async def process_update(update: TelegramUpdate):
+    if update.callback_query:
+        from app.services.telegram_callbacks import process_callback
+        await process_callback(update)
+        return
     message = update.message
     if not message or message.sender.is_bot or message.chat.type != 'private' or message.chat.id != message.sender.id:
         return

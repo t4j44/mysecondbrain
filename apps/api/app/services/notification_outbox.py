@@ -1,4 +1,4 @@
-"""Durable reminder safety boundary. No provider transport is wired in this slice."""
+"""Durable reminder safety boundary shared by scheduling and provider delivery."""
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -6,7 +6,12 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, or_, select
 
 from app.core.config import settings
-from app.models.assistant import AssistantPreferences, MessagingConnection, NotificationOutbox
+from app.models.assistant import (
+    AssistantPreferences,
+    MessagingConnection,
+    NotificationDeliveryAttempt,
+    NotificationOutbox,
+)
 from app.models.entities import ACTIVE_COMMITMENT_STATUSES, AuditLog, Commitment
 from app.services.assistant_connections import aware, linking_available, owner_lock
 
@@ -162,10 +167,26 @@ async def begin_dispatch(db, owner, identity, token, *, clock=None):
     if not await eligible(db, owner, row, now):
         await db.flush()
         return False
+    if row.attempt_count >= 3:
+        row.status, row.error_code = 'failed', 'ATTEMPT_LIMIT'
+        row.lease_token = row.lease_until = None
+        await db.flush()
+        return False
     row.status, row.dispatch_started_at = 'dispatching', now
     row.lease_until, row.updated_at = now + LEASE_DURATION, now
+    row.attempt_count += 1
+    db.add(NotificationDeliveryAttempt(user_id=owner, outbox_id=row.id,
+        attempt_number=row.attempt_count, started_at=now))
     await db.flush()
     return True
+
+
+async def finish_attempt(db, owner, row, status, code, now):
+    attempt = await db.scalar(select(NotificationDeliveryAttempt).where(
+        NotificationDeliveryAttempt.user_id == owner, NotificationDeliveryAttempt.outbox_id == row.id,
+        NotificationDeliveryAttempt.attempt_number == row.attempt_count))
+    if attempt:
+        attempt.status, attempt.error_code, attempt.completed_at = status, code, now
 
 
 async def settle(db, owner, identity, token, outcome, *, provider_message_id=None, clock=None):
@@ -184,6 +205,7 @@ async def settle(db, owner, identity, token, outcome, *, provider_message_id=Non
     row.delivered_at = now if outcome == 'delivered' else None
     row.error_code = {'uncertain': 'DELIVERY_UNKNOWN', 'failed': 'PROVIDER_REJECTED'}.get(outcome)
     row.lease_until = None
+    await finish_attempt(db, owner, row, outcome, row.error_code, now)
     db.add(AuditLog(user_id=owner, event_type='notification_delivery_state', target_entity='notification',
         target_id=row.id, details={'status': outcome, 'channel': row.channel}))
     await db.flush()
@@ -199,6 +221,8 @@ async def recover_expired(db, owner, *, clock=None):
     for row in rows:
         row.status = 'uncertain' if row.status == 'dispatching' else 'queued'
         row.error_code = 'DELIVERY_UNKNOWN' if row.status == 'uncertain' else None
+        if row.status == 'uncertain':
+            await finish_attempt(db, owner, row, 'uncertain', row.error_code, now)
         row.lease_token = row.lease_until = None
         row.updated_at = now
     await db.flush()
