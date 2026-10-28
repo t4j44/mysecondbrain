@@ -15,7 +15,6 @@ from app.models.entities import (
     PersonOrganizationRole,
 )
 from app.repositories.network import (
-    COMMITMENT_STATUS_OPEN,
     DIRECTION_OWED_BY_ME,
     DIRECTION_OWED_TO_ME,
     CommitmentRepository,
@@ -446,7 +445,7 @@ class NetworkIntelligenceService:
             now=now,
             person_id=person_id,
             direction=DIRECTION_OWED_TO_ME,
-            status=COMMITMENT_STATUS_OPEN,
+            status='active',
         )
         owed_by_me = await self.repo.list_commitments(
             self.db,
@@ -454,7 +453,7 @@ class NetworkIntelligenceService:
             now=now,
             person_id=person_id,
             direction=DIRECTION_OWED_BY_ME,
-            status=COMMITMENT_STATUS_OPEN,
+            status='active',
         )
         overdue = await self.repo.list_commitments(
             self.db, self.user_id, now=now, person_id=person_id, overdue_only=True

@@ -14,7 +14,7 @@ from sqlalchemy import (
 )
 
 from app.models.base import Base, FlexibleUUID
-from app.models.entities import utc_now
+from app.models.entities import JSONEncodedDict, utc_now
 from app.utils.identifiers import generate_uuid
 
 
@@ -64,4 +64,19 @@ class MessagingUpdateReceipt(Base):
     update_id: Any = Column(BigInteger, primary_key=True)
     user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
     connection_id: Any = Column(FlexibleUUID, nullable=False)
+    created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+
+class CommitmentAction(Base):
+    __tablename__ = 'commitment_actions'
+    __table_args__ = (UniqueConstraint('user_id', 'request_id'),
+        ForeignKeyConstraint(['user_id', 'commitment_id'],
+            ['commitments.user_id', 'commitments.id'], ondelete='CASCADE'))
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    commitment_id: Any = Column(FlexibleUUID, nullable=False)
+    request_id: Any = Column(FlexibleUUID, nullable=False)
+    action: Any = Column(String(20), nullable=False)
+    request_hash: Any = Column(String(64), nullable=False)
+    receipt: Any = Column(JSONEncodedDict, nullable=False)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)

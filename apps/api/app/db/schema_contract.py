@@ -27,6 +27,7 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
         "people",
         "person_organization_roles",
         "commitments",
+        "commitment_actions",
         "relationships",
         "interactions",
         "meetings",
@@ -78,6 +79,7 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
 # Critical columns (name â†’ expected PostgreSQL udt/type family hints).
 # Type hints are matched loosely against information_schema / pg_catalog.
 APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
+    "commitment_actions": {"user_id": "uuid", "commitment_id": "uuid", "request_id": "uuid", "request_hash": "varchar", "receipt": "jsonb"},
     "assistant_preferences": {"user_id": "uuid", "timezone": "text", "version": "int4", "telegram_enabled": "bool", "consent_at": "timestamptz"},
     "messaging_update_receipts": {"user_id": "uuid", "connection_id": "uuid", "provider": "varchar", "update_id": "int8"},
     "messaging_connections": {"id": "uuid", "user_id": "uuid", "provider": "varchar", "status": "varchar", "external_chat_hash": "text", "encrypted_chat_id": "text", "nonce_hash": "text", "nonce_expires_at": "timestamptz", "revision": "int4"},
@@ -210,6 +212,9 @@ APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
         "updated_at": "timestamp|timestamptz",
     },
     "commitments": {
+        "revision": "int4",
+        "reminder_at": "timestamptz",
+        "source_timezone": "varchar",
         "id": "uuid",
         "user_id": "uuid",
         "from_person_id": "uuid",
@@ -353,6 +358,7 @@ MIGRATION_FILES: List[str] = [
     "20261020000035_staging_function_security.sql",
     "20261021000036_limit_account_active_to_session_owner.sql",
     "20261028000037_assistant_connections.sql",
+    "20261028000038_commitment_actions.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).

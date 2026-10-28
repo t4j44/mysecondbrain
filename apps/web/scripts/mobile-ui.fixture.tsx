@@ -8,6 +8,7 @@ import Work from '../app/(dashboard)/work/page';
 import Capture from '../app/(dashboard)/capture/page';
 import Meetings from '../app/(dashboard)/meetings/page';
 import Connections from '../app/(dashboard)/settings/integrations/page';
+import Commitments from '../app/(dashboard)/work/commitments/page';
 import AuthLayout from '../app/(auth)/layout';
 import Login from '../app/(auth)/login/page';
 import Signup from '../app/(auth)/signup/page';
@@ -28,7 +29,7 @@ import NewMemory from '../app/(dashboard)/memories/new/page';
 import Source from '../app/(dashboard)/sources/[kind]/[id]/page';
 
 const pages: Record<string, React.ComponentType> = { '/dashboard': Home, '/people': People, '/assistant': Ask, '/work': Work, '/capture': Capture,'/organizations':Organizations,'/memories':Memories,'/memories/new':NewMemory,'/ideas':Ideas,'/achievements':Achievements,'/kpis':Metrics,'/content':Content };
-const Page = location.pathname==='/settings/integrations'?Connections:location.pathname==='/meetings'?Meetings:location.pathname==='/people/new'?NewPerson:/^\/people\/[^/]+\/edit$/.test(location.pathname)?EditPerson:/^\/people\/[^/]+$/.test(location.pathname)?PersonDetail:location.pathname.startsWith('/sources/')?Source:pages[location.pathname] || Home;
+const Page = location.pathname==='/work/commitments'?Commitments:location.pathname==='/settings/integrations'?Connections:location.pathname==='/meetings'?Meetings:location.pathname==='/people/new'?NewPerson:/^\/people\/[^/]+\/edit$/.test(location.pathname)?EditPerson:/^\/people\/[^/]+$/.test(location.pathname)?PersonDetail:location.pathname.startsWith('/sources/')?Source:pages[location.pathname] || Home;
 const AuthPage = ({ '/login': Login, '/signup': Signup, '/forgot-password': ForgotPassword, '/reset-password': ResetPassword, '/verify': Verify } as Record<string, React.ComponentType>)[location.pathname];
 declare global { interface Window { __renders: { phase: string; duration: number }[]; __messageRenders: number } }
 window.__renders = [];

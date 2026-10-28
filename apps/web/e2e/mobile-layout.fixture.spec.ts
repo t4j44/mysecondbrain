@@ -13,6 +13,38 @@ async function capture(page:Page,name:string,project:string){
  await page.screenshot({path:path.join(out,`${name}-${project}.png`),fullPage:false,animations:'disabled'});
 }
 
+test('commitment actions: sourced Help, explicit Snooze and conflict recovery',async({page},info)=>{
+ let revision=1,status='open',conflict=false;
+ const row=()=>({id:'synthetic-promise',description:'Send the reviewed proposal বাংলা',direction:'owed_by_me',due_at:null,from_person_id:null,to_person_id:null,revision,status,reminder_at:null,source_timezone:null});
+ await page.route('**/api/v1/commitments?*',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(status==='completed'?[]:[row()])}));
+ await page.route('**/api/v1/commitments/synthetic-promise/action',async route=>{
+  const data=route.request().postDataJSON();
+  if(conflict){conflict=false;revision++;return route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:{code:'CONFLICT',message:'Changed'}})});}
+  if(data.expected_revision!==revision)throw new Error('Fixture received an old reviewed revision');
+  let help=null;
+  if(data.action==='help')help={label:'Draft to review',text:'Could we agree on a next step?',suggestion:'Review the source.',sources:[{id:'synthetic-promise',kind:'commitment',uri:'/sources/commitment/synthetic-promise'}]};
+  else {revision++;status=data.action==='done'?'completed':data.action==='snooze'?'snoozed':'in_progress';}
+  await route.fulfill({contentType:'application/json',body:JSON.stringify({commitment:row(),action:data.action,self_reported:data.action==='done',help})});
+ });
+ await page.goto('/work/commitments');
+ await page.getByRole('button',{name:'Help',exact:true}).click();
+ await expect(page.getByLabel('Draft to review')).toBeVisible();
+ await page.getByRole('button',{name:'Snooze',exact:true}).click();
+ const date=new Date();date.setDate(date.getDate()+2);
+ const future=[date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-')+'T10:30';
+ await page.getByLabel(/Check-in time in/).fill(future);
+ await noOverflow(page);await capture(page,'commitment-actions',info.project.name);
+ if(info.project.name.endsWith('-390'))expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+ await page.getByRole('button',{name:'Save check-in time'}).click();
+ await expect(page.getByText('Snoozed',{exact:true})).toBeVisible();
+ conflict=true;await page.getByRole('button',{name:'Done',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Done',exact:true})).toBeDisabled();
+ await page.getByRole('button',{name:'Reload promises'}).click();
+ await page.getByRole('button',{name:'Done',exact:true}).click();
+ await expect(page.getByText('Marked done based on your confirmation.')).toBeVisible();
+ await expect(page.getByRole('button',{name:'Done',exact:true})).toHaveCount(0);
+});
+
 test('telegram settings: explicit linking, truthful pending state and revocation',async({page},info)=>{
  let available=false, status='not_connected';
  await page.route('**/api/v1/assistant/connections/telegram',async route=>{
