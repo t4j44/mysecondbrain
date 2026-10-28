@@ -73,6 +73,7 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URI: str = "http://localhost:3000/settings/integrations/google/callback"
     GOOGLE_INTEGRATIONS_RELEASE_VERIFIED: bool = False
     TELEGRAM_LINKING_ENABLED: bool = False
+    ASSISTANT_OUTBOX_ENABLED: bool = False
     TELEGRAM_BOT_USERNAME: str = ''
     TELEGRAM_WEBHOOK_SECRET: str = ''
     PORTFOLIO_PUBLISHING_RELEASE_VERIFIED: bool = False

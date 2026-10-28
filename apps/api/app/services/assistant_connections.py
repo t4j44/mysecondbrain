@@ -126,6 +126,8 @@ async def save_preferences(db, owner, payload: AssistantPreferencesUpdate):
         row.revoked_at = now
     audit(db, owner, 'assistant_preferences_updated', version=row.version,
         telegram_enabled=row.telegram_enabled, include_details=row.include_details)
+    from app.services.notification_outbox import cancel_pending
+    await cancel_pending(db, owner)
     await db.flush()
     return preferences_view(row)
 
@@ -146,6 +148,8 @@ async def revoke(db, owner):
     if preferences and preferences.telegram_enabled:
         preferences.telegram_enabled, preferences.revoked_at, preferences.updated_at = False, now, now
         preferences.version += 1
+    from app.services.notification_outbox import cancel_pending
+    await cancel_pending(db, owner)
     await db.flush()
     return connection_view(row)
 

@@ -17,7 +17,7 @@ from app.models.base import Base
 from app.models.entities import AccountClosure, Profile
 from app.models.publication import PortfolioPublication
 
-EXCLUDED = {"account_closures", "integration_tokens", "messaging_connections", "messaging_update_receipts", "jobs", "sync_jobs", "export_jobs", "export_items",
+EXCLUDED = {"account_closures", "integration_tokens", "messaging_connections", "messaging_update_receipts", "notification_outbox", "jobs", "sync_jobs", "export_jobs", "export_items",
             "exports", "embedding_jobs", "embeddings", "memory_embeddings",
             "mcp_oauth_clients", "mcp_oauth_requests", "mcp_oauth_codes", "mcp_oauth_tokens"}
 

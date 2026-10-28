@@ -80,3 +80,34 @@ class CommitmentAction(Base):
     request_hash: Any = Column(String(64), nullable=False)
     receipt: Any = Column(JSONEncodedDict, nullable=False)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+
+class NotificationOutbox(Base):
+    __tablename__ = 'notification_outbox'
+    __table_args__ = (
+        UniqueConstraint('user_id', 'commitment_id', 'commitment_revision', 'channel', 'slot'),
+        ForeignKeyConstraint(['user_id', 'commitment_id'],
+            ['commitments.user_id', 'commitments.id'], ondelete='CASCADE'),
+        ForeignKeyConstraint(['user_id', 'connection_id'],
+            ['messaging_connections.user_id', 'messaging_connections.id'], ondelete='CASCADE'),
+    )
+    id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
+    user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
+    commitment_id: Any = Column(FlexibleUUID, nullable=False)
+    commitment_revision: Any = Column(Integer, nullable=False)
+    connection_id: Any = Column(FlexibleUUID, nullable=False)
+    connection_revision: Any = Column(Integer, nullable=False)
+    preferences_version: Any = Column(Integer, nullable=False)
+    channel: Any = Column(String(30), nullable=False, default='telegram')
+    slot: Any = Column(String(30), nullable=False, default='explicit_check_in')
+    status: Any = Column(String(20), nullable=False, default='queued')
+    scheduled_at: Any = Column(DateTime(timezone=True), nullable=False)
+    available_at: Any = Column(DateTime(timezone=True), nullable=False, index=True)
+    lease_token: Any = Column(FlexibleUUID)
+    lease_until: Any = Column(DateTime(timezone=True))
+    dispatch_started_at: Any = Column(DateTime(timezone=True))
+    delivered_at: Any = Column(DateTime(timezone=True))
+    provider_message_id: Any = Column(String(100))
+    error_code: Any = Column(String(50))
+    created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
