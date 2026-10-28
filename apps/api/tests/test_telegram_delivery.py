@@ -1,4 +1,6 @@
+import io
 import json
+import zipfile
 from datetime import timedelta
 from unittest.mock import AsyncMock
 
@@ -241,3 +243,26 @@ async def test_details_only_leave_after_explicit_permission(test_user_id, enable
     client.send.return_value = TelegramResult('delivered', 'PROVIDER_ACCEPTED', '19')
     await delivery.deliver_one(test_user_id, row.id, client=client, clock=NOW)
     assert 'Synthetic check-in' in client.send.call_args.args[1]
+
+
+async def test_callback_vault_excluded_from_export_and_erased_with_owner(test_user_id, other_user_id, enabled, monkeypatch):
+    from app.integrations.storage_client import StorageService
+    from app.services.account import close_account, portable_export, request_closure
+    monkeypatch.setattr(StorageService, 'delete_owner_files', AsyncMock(return_value=0))
+    monkeypatch.setattr('app.services.account.delete_auth_user', AsyncMock())
+    _, _, _, buttons, client = await sent(test_user_id)
+    await sent(other_user_id)
+    async with TestingSessionLocal() as db:
+        with zipfile.ZipFile(io.BytesIO(await portable_export(db, test_user_id))) as archive:
+            data = archive.read('data.json').decode()
+            tables = json.loads(data)['tables']
+            assert 'messaging_callback_tokens' not in tables
+            assert buttons['Done'] not in data and nonce_hash(buttons['Done']) not in data
+            assert len(tables['notification_delivery_attempts']) == 1
+    await request_closure(test_user_id)
+    await close_account(test_user_id)
+    async with TestingSessionLocal() as db:
+        for model in (MessagingCallbackToken, NotificationDeliveryAttempt, NotificationOutbox):
+            rows = (await db.scalars(select(model))).all()
+            assert rows and all(str(row.user_id) == other_user_id for row in rows)
+    assert client.send.await_count == 1
