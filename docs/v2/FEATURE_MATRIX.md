@@ -5,7 +5,7 @@ Baseline inspected at `5089044`. No row is PILOT_READY. Tests below must be fill
 | Capability | Code evidence | V2 status | Hosted acceptance |
 |---|---|---|---|
 | Auth, RLS, private Storage, export/erase | dependencies/auth.py, db/rls.py, migrations 20/26/35/36 | Existing; preserve | Two-account, Storage and recovery gates pending |
-| People / context / commitments | models/entities.py, services/relationships.py, services/context_events.py | Existing; needs V2 action/revision validation | Pending |
+| People / context / commitments | models/entities.py, services/commitment_actions.py, services/relationships.py, services/context_events.py | Canonical revision-checked Done/Working/Snooze/Help implemented; active-state queries and shared-task completion preserved | Pending; see COMMITMENT_ACTIONS for isolated evidence |
 | Meeting record/upload/recovery | components/meetings/capture-panel.tsx, services/meeting_intelligence.py, jobs/handlers/meeting_processing.py | Existing; recorder-collapse regression repaired | Real audio/provider/device pending |
 | Five meeting outputs, sources, review | meeting-outputs.tsx, meeting_evidence.py, meeting confirmation tests | Progressive disclosure and filtered evidence navigation implemented; correction/action audit pending | Pending |
 | Ask / documents / OCR / MCP | ai/, mcp/, documents services, photo-text-input.tsx | Existing; preserve canonical retrieval | Real external-client acceptance pending |

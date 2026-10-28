@@ -22,6 +22,7 @@ from app.core.errors import ConflictError, NotFoundError
 from app.jobs.index_queue import queue_index
 from app.models.crm import Relationship
 from app.models.entities import (
+    ACTIVE_COMMITMENT_STATUSES,
     AuditLog,
     Commitment,
     ContextEvent,
@@ -338,7 +339,7 @@ class RelationshipService:
         latest = (await self.db.execute(select(Interaction.person_id, func.max(Interaction.date), func.count()).where(*active(Interaction, self.owner), Interaction.person_id.in_(identities)).group_by(Interaction.person_id))).all()
         dates = {str(row[0]): (row[1], row[2]) for row in latest}
         emailed = await self.email_dates(identities)
-        obligations = await self.rows(Commitment, Commitment.status == 'open', or_(Commitment.from_person_id.in_(identities), Commitment.to_person_id.in_(identities)), limit=1000, order=Commitment.due_at.asc())
+        obligations = await self.rows(Commitment, Commitment.status.in_(ACTIVE_COMMITMENT_STATUSES), or_(Commitment.from_person_id.in_(identities), Commitment.to_person_id.in_(identities)), limit=1000, order=Commitment.due_at.asc())
         actions = (await self.db.execute(select(RelationshipAction).where(RelationshipAction.user_id == self.owner,
             RelationshipAction.person_id.in_(identities)).order_by(RelationshipAction.created_at.desc()).limit(2000))).scalars().all()
         receipts = {}
@@ -479,12 +480,8 @@ class RelationshipService:
                 commitment = await owned_record(self.db, self.owner, 'commitment', suggestion['commitment_id'])
                 commitment.status, commitment.completed_at = 'completed', now
                 queue_index(self.db, commitment)
-                task_ids = (await self.db.execute(select(EntityEdge.source_entity_id).where(EntityEdge.user_id == self.owner,
-                    EntityEdge.source_entity_type == 'task', EntityEdge.target_entity_type == 'commitment',
-                    EntityEdge.target_entity_id == commitment.id, EntityEdge.relationship_type == 'fulfills'))).scalars().all()
-                for task in await self.rows(Task, Task.id.in_(task_ids), limit=100):
-                    task.status, task.completion_date = 'done', now
-                    queue_index(self.db, task)
+                from app.services.commitment_actions import complete_linked_tasks
+                await complete_linked_tasks(self.db, self.owner, commitment.id, now)
             person.last_interaction_at = now
             if person.follow_up_date and utc(person.follow_up_date) <= now:
                 person.follow_up_date = None
