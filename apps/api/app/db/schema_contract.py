@@ -15,6 +15,9 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
     {
         "profiles",
         "account_closures",
+        "assistant_preferences",
+        "messaging_connections",
+        "messaging_update_receipts",
         "relationship_actions",
         "public_profile_claims",
         "ventures",
@@ -75,6 +78,9 @@ APPLICATION_REQUIRED_TABLES: FrozenSet[str] = frozenset(
 # Critical columns (name â†’ expected PostgreSQL udt/type family hints).
 # Type hints are matched loosely against information_schema / pg_catalog.
 APPLICATION_REQUIRED_COLUMNS: Mapping[str, Mapping[str, str]] = {
+    "assistant_preferences": {"user_id": "uuid", "timezone": "text", "version": "int4", "telegram_enabled": "bool", "consent_at": "timestamptz"},
+    "messaging_update_receipts": {"user_id": "uuid", "connection_id": "uuid", "provider": "varchar", "update_id": "int8"},
+    "messaging_connections": {"id": "uuid", "user_id": "uuid", "provider": "varchar", "status": "varchar", "external_chat_hash": "text", "encrypted_chat_id": "text", "nonce_hash": "text", "nonce_expires_at": "timestamptz", "revision": "int4"},
     "email_contacts": {"user_id": "uuid", "integration_id": "uuid", "person_id": "uuid", "last_sent_at": "timestamptz", "last_received_at": "timestamptz"},
     "meeting_captures": {"meeting_id": "uuid", "user_id": "uuid", "state": "varchar", "audio_path": "text", "transcript_segments": "jsonb", "intelligence": "jsonb", "charged_seconds": "int4"},
     "usage_counters": {"user_id": "uuid", "metric": "text", "period_start": "timestamptz", "quantity": "int4"},
@@ -346,6 +352,7 @@ MIGRATION_FILES: List[str] = [
     "20261013000034_email_contacts.sql",
     "20261020000035_staging_function_security.sql",
     "20261021000036_limit_account_active_to_session_owner.sql",
+    "20261028000037_assistant_connections.sql",
 ]
 
 # Tables that intentionally hold no user-facing RLS policies (verified by the G2 suite).

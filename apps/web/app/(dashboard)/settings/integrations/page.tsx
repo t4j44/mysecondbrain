@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api/browser-client';
 import { groupAccounts, type Integration, type Provider, PROVIDERS, UNKNOWN_ACCOUNT } from '@/lib/google-accounts';
 import { useReleaseCapabilities } from '@/hooks/useReleaseCapabilities';
+import { TelegramConnection } from '@/components/settings/telegram-connection';
 
 export default function SettingsIntegrationsPage() {
   const capabilities = useReleaseCapabilities();
@@ -39,7 +40,8 @@ export default function SettingsIntegrationsPage() {
     });
   }
   return <div className="space-y-6">
-    <h1 className="text-2xl font-semibold">Google connections</h1>
+    <h1 className="text-2xl font-semibold">Connections</h1>
+    <TelegramConnection />
     {disabled && <p className="rounded border p-3">{capabilities.loaded ? 'Google connections and synchronization are disabled for this release pending hosted verification. You can still disconnect existing accounts.' : 'Checking integration availability...'}</p>}
     <p>Your private database stays authoritative. Drive exports are copies. Calendar receives only tasks you explicitly schedule. Connect as many Google accounts as you use.</p>
     <section className="space-y-4 rounded-xl border p-5" aria-label="Connected Google accounts">
