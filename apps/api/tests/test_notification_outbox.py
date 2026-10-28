@@ -10,13 +10,14 @@ import pytest
 from sqlalchemy import select
 
 from app.core.config import settings
+from app.core.security import encrypt_token
 from app.integrations.storage_client import StorageService
 from app.models.assistant import AssistantPreferences, MessagingConnection, NotificationOutbox
 from app.models.entities import Commitment
 from app.schemas.commitment_actions import CommitmentActionInput
 from app.services import notification_outbox as outbox
 from app.services.account import close_account, portable_export, request_closure
-from app.services.assistant_connections import revoke
+from app.services.assistant_connections import identity_hash, revoke
 from app.services.commitment_actions import act
 from tests.conftest import TestingSessionLocal
 
@@ -32,7 +33,10 @@ def enabled(monkeypatch):
 async def seed(db, owner):
     preferences = AssistantPreferences(user_id=owner, timezone='Asia/Dhaka', quiet_enabled=False,
         telegram_enabled=True, consent_at=NOW, daily_cap=1)
-    connection = MessagingConnection(user_id=owner, status='active', encrypted_chat_id='synthetic-vault')
+    synthetic_id = str(1 + uuid4().int % (2**51))
+    connection = MessagingConnection(user_id=owner, status='active', linked_at=NOW,
+        external_chat_hash=identity_hash('chat', synthetic_id), external_user_hash=identity_hash('user', synthetic_id),
+        encrypted_chat_id=encrypt_token(synthetic_id), encrypted_user_id=encrypt_token(synthetic_id))
     commitment = Commitment(user_id=owner, description='Synthetic check-in', status='snoozed',
         reminder_at=NOW, source_timezone='Asia/Dhaka')
     db.add_all([preferences, connection, commitment])

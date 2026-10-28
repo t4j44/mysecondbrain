@@ -8,13 +8,15 @@ from sqlalchemy.exc import DBAPIError
 
 from app.core.config import settings
 from app.dependencies.database import rls_db_session
-from app.models.assistant import AssistantPreferences, MessagingConnection, NotificationOutbox
+from app.models.assistant import AssistantPreferences, NotificationOutbox
 from app.models.entities import Commitment
 from app.services import notification_outbox as outbox
+from app.services.assistant_connections import process_update
 from tests.integration.conftest import requires_postgres
 from tests.integration.test_assistant_connections_postgres import (
     assistant_owners as assistant_owners,
 )
+from tests.integration.test_assistant_connections_postgres import link_nonce, start_update
 from tests.integration.test_meeting_intelligence_postgres import identity as set_identity
 
 pytestmark = [pytest.mark.postgres, requires_postgres]
@@ -27,11 +29,12 @@ def enabled(monkeypatch):
 
 
 async def prepare(owner):
+    update = start_update(await link_nonce(owner), update_id=uuid4().int % (2**63))
+    update.message.sender.id = update.message.chat.id = 1 + uuid4().int % (2**51)
+    await process_update(update)
     async with rls_db_session(owner) as db:
-        db.add_all([
-            AssistantPreferences(user_id=owner, timezone='UTC', quiet_enabled=False, telegram_enabled=True, consent_at=NOW, daily_cap=1),
-            MessagingConnection(user_id=owner, status='active', encrypted_chat_id='synthetic-vault'),
-        ])
+        db.add(AssistantPreferences(user_id=owner, timezone='UTC', quiet_enabled=False,
+            telegram_enabled=True, consent_at=NOW, daily_cap=1))
         commitments = [Commitment(user_id=owner, description='Synthetic', status='snoozed', reminder_at=NOW, source_timezone='UTC') for _ in range(2)]
         db.add_all(commitments)
         await db.flush()
