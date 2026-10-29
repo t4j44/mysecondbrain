@@ -37,7 +37,12 @@ def verify_api_release(origin: str, expected_sha: str) -> dict:
     request = urllib.request.Request(origin.rstrip("/") + "/health",
                                      headers={"Accept": "application/json",
                                               "User-Agent": "SecondBrain-V2-ReleaseGate/1.0"})
-    # Never follow a redirect to a different host or unapproved deployment.\n    class NoRedirect(urllib.request.HTTPRedirectHandler):\n        def redirect_request(self, request, fp, code, msg, headers, newurl):\n            return None\n\n    opener = urllib.request.build_opener(NoRedirect())
+    # Never follow redirects to a different host or unapproved deployment.
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, request, fp, code, msg, headers, newurl):
+            return None
+
+    opener = urllib.request.build_opener(NoRedirect())
     try:
         with opener.open(request, timeout=15) as response:
             if response.status != 200:
