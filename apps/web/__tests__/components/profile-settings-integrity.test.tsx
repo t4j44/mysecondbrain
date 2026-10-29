@@ -62,7 +62,8 @@ it('does not claim a failed profile update was saved', async () => {
   });
   updateUser.mockResolvedValue({ error: { message: 'Network issue' } });
   render(<SettingsProfilePage />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Save profile' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Save profile' })).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
   await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({
     title: 'Could not save profile',
     variant: 'destructive',
