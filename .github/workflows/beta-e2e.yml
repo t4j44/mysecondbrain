@@ -9,10 +9,11 @@ jobs:
     environment: beta-staging
     env:
       CI: 'true'
-      PLAYWRIGHT_TEST_BASE_URL: ${{ vars.BETA_WEB_URL }}
-      NEXT_PUBLIC_API_BASE_URL: ${{ vars.BETA_API_URL }}
-      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.BETA_SUPABASE_URL }}
-      BETA_SUPABASE_PROJECT_REF: ${{ vars.BETA_SUPABASE_PROJECT_REF }}
+      # These are deliberately pinned public staging endpoints; no dynamic production target.
+      PLAYWRIGHT_TEST_BASE_URL: https://second-brain-web-staging-seven.vercel.app
+      NEXT_PUBLIC_API_BASE_URL: https://second-brain-api-staging.onrender.com/api/v1
+      NEXT_PUBLIC_SUPABASE_URL: https://rpkjmdrralzxhdsgceal.supabase.co
+      BETA_SUPABASE_PROJECT_REF: rpkjmdrralzxhdsgceal
       PRODUCTION_SUPABASE_PROJECT_REF: ${{ vars.PRODUCTION_SUPABASE_PROJECT_REF }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.BETA_SUPABASE_PUBLISHABLE_KEY }}
       E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
@@ -27,7 +28,10 @@ jobs:
           for key in PLAYWRIGHT_TEST_BASE_URL NEXT_PUBLIC_API_BASE_URL NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY BETA_SUPABASE_PROJECT_REF PRODUCTION_SUPABASE_PROJECT_REF E2E_EMAIL E2E_PASSWORD E2E_EMAIL_B E2E_PASSWORD_B; do
             if [ -z "${!key}" ]; then echo "Missing required setting: $key"; exit 1; fi
           done
+          if [ "$BETA_SUPABASE_PROJECT_REF" != "rpkjmdrralzxhdsgceal" ]; then echo "Unexpected Supabase project"; exit 1; fi
           if [ "$BETA_SUPABASE_PROJECT_REF" = "$PRODUCTION_SUPABASE_PROJECT_REF" ]; then echo "Staging must differ from production"; exit 1; fi
+          if [ "$PLAYWRIGHT_TEST_BASE_URL" != "https://second-brain-web-staging-seven.vercel.app" ]; then echo "Wrong web target"; exit 1; fi
+          if [ "$NEXT_PUBLIC_API_BASE_URL" != "https://second-brain-api-staging.onrender.com/api/v1" ]; then echo "Wrong API target"; exit 1; fi
           if [ "$NEXT_PUBLIC_SUPABASE_URL" != "https://$BETA_SUPABASE_PROJECT_REF.supabase.co" ]; then echo "Staging project identity mismatch"; exit 1; fi
       - uses: actions/setup-node@v4
         with:

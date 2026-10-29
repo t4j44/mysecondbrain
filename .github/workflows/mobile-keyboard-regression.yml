@@ -1,0 +1,42 @@
+name: Mobile keyboard regression
+
+on:
+  push:
+    branches: [codex/second-brain-release-hardening]
+    paths:
+      - 'apps/web/app/globals.css'
+      - 'apps/web/components/chat/**'
+      - 'apps/web/components/layout/app-shell.tsx'
+      - 'apps/web/e2e/mobile-layout.fixture.spec.ts'
+      - '.github/workflows/mobile-keyboard-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  composer-visible:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/mobile-tools.mjs
+      - run: pnpm --filter @second-brain/web exec playwright install --with-deps chromium
+      - name: Verify Ask composer on 360px keyboard viewport
+        run: |
+          cd apps/web
+          node scripts/mobile-audit-run.mjs matrix --project chromium-360 --grep 'visual viewport keyboard simulation'
+      - name: Preserve failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-keyboard-failure
+          path: .test-tmp/mobile-overhaul/matrix
+          if-no-files-found: ignore
