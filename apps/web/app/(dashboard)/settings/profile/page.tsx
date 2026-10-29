@@ -95,7 +95,7 @@ export default function SettingsProfilePage() {
       {loadState === 'loading' && <p role="status" className="text-sm text-muted-foreground">Loading your profile…</p>}
       {loadState === 'error' && (
         <div role="alert" className="space-y-2 text-sm">
-          <p>We couldn't load your saved profile. Nothing has been changed.</p>
+          <p>We couldn&apos;t load your saved profile. Nothing has been changed.</p>
           <Button type="button" variant="outline" onClick={() => window.location.reload()}>Retry loading</Button>
         </div>
       )}
