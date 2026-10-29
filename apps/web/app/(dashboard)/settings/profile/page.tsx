@@ -9,121 +9,138 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { profileSettingsSchema, type ProfileSettingsValues } from '@/lib/validation/settings';
-import { Loader2, Save, UserCheck } from 'lucide-react';
+import { Loader2, Save } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+
+const COMMON_TIMEZONES = [
+  ['UTC', 'UTC'],
+  ['America/New_York', 'New York'],
+  ['America/Los_Angeles', 'Los Angeles'],
+  ['Europe/London', 'London'],
+  ['Asia/Dhaka', 'Dhaka'],
+  ['Asia/Singapore', 'Singapore'],
+  ['Asia/Tokyo', 'Tokyo'],
+] as const;
 
 export default function SettingsProfilePage() {
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = React.useState(false);
-
+  const [loadState, setLoadState] = React.useState<'loading' | 'ready' | 'error'>('loading');
+  const [saving, setSaving] = React.useState(false);
   const {
     register,
     handleSubmit,
-    setValue,
+    reset,
+    watch,
     formState: { errors },
   } = useForm<ProfileSettingsValues>({
     resolver: zodResolver(profileSettingsSchema),
-    defaultValues: {
-      fullName: 'Taj',
-      bio: 'Visionary founder organizing multiple high-growth technology ventures.',
-      timezone: 'UTC',
-    },
+    defaultValues: { fullName: '', bio: '', timezone: 'UTC' },
   });
 
   React.useEffect(() => {
+    let active = true;
     async function loadUser() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && user.user_metadata?.full_name) {
-        setValue('fullName', user.user_metadata.full_name);
+      try {
+        const { data, error } = await createClient().auth.getUser();
+        if (error || !data.user) throw new Error('Could not load your account.');
+        if (!active) return;
+        const metadata = data.user.user_metadata || {};
+        reset({
+          fullName: typeof metadata.full_name === 'string' ? metadata.full_name : '',
+          bio: typeof metadata.bio === 'string' ? metadata.bio : '',
+          timezone: typeof metadata.timezone === 'string' && metadata.timezone
+            ? metadata.timezone : 'UTC',
+        });
+        setLoadState('ready');
+      } catch {
+        if (!active) return;
+        setLoadState('error');
       }
     }
-    loadUser();
-  }, [setValue]);
+    void loadUser();
+    return () => { active = false; };
+  }, [reset]);
 
   async function onSubmit(data: ProfileSettingsValues) {
-    setIsLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.updateUser({
-      data: { full_name: data.fullName, bio: data.bio, timezone: data.timezone },
-    });
-    setIsLoading(false);
-
-    if (error) {
-      toast({ title: 'PROFILE UPDATE ERROR', description: error.message, variant: 'destructive' });
-      return;
+    if (loadState !== 'ready' || saving) return;
+    setSaving(true);
+    try {
+      const { error } = await createClient().auth.updateUser({
+        data: {
+          full_name: data.fullName,
+          bio: data.bio ?? '',
+          timezone: data.timezone,
+        },
+      });
+      if (error) throw error;
+      toast({ title: 'Profile saved', description: 'Your changes have been saved.' });
+    } catch {
+      toast({ title: 'Could not save profile', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSaving(false);
     }
-
-    toast({
-      title: 'OPERATOR IDENTITY SYMMED',
-      description: 'Your profile changes have been committed to the Supabase auth registry.',
-    });
   }
+
+  const selectedTimezone = watch('timezone');
+  const timezoneKnown = COMMON_TIMEZONES.some(([value]) => value === selectedTimezone);
+  const disabled = loadState !== 'ready' || saving;
 
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Operator Profile Configuration"
-        description="Manage your display credentials, executive bio, and active working timezone."
+        title="Your profile"
+        description="Manage your name, bio, and time zone for reminders and scheduling."
       />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-w-lg">
+      {loadState === 'loading' && <p role="status" className="text-sm text-muted-foreground">Loading your profile…</p>}
+      {loadState === 'error' && (
+        <div role="alert" className="space-y-2 text-sm">
+          <p>We couldn't load your saved profile. Nothing has been changed.</p>
+          <Button type="button" variant="outline" onClick={() => window.location.reload()}>Retry loading</Button>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit(onSubmit)} className="max-w-lg space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="fullName" className="text-xs font-mono uppercase text-muted-foreground">
-            Full Name / Title
-          </Label>
-          <Input id="fullName" disabled={isLoading} {...register('fullName')} />
-          {errors.fullName && <p className="text-xs font-mono text-destructive">{errors.fullName.message}</p>}
+          <Label htmlFor="fullName">Full name</Label>
+          <Input id="fullName" disabled={disabled} autoComplete="name" {...register('fullName')} />
+          {errors.fullName && <p className="text-sm text-destructive">{errors.fullName.message}</p>}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="bio" className="text-xs font-mono uppercase text-muted-foreground">
-            Executive Bio & Context
-          </Label>
+          <Label htmlFor="bio">Bio (optional)</Label>
           <textarea
             id="bio"
             rows={3}
-            disabled={isLoading}
+            disabled={disabled}
             {...register('bio')}
-            className="flex w-full rounded-md border border-border bg-[#0e0716] px-3 py-2 text-sm text-[#f7f4ea] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#00ff9d] transition-all font-sans"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
           />
-          {errors.bio && <p className="text-xs font-mono text-destructive">{errors.bio.message}</p>}
+          {errors.bio && <p className="text-sm text-destructive">{errors.bio.message}</p>}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="timezone" className="text-xs font-mono uppercase text-muted-foreground">
-            Operational Timezone
-          </Label>
+          <Label htmlFor="timezone">Time zone</Label>
           <select
             id="timezone"
-            disabled={isLoading}
+            disabled={disabled}
             {...register('timezone')}
-            className="h-10 w-full rounded-md border border-border bg-[#0e0716] px-3 py-2 text-sm text-[#f7f4ea] focus:outline-none focus:ring-2 focus:ring-[#00ff9d] font-sans"
+            className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
           >
-            <option value="UTC">UTC (Universal Time Coordinated)</option>
-            <option value="America/New_York">EST (Eastern Standard Time)</option>
-            <option value="America/Los_Angeles">PST (Pacific Standard Time)</option>
-            <option value="Europe/London">GMT (Greenwich Mean Time)</option>
-            <option value="Asia/Tokyo">JST (Japan Standard Time)</option>
+            {!timezoneKnown && selectedTimezone && (
+              <option value={selectedTimezone}>{selectedTimezone} (saved)</option>
+            )}
+            {COMMON_TIMEZONES.map(([value, name]) => (
+              <option key={value} value={value}>{name} ({value})</option>
+            ))}
           </select>
-          {errors.timezone && <p className="text-xs font-mono text-destructive">{errors.timezone.message}</p>}
+          {errors.timezone && <p className="text-sm text-destructive">{errors.timezone.message}</p>}
         </div>
 
-        <div className="pt-4">
-          <Button type="submit" className="font-mono text-xs font-bold uppercase tracking-wider px-6" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                COMMITTING...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                SAVE PROFILE PROTOCOLS
-              </>
-            )}
-          </Button>
-        </div>
+        <Button type="submit" disabled={disabled}>
+          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          {saving ? 'Saving…' : 'Save profile'}
+        </Button>
       </form>
     </div>
   );
