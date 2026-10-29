@@ -9,6 +9,7 @@ import { ApiError } from '@/lib/api/errors';
 import { meetingApi } from '@/lib/meetings/api';
 import { meetingSession } from '@/components/meetings/capture-panel';
 import { EvidenceLinks, MeetingEvidenceNavigation, MeetingOutputs } from '@/components/meetings/meeting-outputs';
+import { MeetingPreparation } from '@/components/meetings/meeting-preparation';
 import { env } from '@/lib/env';
 import { statusLabel, type Candidate, type EvidenceRef, type Meeting } from '@/lib/meetings/types';
 
@@ -63,6 +64,7 @@ export default function MeetingDetailPage() {
   return <MeetingEvidenceNavigation.Provider value={navigateEvidence}><ResponsivePageContainer>
     <Link href="/meetings" className="text-sm text-muted-foreground">← Back to meetings</Link>
     <h1 className="mt-5 break-words text-2xl font-semibold sm:text-3xl">{meeting.title}</h1><p className="mt-2 text-sm text-muted-foreground">{new Date(meeting.meeting_date).toLocaleString()} · {meeting.duration_minutes} min · Meeting timezone: {String(meeting.metadata?.timezone || 'Unknown')} · {meeting.location || 'Location unknown'}</p>
+    <MeetingPreparation key={id} meetingId={id} />
     {capture && <p className="mt-4" role="status">{statusLabel(capture.state)}</p>}{error && <p className="mt-4 text-sm text-red-500" role="alert">{error}</p>}
     {capture?.state === 'failed' && <Button className="mt-4" disabled={busy} onClick={() => void action(() => meetingApi.retry(id))}>Retry processing</Button>}
     {error && <Button variant="outline" className="mt-3" disabled={busy} onClick={() => void refresh(true)}>Reload meeting</Button>}

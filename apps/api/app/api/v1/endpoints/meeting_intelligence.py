@@ -3,6 +3,7 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, Response, WebSocket
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from app.core.errors import ConflictError
@@ -22,6 +23,13 @@ from app.services.meeting_audio import AudioStorage
 from app.services.meeting_usage import quota_view
 
 router = APIRouter(prefix='/meetings', tags=['Meetings'])
+
+
+@router.get('/{identity}/preparation')
+async def preparation(identity: UUID, user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    from app.services.meeting_preparation import prepare
+    return JSONResponse(jsonable_encoder(await prepare(db, user.id, str(identity))),
+        headers={'Cache-Control': 'private, no-store'})
 
 
 @router.get('/{identity}/notes')
