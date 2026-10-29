@@ -5,8 +5,8 @@
 | Gate | Status | Needed evidence |
 |---|---|---|
 | Source ancestry and preserved prior work | PASS | Live refs and isolated base documented in CURRENT_TRUTH |
-| Locked Python and browser audits | PASS at `7abc863` | No known vulnerabilities in CI; see RELEASE_MANIFEST |
-| Exact-SHA security/quality and PostgreSQL CI | PASS at `7abc863` | Security 40742277094; Postgres 40742287309; later sender changes require fresh CI |
+| Locked Python and browser audits | PASS at `0590dbb` | No known vulnerabilities in CI; see RELEASE_MANIFEST |
+| Exact-SHA security/quality and PostgreSQL CI | PASS at `0590dbb` | Security 40781225468; Postgres 40781234740; later meeting-preparation changes require fresh CI |
 | Complete V2 UI and canonical workflow | IN PROGRESS | Navigation, source review, correction, mobile browser evidence |
 | Web/API/worker release alignment | BLOCKED | No aligned V2 staging deployment; older API identified; owner approved Vercel access but connector still returned 403 |
 | Real two-account isolation/private Storage | NOT_RUN | Authorized synthetic staging accounts and direct object denial |

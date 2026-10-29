@@ -45,6 +45,23 @@ test('commitment actions: sourced Help, explicit Snooze and conflict recovery',a
  await expect(page.getByRole('button',{name:'Done',exact:true})).toHaveCount(0);
 });
 
+test('meeting preparation: saved sources and failed reload clears old facts',async({page},info)=>{
+ let fail=false;
+ await page.route('**/api/v1/meetings/people-search*',route=>route.fulfill({contentType:'application/json',body:'[]'}));
+ await page.route('**/api/v1/meetings/synthetic-meeting',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({id:'synthetic-meeting',title:'Proposal review',meeting_date:'2026-10-30T12:00:00Z',duration_minutes:30,metadata:{},capture:null,participant_person_ids:['person'],action_items:[]})}));
+ await page.route('**/api/v1/meetings/synthetic-meeting/preparation',route=>route.fulfill({status:fail?503:200,contentType:'application/json',body:JSON.stringify(fail?{error:{message:'Synthetic unavailable'}}:{generated_at:'2026-10-29T12:00:00Z',basis:'Saved records only. Calendar freshness is not verified.',more_people:false,people:[{person:{id:'person',title:'Farzana বাংলা',uri:'/people/person'},notes:'Prefers a short agenda.',saved_role:'Design lead',saved_company:'Fictional studio',last_interaction:{source:{uri:'/sources/interaction/last'},summary:'Review the proposal scope.',date:'2026-10-28T12:00:00Z'},more_commitments:false,commitments:[{source:{id:'promise',uri:'/sources/commitment/promise'},description:'Send the reviewed proposal',direction:'owed_by_me',status:'in_progress',due_at:null}]}]})}));
+ await page.goto('/meetings/synthetic-meeting');await page.getByRole('button',{name:'Prepare meeting',exact:true}).click();
+ await expect(page.getByRole('link',{name:'Send the reviewed proposal'})).toHaveAttribute('href','/sources/commitment/promise');
+ await expect(page.getByText('You owe · Working · No deadline recorded')).toBeVisible();
+ await page.getByText('Last saved conversation',{exact:true}).click();
+ await expect(page.getByText('Review the proposal scope.')).toBeVisible();
+ await noOverflow(page);await page.getByRole('link',{name:'Farzana বাংলা'}).evaluate(element=>element.scrollIntoView({block:'center'}));await capture(page,'meeting-preparation',info.project.name);
+ if(info.project.name.endsWith('-390'))expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+ fail=true;await page.getByRole('button',{name:'Reload preparation'}).click();
+ await expect(page.getByRole('alert')).toContainText('Preparation could not be loaded');
+ await expect(page.getByRole('link',{name:'Send the reviewed proposal'})).toHaveCount(0);
+});
+
 test('telegram reminders: explicit consent and uncertain delivery history',async({page},info)=>{
  let preferences={version:1,timezone:'Asia/Dhaka',quiet_start_minute:1320,quiet_end_minute:480,quiet_enabled:true,telegram_enabled:false,include_details:false,daily_cap:3};
  await page.route('**/api/v1/assistant/connections/telegram',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({available:true,delivery_available:true,status:'active',linked_at:null,expires_at:null})}));

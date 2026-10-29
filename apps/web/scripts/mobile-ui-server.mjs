@@ -20,7 +20,7 @@ function source(file) {
 }
 const { build } = createRequire(require.resolve('vite/package.json'))('esbuild');
 const modules = {
-  'next/navigation': `export const usePathname=()=>location.pathname;export const useRouter=()=>({push:(url)=>location.assign(url),refresh:()=>location.reload(),back:()=>history.back()});export const useSearchParams=()=>new URLSearchParams(location.search);export const useParams=()=>({personId:location.pathname.split('/')[2],kind:location.pathname.split('/')[2],id:location.pathname.split('/')[3]});`,
+  'next/navigation': `export const usePathname=()=>location.pathname;export const useRouter=()=>({push:(url)=>location.assign(url),refresh:()=>location.reload(),back:()=>history.back()});export const useSearchParams=()=>new URLSearchParams(location.search);export const useParams=()=>({meetingId:location.pathname.split('/')[2],personId:location.pathname.split('/')[2],kind:location.pathname.split('/')[2],id:location.pathname.split('/')[3]});`,
   'next/link': `import React from 'react';export default function Link({href,children,prefetch,...props}){return <a href={href} {...props}>{children}</a>;}`,
   'next-themes': `export const useTheme=()=>({theme:'dark',setTheme(){}});`,
   '@/lib/env': `export const env={NEXT_PUBLIC_API_BASE_URL:location.origin+'/api/v1'};`,
