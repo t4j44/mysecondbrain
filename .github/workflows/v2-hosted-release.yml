@@ -1,0 +1,39 @@
+name: V2 hosted API provenance gate
+
+on:
+  push:
+    branches:
+      - codex/v2-render-reconciled-20261030
+      - codex/second-brain-release-hardening
+    paths:
+      - 'apps/api/**'
+      - 'scripts/staging/v2_release_sha_gate.py'
+      - '.github/workflows/v2-hosted-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hosted-api-provenance:
+    name: Exact staging API SHA and readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify hosted API equals this exact candidate
+        run: |
+          python scripts/staging/v2_release_sha_gate.py \
+            --url https://second-brain-api-staging.onrender.com \
+            --expected-sha "$GITHUB_SHA"
+      - name: Verify live DB readiness
+        run: |
+          python - <<'PY'
+          import json, urllib.request
+          url = "https://second-brain-api-staging.onrender.com/health/ready"
+          with urllib.request.urlopen(url, timeout=20) as response:
+              data = json.load(response)
+              assert response.status == 200 and data.get("status") == "ready"
+              assert data.get("database") == "connected"
+          print("Staging API DB readiness verified")
+          PY
