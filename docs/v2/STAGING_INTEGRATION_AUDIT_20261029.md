@@ -44,3 +44,15 @@ Passing 573 backend / 110 frontend / 422 browser tests and 84 database tests per
 - GitHub V2 head: https://github.com/t4j44/mysecondbrain/tree/codex/v2-meeting-preparation-20261029
 - CI: https://github.com/t4j44/mysecondbrain/actions/runs/40868329315
 - PostgreSQL: https://github.com/t4j44/mysecondbrain/actions/runs/40868387864
+
+## Direct connected-service actions — second pass, 2026-10-29
+
+**Render STAGING ONLY:** set `TELEGRAM_LINKING_ENABLED=false`, `ASSISTANT_OUTBOX_ENABLED=false`, `TELEGRAM_DELIVERY_ENABLED=false`, and `GOOGLE_INTEGRATIONS_RELEASE_VERIFIED=false` via merge-only environment update (`replace=false`). Render automatically triggered staging deploy `dep-dbhk0r142hec73cltmbg` for branch commit `e69a7c094d69c57e3040f274e800af37a52448a9`. Its status at last poll: **build_in_progress**. Do not claim it is live before a finished deployment and application health verification. This is not V2: the approved V2 candidate remains `75d12fec`.
+
+**Supabase STAGING ONLY:** executed the read-only query now committed as `scripts/staging/v2_schema_readonly_preflight.sql` on project `rpkjmdrralzxhdsgceal`. It returned 0/7 new V2 tables present, 7/7 missing, no `commitments.revision`, server connection predicate and account active function present, and both existing Auth accounts and existing commitment data flagged present. An earlier aggregated preflight counted **3 auth users, 1 commitment, 0 meetings**. These are aggregate counts only; no user records or secrets were extracted. **No migration was applied**, because a restorable staging backup (including Auth/Storage) and exact compatible V2 web/API/worker deployment remain unverified.
+
+**Security advisor verification:** `public.account_active(owner uuid)` is SECURITY DEFINER and callable by `authenticated` but its inspected function body explicitly checks `owner = auth.uid()` and excludes closed accounts. Preserve this intended self-owner check; do not blindly change function privileges or add client access to server-only tables based solely on advisory names. Evaluate effective grants in full before any privilege changes.
+
+**Vercel STAGING ONLY:** project discovery works, but detailed project/deployment listing returns HTTP 403 for team `team_grch3Jv8NVqO7rmOBM3lKXES`. Team authorization is a user-controlled step. No Vercel setting, build configuration, or deployment was changed.
+
+**Test evidence:** The integrated review PR CI passed at `73a415a` prior to adding the read-only SQL script. New exact-SHA CI must be observed for subsequent commits. Do not count any of the connected-service reads above as a completed 91-case pilot release test.
