@@ -127,12 +127,15 @@ async def test_concurrent_user_note_edits_preserve_one_winner_and_owner_rls(pg_e
             await capture_for(db, ids['other'], ids['meeting'], lock=True)
 
 
-async def test_concurrent_confirmation_creates_one_receipt_and_temporal_graph(pg_engine, meeting_fixture):
+@pytest.mark.parametrize('competing', [False, True])
+async def test_concurrent_confirmation_creates_one_receipt_and_temporal_graph(pg_engine, meeting_fixture, competing):
     import json
 
+    from app.core.errors import ConflictError
     from app.models.entities import EntityEdge
     from app.schemas.meeting_intelligence import ConfirmIntelligence
-    from app.services.meeting_intelligence import confirm_intelligence
+    from app.schemas.meetings import MeetingResponse
+    from app.services.meeting_intelligence import capture_for, confirm_intelligence
     ids = meeting_fixture
     async with pg_engine.begin() as db:
         await db.execute(text("""UPDATE public.meeting_captures SET state='awaiting_review',
@@ -143,17 +146,30 @@ async def test_concurrent_confirmation_creates_one_receipt_and_temporal_graph(pg
                 'intelligence': json.dumps({'summary':'Beta test decision','decisions':[{'description':'Test the beta',
                     'evidence_text':'We decided to test the beta.','confidence':.9}]})})
     factory = async_sessionmaker(pg_engine, expire_on_commit=False)
-    async def confirm_once():
+    async with factory() as db:
+        await identity(db, ids['owner'])
+        meeting, _ = await capture_for(db, ids['owner'], ids['meeting'])
+        token = MeetingResponse.model_validate(meeting).review_token
+    async def confirm_once(selections):
         async with factory() as db:
             await identity(db, ids['owner'])
-            receipt = await confirm_intelligence(db, ids['owner'], ids['meeting'], ConfirmIntelligence(confirmed=True))
-            await db.commit()
-            return receipt
-    first, second = await asyncio.gather(confirm_once(), confirm_once())
-    assert first == second and len(first['decisions']) == 1
+            try:
+                receipt = await confirm_intelligence(db, ids['owner'], ids['meeting'],
+                    ConfirmIntelligence(confirmed=True, expected_review_token=token, selections=selections))
+                await db.commit()
+                return receipt
+            except ConflictError:
+                await db.rollback()
+                return None
+    first, second = await asyncio.gather(confirm_once(None), confirm_once([] if competing else None))
+    if competing:
+        assert (first is None) != (second is None)
+    else:
+        assert first == second and len(first['decisions']) == 1
+    winner = first or second
     async with factory() as db:
         await identity(db, ids['owner'])
         edges = (await db.scalars(select(EntityEdge).where(EntityEdge.source_entity_type == 'meeting',
             EntityEdge.source_entity_id == ids['meeting']))).all()
-        assert len(edges) == 1 and edges[0].relationship_type == 'produced'
-        assert edges[0].valid_from and edges[0].source_event_id
+        assert len(edges) == len(winner['decisions'])
+        assert all(edge.relationship_type == 'produced' and edge.valid_from and edge.source_event_id for edge in edges)

@@ -109,3 +109,5 @@ jobs:
             .test-tmp/mobile-overhaul/matrix-results.json
             .test-tmp/mobile-overhaul/playwright-report
             .test-tmp/mobile-overhaul/after
+            .test-tmp/meeting-ui
+            .test-tmp/v2-telegram-ui

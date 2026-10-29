@@ -20,7 +20,7 @@ function source(file) {
 }
 const { build } = createRequire(require.resolve('vite/package.json'))('esbuild');
 const modules = {
-  'next/navigation': `export const usePathname=()=>location.pathname;export const useRouter=()=>({push:(url)=>location.assign(url),refresh:()=>location.reload(),back:()=>history.back()});export const useSearchParams=()=>new URLSearchParams(location.search);export const useParams=()=>({personId:location.pathname.split('/')[2],kind:location.pathname.split('/')[2],id:location.pathname.split('/')[3]});`,
+  'next/navigation': `export const usePathname=()=>location.pathname;export const useRouter=()=>({push:(url)=>location.assign(url),refresh:()=>location.reload(),back:()=>history.back()});export const useSearchParams=()=>new URLSearchParams(location.search);export const useParams=()=>({meetingId:location.pathname.split('/')[2],personId:location.pathname.split('/')[2],kind:location.pathname.split('/')[2],id:location.pathname.split('/')[3]});`,
   'next/link': `import React from 'react';export default function Link({href,children,prefetch,...props}){return <a href={href} {...props}>{children}</a>;}`,
   'next-themes': `export const useTheme=()=>({theme:'dark',setTheme(){}});`,
   '@/lib/env': `export const env={NEXT_PUBLIC_API_BASE_URL:location.origin+'/api/v1'};`,
@@ -52,6 +52,10 @@ const server=http.createServer(async(req,res)=>{
     res.setHeader('Content-Type','application/json');
     await new Promise(resolve=>setTimeout(resolve,Number(req.headers['x-fixture-delay']||0)));
     if(url.pathname.endsWith('/relationships/home')) return res.end(JSON.stringify(home));
+    if(url.pathname.endsWith('/commitments')) return res.end('[]');
+    if(url.pathname.endsWith('/assistant/connections/telegram')) return res.end(JSON.stringify({available:false,status:'not_connected',linked_at:null,expires_at:null}));
+    if(url.pathname.endsWith('/meetings/usage')) return res.end(JSON.stringify({used_seconds:0,limit_seconds:18000,remaining_seconds:18000,percentage_used:0,data_mode:'free_redacted',max_bytes:52428800,retention_days:7}));
+    if(url.pathname.endsWith('/meetings')) return res.end(JSON.stringify({items:[],total:0,limit:100,offset:0,has_more:false}));
     if(/^\/api\/v1\/(memories|ideas|organizations|achievements|kpis|content)$/.test(url.pathname)){
       if(req.method==='POST'){let body='';for await(const chunk of req)body+=chunk;const note={...JSON.parse(body),id:randomUUID(),updated_at:'2026-10-22T10:00:00Z'};notes.unshift(note);return res.end(JSON.stringify(note));}
       const offset=Number(url.searchParams.get('offset')||0),limit=Number(url.searchParams.get('limit')||20);
@@ -86,6 +90,7 @@ const server=http.createServer(async(req,res)=>{
   }
   if(files.has(url.pathname)){res.setHeader('Content-Type','application/javascript');return res.end(files.get(url.pathname));}
   if(url.pathname==='/style.css'){res.setHeader('Content-Type','text/css');return res.end(css.css+'\n:root{--font-inter:Arial,sans-serif;--font-jetbrains-mono:monospace;--font-outfit:Arial,sans-serif}');}
-  res.setHeader('Content-Type','text/html');res.end('<!doctype html><html lang="en" class="dark"><head><title>Second Brain synthetic mobile QA</title><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="stylesheet" href="/style.css"></head><body><div id="root"></div><script type="module" src="/mobile-ui.fixture.js"></script></body></html>');
+  const theme=url.searchParams.get('theme')==='dark'?'dark':'light';
+  res.setHeader('Content-Type','text/html');res.end(`<!doctype html><html lang="en" class="${theme}"><head><title>Second Brain synthetic mobile QA</title><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="stylesheet" href="/style.css"></head><body><div id="root"></div><script type="module" src="/mobile-ui.fixture.js"></script></body></html>`);
 });
 server.listen(Number(process.env.MOBILE_FIXTURE_PORT||4174),'127.0.0.1',()=>console.log('Synthetic mobile UI ready at http://127.0.0.1:'+server.address().port));

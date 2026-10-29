@@ -7,7 +7,7 @@ import {usePathname} from 'next/navigation';
 import {Search,X} from 'lucide-react';
 import {primaryNavigation,workNavigation} from '@/lib/navigation';
 
-const destinations=[...primaryNavigation,...workNavigation,{title:'Organizations',href:'/organizations'},{title:'Settings',href:'/settings'},{title:'Privacy',href:'/settings/privacy'},{title:'AI connections',href:'/settings/ai-access'}];
+const destinations=Array.from(new Map([...primaryNavigation,...workNavigation,{title:'Organizations',href:'/organizations'},{title:'Settings',href:'/settings'},{title:'Privacy',href:'/settings/privacy'},{title:'AI connections',href:'/settings/ai-access'}].map(item=>[item.href,item])).values());
 export function CommandMenu(){
  const [open,setOpen]=React.useState(false);
  const [query,setQuery]=React.useState('');

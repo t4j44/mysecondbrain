@@ -22,6 +22,7 @@ from tests.test_meeting_intelligence import (  # noqa: F401
     capture,
     process,
     processing_stub,
+    reviewed,
     uploaded,
 )
 
@@ -393,7 +394,7 @@ async def test_review_export_confirm_typed_edges_and_delete(
         await async_client.put(
             path + "/review",
             headers=auth_headers,
-            json={"expected_version": 0, "project_id": foreign["id"]},
+            json=await reviewed(async_client, auth_headers, path, expected_version=0, project_id=foreign['id']),
         )
     ).status_code == 404
     assert (
@@ -401,6 +402,7 @@ async def test_review_export_confirm_typed_edges_and_delete(
             path + "/review",
             headers=auth_headers,
             json={
+                **await reviewed(async_client, auth_headers, path),
                 "expected_version": 0,
                 "title": "Manual title retained",
                 "purpose": "Reviewed purpose",
@@ -421,6 +423,7 @@ async def test_review_export_confirm_typed_edges_and_delete(
             path + "/speakers",
             headers=auth_headers,
             json={
+                **await reviewed(async_client, auth_headers, path),
                 "speaker": "c0:spk_2",
                 "kind": "person",
                 "person_id": person["id"],
@@ -429,11 +432,12 @@ async def test_review_export_confirm_typed_edges_and_delete(
         )
     ).status_code == 200
     assert (await async_client.post(path + '/speakers', headers=auth_headers,
-        json={'speaker':'c0:spk_1','kind':'me','confirmed':True})).status_code == 200
+        json=await reviewed(async_client, auth_headers, path, speaker='c0:spk_1', kind='me', confirmed=True))).status_code == 200
     before_confirm = await async_client.get(path + '/export/markdown?kind=minutes', headers=auth_headers)
     assert 'Attendees: Not confirmed' in before_confirm.text
+    payload = await reviewed(async_client, auth_headers, path, confirmed=True)
     receipts = [
-        await async_client.post(path + "/confirm", headers=auth_headers, json={"confirmed": True})
+        await async_client.post(path + "/confirm", headers=auth_headers, json=payload)
         for _ in range(2)
     ]
     assert all(r.status_code == 200 for r in receipts) and receipts[0].json() == receipts[1].json()
@@ -510,6 +514,6 @@ async def test_review_rejects_unknown_timezone_and_foreign_link(async_client, au
         await async_client.put(
             path + "/review",
             headers=auth_headers,
-            json={"expected_version": 0, "venture_id": str(uuid4())},
+            json=await reviewed(async_client, auth_headers, path, expected_version=0, venture_id=str(uuid4())),
         )
     ).status_code == 404

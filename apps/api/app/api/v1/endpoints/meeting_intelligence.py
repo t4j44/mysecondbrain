@@ -3,6 +3,7 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, Response, WebSocket
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from app.core.errors import ConflictError
@@ -22,6 +23,13 @@ from app.services.meeting_audio import AudioStorage
 from app.services.meeting_usage import quota_view
 
 router = APIRouter(prefix='/meetings', tags=['Meetings'])
+
+
+@router.get('/{identity}/preparation')
+async def preparation(identity: UUID, user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    from app.services.meeting_preparation import prepare
+    return JSONResponse(jsonable_encoder(await prepare(db, user.id, str(identity))),
+        headers={'Cache-Control': 'private, no-store'})
 
 
 @router.get('/{identity}/notes')
@@ -45,10 +53,11 @@ async def review(identity: UUID, payload: MeetingReview, user: AuthenticatedUser
     meeting, capture = await service.capture_for(db, user.id, str(identity), lock=True)
     if capture.confirmed_at:
         raise ConflictError('Meeting context is already confirmed; existing historical links are preserved.')
+    service.require_review_snapshot(meeting, payload.expected_review_token)
     meta = meeting.meta or {}
     if meta.get('review_version', 0) != payload.expected_version:
         raise ConflictError('Meeting details changed in another tab. Reload before saving.')
-    values = payload.model_dump(exclude_unset=True, exclude={'expected_version'})
+    values = payload.model_dump(exclude_unset=True, exclude={'expected_version', 'expected_review_token'})
     for kind in ('project', 'venture'):
         linked_id = values.get(kind + '_id')
         if linked_id:

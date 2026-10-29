@@ -1,6 +1,8 @@
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import JSONResponse
 
 from app.core.pagination import PaginationParams
 from app.dependencies.auth import AuthenticatedUser, get_current_user
@@ -44,8 +46,18 @@ from app.schemas import (
     StaleContactResponse,
     VentureNetworkEntry,
 )
+from app.schemas.commitment_actions import CommitmentActionInput
 
 router = APIRouter()
+
+
+@router.post('/commitments/{id}/action')
+async def commitment_action(id: UUID, payload: CommitmentActionInput,
+    service: CommitmentService = Depends(get_commitment_service)):
+    from app.services.commitment_actions import act
+    result = await act(service.db, service.user_id, str(id), payload)
+    await service.db.commit()
+    return JSONResponse(result, headers={'Cache-Control': 'private, no-store'})
 
 
 # --- PEOPLE ENDPOINTS (Task 15) ---
@@ -406,7 +418,7 @@ async def list_commitments(
     organization_id: Optional[str] = None,
     venture_id: Optional[str] = None,
     direction: Optional[str] = Query(None, pattern="^(owed_to_me|owed_by_me|unspecified)$"),
-    commitment_status: Optional[str] = Query(None, pattern="^(open|completed|cancelled)$"),
+    commitment_status: Optional[str] = Query(None, pattern="^(active|open|in_progress|waiting|snoozed|completed|cancelled)$"),
     overdue_only: bool = Query(False),
     limit: int = Query(100, ge=1, le=500),
     service: CommitmentService = Depends(get_commitment_service),

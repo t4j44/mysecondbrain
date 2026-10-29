@@ -5,6 +5,7 @@ from sqlalchemy import Select, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.entities import (
+    ACTIVE_COMMITMENT_STATUSES,
     Commitment,
     Interaction,
     Meeting,
@@ -229,13 +230,13 @@ class NetworkIntelligenceRepository:
 
         open_stmt = select(func.count()).select_from(Commitment).where(
             *_organization_commitment_filters(user_id, organization_id, person_ids),
-            Commitment.status == COMMITMENT_STATUS_OPEN,
+            Commitment.status.in_(ACTIVE_COMMITMENT_STATUSES),
         )
         open_commitments = int((await db.execute(open_stmt)).scalar() or 0)
 
         overdue_stmt = select(func.count()).select_from(Commitment).where(
             *_organization_commitment_filters(user_id, organization_id, person_ids),
-            Commitment.status == COMMITMENT_STATUS_OPEN,
+            Commitment.status.in_(ACTIVE_COMMITMENT_STATUSES),
             Commitment.due_at.is_not(None),
             Commitment.due_at < now,
         )
@@ -290,11 +291,13 @@ class NetworkIntelligenceRepository:
             stmt = stmt.where(Commitment.venture_id == venture_id)
         if direction:
             stmt = stmt.where(Commitment.direction == direction)
-        if status:
+        if status == 'active':
+            stmt = stmt.where(Commitment.status.in_(ACTIVE_COMMITMENT_STATUSES))
+        elif status:
             stmt = stmt.where(Commitment.status == status)
         if overdue_only:
             stmt = stmt.where(
-                Commitment.status == COMMITMENT_STATUS_OPEN,
+                Commitment.status.in_(ACTIVE_COMMITMENT_STATUSES),
                 Commitment.due_at.is_not(None),
                 Commitment.due_at < now,
             )

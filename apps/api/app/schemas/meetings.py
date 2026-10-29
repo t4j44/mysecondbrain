@@ -1,8 +1,10 @@
+import hashlib
+import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.schemas.meeting_intelligence import CaptureResponse
 
@@ -49,6 +51,24 @@ class MeetingResponse(MeetingBase):
     deleted_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    @computed_field  # type: ignore[prop-decorator]  # Pydantic supports computed properties; mypy does not.
+    @property
+    def review_token(self) -> str | None:
+        """Snapshot identity, not an authorization credential or an AI approval."""
+        if not self.capture:
+            return None
+        snapshot = {
+            'id': str(self.id), 'title': self.title, 'date': self.meeting_date.isoformat(),
+            'venture_id': str(self.venture_id) if self.venture_id else None,
+            'location': self.location,
+            'context': {key: self.metadata.get(key) for key in
+                ('purpose', 'agenda', 'timezone', 'project_id', 'review_version')},
+            'capture': self.capture.model_dump(mode='json', include={
+                'intelligence', 'transcript_segments', 'speaker_mappings'}),
+        }
+        return hashlib.sha256(json.dumps(snapshot, sort_keys=True, separators=(',', ':'),
+            ensure_ascii=False, allow_nan=False).encode('utf-8')).hexdigest()
 
 
 # Wrapped single meeting

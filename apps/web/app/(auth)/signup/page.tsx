@@ -53,7 +53,7 @@ export default function SignupPage() {
     if (error) {
       toast({
         title: 'REGISTRATION ERROR',
-        description: error.message || 'Unable to establish new operator identity.',
+        description: error.message || 'Could not create your account. Please try again.',
         variant: 'destructive',
       });
       return;
@@ -61,7 +61,7 @@ export default function SignupPage() {
 
     toast({
       title: 'VERIFICATION REQUIRED',
-      description: 'Verification check sent to operator email address.',
+      description: 'Check your email to confirm your account.',
     });
 
     router.push(`/verify?email=${encodeURIComponent(data.email)}`);
@@ -70,11 +70,11 @@ export default function SignupPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <div className="inline-flex items-center space-x-1.5 rounded px-2 py-0.5 text-[11px] font-mono font-semibold bg-[#251238] text-[#00ff9d] border border-[#00ff9d]/30 uppercase tracking-widest">
+        <div className="inline-flex items-center space-x-1.5 rounded px-2 py-0.5 text-[11px] font-mono font-semibold bg-primary/10 text-primary border border-primary/30 uppercase tracking-widest">
           <ShieldCheck className="h-3 w-3" />
-          <span>Operator Registration</span>
+          <span>Create an account</span>
         </div>
-        <h2 className="text-3xl font-extrabold tracking-tight text-[#f7f4ea]">
+        <h2 className="text-3xl font-extrabold tracking-tight text-foreground">
           Request Credentials
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -105,7 +105,7 @@ export default function SignupPage() {
           <Input
             id="email"
             type="email"
-            placeholder="operator@tajssecondbrain.ai"
+            placeholder="you@example.com"
             autoComplete="email"
             disabled={isLoading}
             {...register('email')}
@@ -117,7 +117,7 @@ export default function SignupPage() {
 
         <div className="space-y-2">
           <Label htmlFor="password" className="text-xs font-mono uppercase text-muted-foreground">
-            Security Passkey
+            Password
           </Label>
           <Input
             id="password"
@@ -136,7 +136,7 @@ export default function SignupPage() {
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              PROVISIONING IDENTITY...
+              Creating account…
             </>
           ) : (
             <>
@@ -152,14 +152,14 @@ export default function SignupPage() {
           <div className="w-full border-t border-border" />
         </div>
         <div className="relative flex justify-center text-xs uppercase font-mono">
-          <span className="bg-[#12081d] px-2 text-muted-foreground">Or sign up with</span>
+          <span className="bg-background px-2 text-muted-foreground">Or sign up with</span>
         </div>
       </div>
       <GoogleSignIn />
 
       <div className="text-center text-sm text-muted-foreground font-mono pt-4">
         Already registered?{' '}
-        <Link href="/login" className="text-[#00ff9d] hover:underline font-semibold font-sans">
+        <Link href="/login" className="text-primary hover:underline font-semibold font-sans">
           Sign in to existing terminal
         </Link>
       </div>

@@ -31,11 +31,18 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing Taj's Second Brain FastAPI Backend Architecture...")
     async with mcp_server.session_manager.run():
         await verify_database_ready()
+        from app.integrations.telegram_client import delivery_available
         from app.jobs.runner import queue_worker
+        from app.services.telegram_delivery import delivery_worker
         worker = asyncio.create_task(queue_worker()) if settings.JOB_WORKER_ENABLED else None
+        telegram_worker = asyncio.create_task(delivery_worker()) if delivery_available() else None
         try:
             yield
         finally:
+            if telegram_worker:
+                telegram_worker.cancel()
+                with suppress(asyncio.CancelledError):
+                    await telegram_worker
             if worker:
                 worker.cancel()
                 with suppress(asyncio.CancelledError):

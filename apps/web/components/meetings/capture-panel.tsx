@@ -12,7 +12,7 @@ import { timerLabel, timeLabel, type LiveSegment, type MeetingUsage } from '@/li
 
 export async function meetingSession() { const { data: { session } } = await createClient().auth.getSession(); if (!session) throw new Error('Sign in to save a meeting.'); return session; }
 
-export function CapturePanel({ onSaved }: { onSaved: () => void }) {
+export function CapturePanel({ onSaved, onActivityChange }: { onSaved: () => void; onActivityChange?: (active: boolean) => void }) {
   const [usage, setUsage] = useState<MeetingUsage | null>(null); const [permission, setPermission] = useState(false); const [terms, setTerms] = useState(false);
   const [title, setTitle] = useState(''); const [recording, setRecording] = useState(false); const [paused, setPaused] = useState(false); const [busy, setBusy] = useState(false);
   const [seconds, setSeconds] = useState(0); const [progress, setProgress] = useState<number | null>(null); const [liveState, setLiveState] = useState(''); const [liveText, setLiveText] = useState<LiveSegment[]>([]);
@@ -20,6 +20,7 @@ export function CapturePanel({ onSaved }: { onSaved: () => void }) {
   const recorder = useRef<RecorderAdapter | null>(null); const live = useRef<LiveTranscriptClient | null>(null); const active = useRef<LocalRecording | null>(null);
   const elapsed = useRef(0); const started = useRef(0); const persist = useRef<Promise<unknown>>(Promise.resolve()); const endRef = useRef<() => void>(() => undefined);
   const fileInput = useRef<HTMLInputElement>(null);
+  useEffect(() => { onActivityChange?.(recording || busy); }, [recording, busy, onActivityChange]);
   async function refresh() { try { setUsage(await meetingApi.usage()); const session = await meetingSession(); setRecovery(await listLocalRecordings(session.user.id)); } catch { setError('Sign in and connect to Second Brain to record or upload a meeting.'); } }
   useEffect(() => { void refresh(); return () => { live.current?.stop(); void recorder.current?.dispose(); }; }, []);
   useEffect(() => { if (!recording || paused) return; const timer = setInterval(() => { const current = Math.floor((elapsed.current + Date.now() - started.current) / 1000); setSeconds(current); if (current >= (usage?.remaining_seconds || 18000)) endRef.current(); }, 250); return () => clearInterval(timer); }, [recording, paused, usage]);

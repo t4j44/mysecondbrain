@@ -8,7 +8,7 @@ const { get, put } = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 vi.mock('@/lib/api/browser-client', () => ({ api: { get, put } }));
 
 function fixture(): Meeting {
-  return { id: 'synthetic', user_id: 'owner', title: 'Manual title', meeting_date: '2026-10-20T10:00:00+06:00', duration_minutes: 90,
+  return { id: 'synthetic', review_token: 'a'.repeat(64), user_id: 'owner', title: 'Manual title', meeting_date: '2026-10-20T10:00:00+06:00', duration_minutes: 90,
     ai_summary: null, transcript_text: 'If approved, we will test UAE.', action_items: [], participant_person_ids: [],
     metadata: {}, created_at: '2026-10-20', updated_at: '2026-10-20', capture: { state: 'awaiting_review', duration_seconds: 5400,
       retained_until: null, audio_deleted_at: null, confirmed_at: null, error_code: null, data_mode: 'free_redacted',
@@ -21,6 +21,7 @@ beforeEach(() => { vi.clearAllMocks(); get.mockImplementation(async (path: strin
 
 it('surfaces secondary discussions, canonical evidence and separate notes/minutes', async () => {
   render(<MeetingOutputs meeting={fixture()} refresh={vi.fn()} />);
+  fireEvent.click(screen.getByText('Detailed summary', { selector: 'summary' }));
   expect(screen.getByText('Other important discussions')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /Source c1:4/ })).toHaveAttribute('href', '#segment-c1%3A4');
   expect(screen.getByLabelText<HTMLTextAreaElement>('Meeting notes').value).toContain('UAE expansion');
@@ -40,6 +41,7 @@ it('does not replace unsaved notes when polling returns new AI drafts', async ()
 it('keeps the edit visible on a concurrent save conflict and submits its original version', async () => {
   put.mockRejectedValue(new ApiError(409, 'Conflict'));
   render(<MeetingOutputs meeting={fixture()} refresh={vi.fn()} />);
+  fireEvent.click(screen.getByText('Meeting notes', { selector: 'summary' }));
   fireEvent.change(screen.getByLabelText('Meeting notes'), { target: { value: 'Keep my edit' } });
   fireEvent.click(screen.getByRole('button', { name: /^Save notes$/ }));
   expect(await screen.findByRole('status')).toHaveTextContent('Conflict: your edit is not saved');
@@ -51,11 +53,26 @@ it('saves user notes independently without confirming graph/CRM writes', async (
   put.mockResolvedValue({ version: 1, markdown: 'Reviewed by me', author: 'user' });
   const refresh = vi.fn().mockResolvedValue(undefined);
   render(<MeetingOutputs meeting={fixture()} refresh={refresh} />);
+  fireEvent.click(screen.getByText('Meeting notes', { selector: 'summary' }));
   fireEvent.change(screen.getByLabelText('Meeting notes'), { target: { value: 'Reviewed by me' } });
   fireEvent.click(screen.getByRole('button', { name: /^Save notes$/ }));
   await waitFor(() => expect(refresh).toHaveBeenCalled());
   expect(await screen.findByRole('status')).toHaveTextContent('Notes saved.');
   expect(put.mock.calls.map(call => call[0])).toEqual(['/meetings/synthetic/notes']);
+});
+
+it('keeps unsaved notes when their disclosure is closed and reopened', async () => {
+  render(<MeetingOutputs meeting={fixture()} refresh={vi.fn()} />);
+  const summary = screen.getByText('Meeting notes', { selector: 'summary' });
+  expect(summary.closest('details')).not.toHaveAttribute('open');
+  fireEvent.click(summary);
+  fireEvent.change(screen.getByLabelText('Meeting notes'), { target: { value: 'Retain this draft' } });
+  fireEvent.click(summary);
+  expect(summary).toHaveTextContent('Unsaved edits');
+  fireEvent.click(summary);
+  expect(screen.getByLabelText('Meeting notes')).toHaveValue('Retain this draft');
+  expect(put).not.toHaveBeenCalled();
+  await screen.findByText(/Attendees: Not confirmed/);
 });
 
 it('keeps the manual title while exposing an editable AI proposal', async () => {
@@ -64,6 +81,19 @@ it('keeps the manual title while exposing an editable AI proposal', async () => 
   expect(screen.getByText(/Suggested title: AI suggested title/)).toBeInTheDocument();
   await screen.findByText(/Attendees: Not confirmed/);
   expect(put).not.toHaveBeenCalled();
+});
+
+it('binds a dirty context edit to its original snapshot when another change arrives', async () => {
+  put.mockRejectedValue(new ApiError(409, 'Conflict'));
+  const { rerender } = render(<MeetingOutputs meeting={fixture()} refresh={vi.fn()} />);
+  fireEvent.click(screen.getByText('Purpose and agenda', { selector: 'summary' }));
+  fireEvent.click(screen.getByText('Edit meeting details', { selector: 'summary' }));
+  fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'My unsaved title' } });
+  rerender(<MeetingOutputs meeting={{ ...fixture(), review_token: 'b'.repeat(64) }} refresh={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Save reviewed details' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Conflict: your edit is not saved');
+  expect(put).toHaveBeenCalledWith('/meetings/synthetic/review', expect.objectContaining({ expected_review_token: 'a'.repeat(64), title: 'My unsaved title' }));
+  expect(screen.getByLabelText('Title')).toHaveValue('My unsaved title');
 });
 
 it('refreshes minutes when extraction completes and speaker mappings change', async () => {

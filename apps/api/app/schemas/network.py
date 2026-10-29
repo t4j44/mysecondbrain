@@ -198,6 +198,7 @@ class PersonOrganizationRoleResponse(BaseModel):
 # --- COMMITMENT SCHEMAS (G5.5) ---
 # owed_to_me: they promised me. owed_by_me: I owe them. unspecified: legacy import.
 COMMITMENT_DIRECTION_PATTERN = "^(owed_to_me|owed_by_me|unspecified)$"
+# Progress and snooze transitions use the reviewed action endpoint.
 COMMITMENT_STATUS_PATTERN = "^(open|completed|cancelled)$"
 
 
@@ -233,6 +234,9 @@ class CommitmentUpdate(BaseModel):
 
 
 class CommitmentResponse(BaseModel):
+    revision: int
+    reminder_at: Optional[datetime] = None
+    source_timezone: Optional[str] = None
     id: str
     user_id: str
     from_person_id: Optional[str] = None

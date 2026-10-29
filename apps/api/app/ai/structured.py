@@ -10,6 +10,7 @@ from app.ai.privacy import PrivacyBlocked
 from app.ai.retrieval import perform_keyword_search
 from app.core.errors import AIProviderError, NotFoundError
 from app.models.entities import (
+    ACTIVE_COMMITMENT_STATUSES,
     Commitment,
     EntityEdge,
     Interaction,
@@ -113,7 +114,7 @@ async def structured_answer(db, owner: str, prompt: str, device_timezone=None) -
         order = Task.due_date
     elif re.fullmatch(prefix + r'(?:open|overdue) commitments?[.!?]?', normalized.strip()):
         kind, model, heading = 'commitment', Commitment, 'Open commitments (up to 25)'
-        conditions = [Commitment.status == 'open']
+        conditions = [Commitment.status.in_(ACTIVE_COMMITMENT_STATUSES)]
         if 'overdue' in normalized:
             conditions.append(Commitment.due_at < now)
             heading = 'Overdue commitments (current UTC time; up to 25)'
