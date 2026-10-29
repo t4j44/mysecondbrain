@@ -5,10 +5,6 @@ on:
     branches:
       - codex/v2-render-reconciled-20261030
       - codex/second-brain-release-hardening
-    paths:
-      - 'apps/api/**'
-      - 'scripts/staging/v2_release_sha_gate.py'
-      - '.github/workflows/v2-hosted-release.yml'
   workflow_dispatch:
 
 permissions:
