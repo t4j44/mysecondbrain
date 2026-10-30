@@ -69,7 +69,8 @@ async def create_capture(db, owner, payload: CaptureCreate):
     now = datetime.now(timezone.utc)
     meeting = Meeting(user_id=owner, title=payload.title, start_time=payload.meeting_date,
         end_time=payload.meeting_date, venture_id=str(payload.venture_id) if payload.venture_id else None,
-        meta={'timezone': payload.timezone, 'audio_privacy_attestation': {
+        meta={'timezone': payload.timezone, 'output_language': 'en',
+            'source_language': 'und', 'transcription_language_mode': 'automatic', 'audio_privacy_attestation': {
             'non_sensitive_recording': payload.non_sensitive_recording,
             'accepted_by_user': True, 'notice_version': 2}})
     db.add(meeting)

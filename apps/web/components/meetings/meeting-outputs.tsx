@@ -5,6 +5,7 @@ import { api } from '@/lib/api/browser-client';
 import { ApiError } from '@/lib/api/errors';
 import { Button } from '@/components/ui/button';
 import type { EvidenceRef, Meeting } from '@/lib/meetings/types';
+import { MeetingCorrections } from './meeting-corrections';
 
 type NoteRevision = { version: number; markdown: string; updated_at: string };
 type Notes = { version: number; markdown: string; author?: string; revisions?: NoteRevision[] };
@@ -82,6 +83,7 @@ export function MeetingOutputs({ meeting, refresh }: { meeting: Meeting; refresh
   }
   if (!meeting.capture) return null;
   return <>
+    <MeetingCorrections key={meeting.id} meeting={meeting} refresh={refresh} />
     <details className="mt-6 space-y-3 rounded-xl border bg-card p-4 sm:p-6"><summary className="min-h-11 cursor-pointer font-semibold">Purpose and agenda</summary>
       <p className="text-sm text-muted-foreground">{meeting.capture.confirmed_at ? 'Reviewed meeting details' : 'AI suggestions remain proposals until you apply and save them.'}</p>
       {data?.suggested_title && <div className="break-words text-sm">Suggested title: {data.suggested_title.text}<EvidenceLinks evidence={data.suggested_title.evidence} /></div>}
@@ -91,7 +93,7 @@ export function MeetingOutputs({ meeting, refresh }: { meeting: Meeting; refresh
         <label className="block text-sm">Title<input className="mt-1 min-h-12 w-full rounded border bg-background p-3" value={title} onChange={e => { setTitle(e.target.value); setReviewDirty(true); }} /></label>
         <label className="block text-sm">Purpose<textarea className="mt-1 w-full rounded border bg-background p-3" value={purpose} onChange={e => { setPurpose(e.target.value); setReviewDirty(true); }} /></label>
         <label className="block text-sm">Agenda<textarea className="mt-1 w-full rounded border bg-background p-3" value={agenda} onChange={e => { setAgenda(e.target.value); setReviewDirty(true); }} /></label>
-        <label className="block text-sm">Meeting timezone<input placeholder="Unknown, or Asia/Dhaka" className="mt-1 min-h-12 w-full rounded border bg-background p-3" value={zone} onChange={e => { setZone(e.target.value); setReviewDirty(true); }} /></label>
+        <label className="block text-sm">Meeting timezone<input placeholder="Unknown, or Europe/London" className="mt-1 min-h-12 w-full rounded border bg-background p-3" value={zone} onChange={e => { setZone(e.target.value); setReviewDirty(true); }} /></label>
         <label className="block text-sm">Linked project<select className="mt-1 min-h-12 w-full rounded border bg-background p-3" value={projectId} onChange={e => { setProjectId(e.target.value); setReviewDirty(true); }}><option value="">Ignore / no project link</option>{projectId && !projects.some(p => p.id === projectId) && <option value={projectId}>Current project</option>}{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
         <label className="block text-sm">Linked venture<select className="mt-1 min-h-12 w-full rounded border bg-background p-3" value={ventureId} onChange={e => { setVentureId(e.target.value); setReviewDirty(true); }}><option value="">Ignore / no venture link</option>{ventureId && !ventures.some(v => v.id === ventureId) && <option value={ventureId}>Current venture</option>}{ventures.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
         <p className="text-sm text-muted-foreground">Create a missing project or venture explicitly in Work, then return to link it. Mentions alone create no records.</p>

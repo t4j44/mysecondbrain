@@ -12,7 +12,7 @@ export default function SettingsExportPage() {
     <div className="flex flex-wrap gap-3"><button disabled={busy} className="min-h-11 rounded bg-primary px-4 text-primary-foreground" onClick={() => run(async () => {
       await api.post('/exports', { export_type: 'full', include_attachments: false }, { timeoutMs: 60000 }); setMessage('Export queued. Refresh to check completion.');
     })}>Create Markdown export</button><button disabled={busy} className="min-h-11 rounded border px-4" onClick={() => run(async () => {})}>Refresh status</button></div>
-    {items.map(item => <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded border p-4"><span>{new Date(item.created_at).toLocaleString()} · {item.status}</span>
+    {items.map(item => <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded border p-4"><span>{new Date(item.created_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })} · {item.status}</span>
       {item.status === 'completed' && <button disabled={busy} className="min-h-11 rounded border px-4" onClick={() => run(async () => {
         const content = await api.get<string>(`/exports/${item.id}/download`, { timeoutMs: 45000 });
         const url = URL.createObjectURL(new Blob([content], { type: 'text/markdown;charset=utf-8' }));

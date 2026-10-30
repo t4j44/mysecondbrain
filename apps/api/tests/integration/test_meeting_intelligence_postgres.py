@@ -173,3 +173,63 @@ async def test_concurrent_confirmation_creates_one_receipt_and_temporal_graph(pg
             EntityEdge.source_entity_id == ids['meeting']))).all()
         assert len(edges) == len(winner['decisions'])
         assert all(edge.relationship_type == 'produced' and edge.valid_from and edge.source_event_id for edge in edges)
+
+
+async def test_saved_correction_race_preserves_one_winner_and_owner_rls(pg_engine, meeting_fixture):
+    import json
+
+    from app.core.errors import ConflictError, NotFoundError
+    from app.models.entities import Decision
+    from app.schemas.meeting_intelligence import ConfirmIntelligence
+    from app.schemas.meetings import MeetingResponse
+    from app.services.meeting_corrections import (
+        SavedDetailCorrection,
+        correct_saved_detail,
+        correction_state,
+    )
+    from app.services.meeting_intelligence import capture_for, confirm_intelligence
+    ids = meeting_fixture
+    async with pg_engine.begin() as db:
+        await db.execute(text("""UPDATE public.meeting_captures SET state='awaiting_review',
+            transcript_segments=CAST(:segments AS jsonb), intelligence=CAST(:intelligence AS jsonb)
+            WHERE meeting_id=CAST(:meeting AS uuid)"""), {**ids,
+                'segments': json.dumps([{'segment_id':'c0:0','chunk_index':0,'speaker_local_id':'c0:unknown',
+                    'start_offset':0,'end_offset':4,'text':'We decided to test the beta.'}]),
+                'intelligence': json.dumps({'summary':'Beta test decision','decisions':[{'description':'Test the beta',
+                    'evidence_text':'We decided to test the beta.','confidence':.9}]})})
+    factory = async_sessionmaker(pg_engine, expire_on_commit=False)
+    async with factory() as db:
+        await identity(db, ids['owner'])
+        meeting, _ = await capture_for(db, ids['owner'], ids['meeting'])
+        receipt = await confirm_intelligence(db, ids['owner'], ids['meeting'], ConfirmIntelligence(
+            confirmed=True, expected_review_token=MeetingResponse.model_validate(meeting).review_token))
+        await db.commit()
+    async with factory() as db:
+        await identity(db, ids['owner'])
+        snapshot = await correction_state(db, ids['owner'], ids['meeting'])
+    async def correct(description, owner=ids['owner']):
+        async with factory() as db:
+            await identity(db, owner)
+            assert await db.scalar(text('SELECT current_user')) == 'authenticated'
+            try:
+                result = await correct_saved_detail(db, owner, ids['meeting'], SavedDetailCorrection(
+                    request_id=uuid4(), expected_review_token=snapshot['review_token'],
+                    expected_records_token=snapshot['records_token'], confirmed=True,
+                    candidate_id='decisions:0', description=description, reason='Synthetic owner correction'))
+                await db.commit()
+                return result
+            except ConflictError:
+                await db.rollback()
+                return None
+    first, second = await asyncio.gather(correct('Test revised beta'), correct('Delay beta test'))
+    assert (first is None) != (second is None)
+    async with factory() as db:
+        await identity(db, ids['owner'])
+        meeting, capture = await capture_for(db, ids['owner'], ids['meeting'])
+        assert len(capture.receipt['corrections']) == 1
+        assert capture.transcript_segments[0]['text'] == 'We decided to test the beta.'
+        assert len(capture.receipt['decisions']) == 1
+        decision = await db.get(Decision, receipt['decisions'][0])
+        assert decision.decision in {'Test revised beta', 'Delay beta test'}
+    with pytest.raises(NotFoundError):
+        await correct('Foreign edit', ids['other'])

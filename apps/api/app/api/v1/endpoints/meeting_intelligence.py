@@ -20,9 +20,28 @@ from app.schemas.meeting_intelligence import (
 from app.schemas.meetings import MeetingResponse
 from app.services import meeting_intelligence as service
 from app.services.meeting_audio import AudioStorage
+from app.services.meeting_corrections import (
+    SavedDetailCorrection,
+    correct_saved_detail,
+    correction_state,
+)
 from app.services.meeting_usage import quota_view
 
 router = APIRouter(prefix='/meetings', tags=['Meetings'])
+
+
+@router.get('/{identity}/corrections')
+async def correction_preview(identity: UUID, user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    return JSONResponse(jsonable_encoder(await correction_state(db, user.id, str(identity))),
+        headers={'Cache-Control': 'private, no-store'})
+
+
+@router.post('/{identity}/corrections')
+async def correct_detail(identity: UUID, payload: SavedDetailCorrection,
+        user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    result = await correct_saved_detail(db, user.id, str(identity), payload)
+    await db.commit()
+    return JSONResponse(jsonable_encoder(result), headers={'Cache-Control': 'private, no-store'})
 
 
 @router.get('/{identity}/preparation')

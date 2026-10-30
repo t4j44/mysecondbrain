@@ -39,7 +39,7 @@ export function TelegramPreferences() {
     }}>
       <fieldset disabled={busy} className="space-y-3">
         <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" className="h-5 w-5" checked={preferences.telegram_enabled} onChange={e => update({ telegram_enabled: e.target.checked })} />Allow check-ins in my private Telegram chat</label>
-        <label className="block space-y-1 text-sm"><span>My timezone</span><input required maxLength={100} className={inputClass} value={preferences.timezone || ''} onChange={e => update({ timezone: e.target.value })} /><span className="block text-xs text-muted-foreground">Use a location such as Asia/Dhaka or Europe/London.</span></label>
+        <label className="block space-y-1 text-sm"><span>My timezone</span><input required maxLength={100} className={inputClass} value={preferences.timezone || ''} onChange={e => update({ timezone: e.target.value })} /><span className="block text-xs text-muted-foreground">Use a city timezone, such as Europe/London or America/New_York.</span></label>
         <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" className="h-5 w-5" checked={preferences.quiet_enabled} onChange={e => update({ quiet_enabled: e.target.checked })} />Keep quiet hours</label>
         {preferences.quiet_enabled && <div className="grid grid-cols-2 gap-3">
           <label className="space-y-1 text-sm"><span>Quiet from</span><input type="time" required className={inputClass} value={time(preferences.quiet_start_minute)} onChange={e => update({ quiet_start_minute: minutes(e.target.value) })} /></label>
@@ -84,7 +84,7 @@ export function TelegramActivity() {
         return <article key={item.id} className="flex gap-3 rounded-lg border p-3">
           <Icon className="mt-1 h-5 w-5 shrink-0" aria-hidden="true" />
           <div className="min-w-0 text-sm"><p className="font-medium">{state.label}</p>
-            <p className="text-muted-foreground">{new Date(item.scheduled_at).toLocaleString()}</p>
+            <p className="text-muted-foreground">{new Date(item.scheduled_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</p>
             {item.status === 'uncertain' && <p className="mt-1">Telegram may have received it. We will not resend automatically.</p>}
             {item.status === 'delivered' && <p className="mt-1 text-xs text-muted-foreground">This does not confirm that you read it.</p>}
             <Link className="inline-flex min-h-11 items-center underline underline-offset-4" href={`/sources/commitment/${encodeURIComponent(item.commitment_id)}`}>View commitment</Link>

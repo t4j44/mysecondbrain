@@ -13,7 +13,7 @@ const isReview = (meeting: Meeting) => meeting.capture?.state === 'awaiting_revi
 const isProcessing = (meeting: Meeting) => processingStates.has(meeting.capture?.state || '');
 function safeDate(value: string) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export default function MeetingsPage() {

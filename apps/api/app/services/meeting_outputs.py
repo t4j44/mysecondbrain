@@ -94,6 +94,13 @@ def export_markdown(meeting, kind):
         'Source: owner-authorized canonical meeting transcript',
         'Meeting date: ' + meeting.start_time.isoformat(),
         'Meeting timezone: ' + (meta.get('timezone') or 'Unknown'), '']
+    corrections = (meeting.capture.receipt or {}).get('corrections', [])
+    if corrections:
+        lines += ['## Owner corrections', 'These are owner assertions. Original quotations are preserved; outdated summaries are withdrawn.']
+        for correction in corrections:
+            lines += [f'- {correction["at"]}: {correction["candidate_id"]} — {correction["reason"]}',
+                '  Before: ' + correction['before']['description'], '  After: ' + correction['after']['description'],
+                '  Corrected deadline: ' + (correction['after'].get('due_at') or 'Not specified')]
     if kind in {'all', 'detailed'}:
         lines += ['## At a glance — AI draft', data.get('executive_summary') or data.get('summary', ''),
             '', '## Detailed summary — AI draft', data.get('detailed_summary') or 'Not available for this older extraction.', '']

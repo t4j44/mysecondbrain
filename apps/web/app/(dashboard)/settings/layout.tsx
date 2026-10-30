@@ -8,11 +8,11 @@ import { PageHeader } from '@/components/shared/page-header';
 import { Settings, User, Share2, Download, Monitor } from 'lucide-react';
 
 const settingsTabs = [
-  { name: 'General Overview', href: '/settings', icon: Settings },
-  { name: 'Operator Profile', href: '/settings/profile', icon: User },
-  { name: 'Data Portability & Export', href: '/settings/export', icon: Download },
-  { name: 'UI Appearance & Theme', href: '/settings/appearance', icon: Monitor },
-  { name: 'External Integrations', href: '/settings/integrations', icon: Share2, badge: 'AGENT 7' },
+  { name: 'Overview', href: '/settings', icon: Settings },
+  { name: 'Profile', href: '/settings/profile', icon: User },
+  { name: 'Export', href: '/settings/export', icon: Download },
+  { name: 'Appearance', href: '/settings/appearance', icon: Monitor },
+  { name: 'Connections', href: '/settings/integrations', icon: Share2 },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -21,9 +21,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   return (
     <ResponsivePageContainer>
       <PageHeader
-        title="Operator Settings & Protocols"
-        description="Configure terminal preferences, identity security keys, data export backups, and cloud integrations."
-        badge="SYSTEM CONFIG"
+        title="Settings"
+        description="Manage your profile, appearance, connections and saved data."
       />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8 my-6">
@@ -36,28 +35,24 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`flex items-center justify-between px-3 py-2 rounded-md text-sm font-sans font-medium transition-all ${
+                aria-current={isActive ? 'page' : undefined}
+                className={`flex min-h-11 items-center justify-between px-3 py-2 rounded-md text-sm font-sans font-medium transition-all ${
                   isActive
-                    ? 'bg-[#00ff9d]/15 text-[#00ff9d] border border-[#00ff9d]/40 font-bold'
-                    : 'text-muted-foreground hover:bg-[#1d0e2e] hover:text-[#f7f4ea]'
+                    ? 'bg-primary/10 text-primary border border-primary/30 font-bold'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                 }`}
               >
                 <div className="flex items-center space-x-2.5">
-                  <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-[#00ff9d]' : 'text-muted-foreground'}`} />
+                  <Icon className="h-4 w-4 shrink-0" />
                   <span>{tab.name}</span>
                 </div>
-                {tab.badge && (
-                  <span className="text-[9px] font-mono uppercase bg-[#251238] text-[#00ff9d] px-1 py-0.5 rounded border border-[#00ff9d]/30">
-                    {tab.badge}
-                  </span>
-                )}
               </Link>
             );
           })}
         </aside>
 
         <main className="md:col-span-3">
-          <div className="rounded-lg border border-border bg-[#0a0510] p-6 shadow-sm">
+          <div className="rounded-lg border border-border bg-card p-4 sm:p-6 shadow-sm">
             {children}
           </div>
         </main>

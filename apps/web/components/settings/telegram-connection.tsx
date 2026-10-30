@@ -44,7 +44,7 @@ export function TelegramConnection() {
       })}>{connection.status === 'pending' || connection.status === 'expired' ? 'Create a new connection link' : 'Link my Telegram'}</Button>}
       {link && connection.status === 'pending' && <div className="space-y-2">
         <a className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-primary-foreground" href={link.url} target="_blank" rel="noopener noreferrer">Open Telegram and tap Start</a>
-        <p className="text-sm text-muted-foreground">Private link · expires at {new Date(link.expires_at).toLocaleTimeString()}. Do not share it.</p>
+        <p className="text-sm text-muted-foreground">Private link · expires at {new Date(link.expires_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}. Do not share it.</p>
       </div>}
       {['active', 'pending', 'expired'].includes(connection.status) && <Button variant="outline" disabled={busy} onClick={() => void run(async () => {
         await api.delete('/assistant/connections/telegram'); setLink(null); await load(); setMessage('Telegram disconnected. Notification permission has been removed.');

@@ -45,20 +45,20 @@ export function MeetingPreparation({ meetingId }: { meetingId: string }) {
           {card.last_interaction && <details className="rounded-lg bg-muted/40 px-3">
             <summary className="min-h-11 cursor-pointer py-3 text-sm"><BookOpen className="mr-2 inline h-4 w-4" aria-hidden="true" />Last saved conversation</summary>
             <p className="break-words text-sm">{card.last_interaction.summary}</p>
-            <Link className="inline-flex min-h-11 items-center text-sm underline" href={card.last_interaction.source.uri}>View source · {new Date(card.last_interaction.date).toLocaleDateString()}</Link>
+            <Link className="inline-flex min-h-11 items-center text-sm underline" href={card.last_interaction.source.uri}>View source · {new Date(card.last_interaction.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</Link>
           </details>}
           {card.commitments.length > 0 ? <div className="space-y-2">
             <h3 className="flex items-center gap-2 text-sm font-medium"><CheckSquare2 className="h-4 w-4" aria-hidden="true" />Open promises</h3>
             {card.commitments.map(promise => <div key={promise.source.id} className="rounded-lg bg-muted/40 px-3 py-2">
               <Link className="inline-flex min-h-11 items-center break-words text-sm underline underline-offset-4" href={promise.source.uri}>{promise.description}</Link>
-              <p className="text-xs text-muted-foreground">{promise.direction === 'owed_by_me' ? 'You owe' : promise.direction === 'owed_to_me' ? 'Owed to you' : 'Direction not recorded'} · {status[promise.status] || 'Review status'}{promise.due_at ? ` · Due ${new Date(promise.due_at).toLocaleDateString()}` : ' · No deadline recorded'}</p>
+              <p className="text-xs text-muted-foreground">{promise.direction === 'owed_by_me' ? 'You owe' : promise.direction === 'owed_to_me' ? 'Owed to you' : 'Direction not recorded'} · {status[promise.status] || 'Review status'}{promise.due_at ? ` · Due ${new Date(promise.due_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : ' · No deadline recorded'}</p>
             </div>)}
             {card.more_commitments && <Link className="inline-flex min-h-11 items-center text-sm underline" href={card.person.uri}>More promises on this profile</Link>}
           </div> : <p className="text-sm text-muted-foreground">No open promises recorded.</p>}
         </article>)}
       </div>
       {data.more_people && <p className="text-sm">Showing five linked people. See the participant list for everyone.</p>}
-      <p className="text-xs text-muted-foreground">{data.basis} Refreshed {new Date(data.generated_at).toLocaleTimeString()}.</p>
+      <p className="text-xs text-muted-foreground">{data.basis} Refreshed {new Date(data.generated_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}.</p>
     </>}
   </section>;
 }

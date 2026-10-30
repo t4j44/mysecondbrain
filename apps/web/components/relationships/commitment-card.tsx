@@ -69,8 +69,8 @@ export function CommitmentCard({ row, onSaved, onReload }: { row: Commitment; on
       <span className="rounded-full bg-muted px-3 py-1">{statusLabel[row.status] || row.status}</span>
     </div>
     <h2 id={`promise-${row.id}`} className="break-words font-semibold">{row.description}</h2>
-    <p className="text-sm">{row.due_at ? `Due ${new Date(row.due_at).toLocaleString()}` : 'No due date recorded'}</p>
-    {row.reminder_at && <p className="text-sm text-muted-foreground">Check in {new Date(row.reminder_at).toLocaleString()} · {zone}</p>}
+    <p className="text-sm">{row.due_at ? `Due ${new Date(row.due_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}` : 'No due date recorded'}</p>
+    {row.reminder_at && <p className="text-sm text-muted-foreground">Check in {new Date(row.reminder_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })} · {zone}</p>}
     <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
       <Button variant={showSnooze ? 'outline' : 'default'} disabled={blocked} onClick={() => choose('done')}><Check className="h-4 w-4" aria-hidden="true" />Done</Button>
       <Button variant="outline" disabled={blocked || row.status === 'in_progress'} onClick={() => choose('working')}><Play className="h-4 w-4" aria-hidden="true" />Working</Button>

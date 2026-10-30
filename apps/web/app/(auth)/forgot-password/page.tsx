@@ -112,7 +112,7 @@ export default function ForgotPasswordPage() {
                 Requesting reset link…
               </>
             ) : (
-              'SEND RESET PROTOCOL'
+              'Send reset link'
             )}
           </Button>
 

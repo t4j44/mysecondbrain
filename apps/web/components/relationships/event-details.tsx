@@ -16,7 +16,7 @@ export function EventDetails({id, onDeleted}: {id: string; onDeleted: () => void
     return () => { active = false; };
   }, [id]);
   return <section className="space-y-4 rounded-xl border p-4">
-    {event && <><h2 className="font-semibold">Original context</h2><p className="text-sm">Happened {new Date(event.occurred_at).toLocaleString()} · Event timezone {event.timezone}<br />Recorded {new Date(event.recorded_at).toLocaleString()} · Source {event.source_type}{event.source_provider ? ` / ${event.source_provider}` : ''}</p>
+    {event && <><h2 className="font-semibold">Original context</h2><p className="text-sm">Happened {new Date(event.occurred_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })} · Event timezone {event.timezone}<br />Recorded {new Date(event.recorded_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })} · Source {event.source_type}{event.source_provider ? ` / ${event.source_provider}` : ''}</p>
       {event.raw_text && <details><summary className="cursor-pointer py-2">Read original text</summary><p className="whitespace-pre-wrap break-words">{event.raw_text}</p></details>}
       <div className="flex flex-wrap gap-3">{event.media.map(photo => <PrivatePhoto key={photo.id} {...photo} />)}</div>
       {!review ? <button className="min-h-11 underline" onClick={() => setReview(true)}>Delete this context</button> : <div className="space-y-3"><p>Delete this event, its photos and records created from it? Search access is removed immediately. Private photo erasure runs in the background.</p><button disabled={busy} className="min-h-11 rounded border px-4" onClick={async () => {

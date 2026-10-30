@@ -89,7 +89,7 @@ export default function SignupPage() {
           </Label>
           <Input
             id="fullName"
-            placeholder="Taj"
+            placeholder="Your full name"
             disabled={isLoading}
             {...register('fullName')}
           />

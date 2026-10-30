@@ -32,7 +32,7 @@ export function WorkSessionModal({
       const summary = `Session Wrap-up: ${accomplishment || 'Focused execution session'}. Next immediate focus: ${nextAction || 'Continue priority pipeline'}`;
 
       await api.post('/api/v1/memories', {
-        title: `Work Session Summary — ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        title: `Work Session Summary — ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`,
         content: summary,
         category: 'reflection',
         tags: ['work-session', 'founder-momentum'],
