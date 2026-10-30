@@ -17,7 +17,7 @@ from app.models.base import Base
 from app.models.entities import AccountClosure, Profile
 from app.models.publication import PortfolioPublication
 
-EXCLUDED = {"account_closures", "integration_tokens", "jobs", "sync_jobs", "export_jobs", "export_items",
+EXCLUDED = {"account_closures", "integration_tokens", "messaging_connections", "messaging_update_receipts", "notification_outbox", "messaging_callback_tokens", "jobs", "sync_jobs", "export_jobs", "export_items",
             "exports", "embedding_jobs", "embeddings", "memory_embeddings",
             "mcp_oauth_clients", "mcp_oauth_requests", "mcp_oauth_codes", "mcp_oauth_tokens"}
 
@@ -161,5 +161,11 @@ async def process_closures():
 
 
 async def require_active(db, owner):
-    if await db.get(AccountClosure, owner):
+    if db.bind.dialect.name == 'postgresql':
+        # The closure ledger is intentionally private to the server. Under owner
+        # RLS, use the self-only security-definer predicate; never widen its grants.
+        active = await db.scalar(text('SELECT public.account_active(CAST(:owner AS uuid))'), {'owner': owner})
+    else:
+        active = await db.get(AccountClosure, owner) is None
+    if not active:
         raise ConflictError('Account deletion is in progress. Only deletion status remains available.')

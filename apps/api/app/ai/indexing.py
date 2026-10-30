@@ -42,6 +42,8 @@ def record_text(record: Any, kind: str) -> str:
         review = 'Confirmed by user' if capture.confirmed_at else 'Unconfirmed AI suggestions; source transcript is recorded speech'
         text = f'Title: {record.title}\nDate: {record.start_time.isoformat()}\nParticipants: {", ".join((record.meta or {}).get("participant_names", []))}\nReview status: {review}\nSummary: {record.summary or ""}'
         data = capture.intelligence or {}
+        if (capture.receipt or {}).get('corrections'):
+            text += '\nOwner corrections supersede the original extracted details. Quotations below remain historical speech, not proof of corrected assertions.'
         text += '\nMeeting timezone: ' + ((record.meta or {}).get('timezone') or 'Unknown')
         text += '\nReviewed purpose: ' + ((record.meta or {}).get('purpose') or '')
         text += '\nReviewed agenda: ' + ((record.meta or {}).get('agenda') or '')
@@ -88,6 +90,8 @@ def meeting_chunks(record):
                     'speaker': ref['speaker_id'], 'start_offset': ref['start_seconds'], 'end_offset': ref['end_seconds']}
         for segment in capture.transcript_segments:
             label = f'[{segment["segment_id"]} {segment["speaker_local_id"]} {segment["start_offset"]:.1f}s] '
+            if (capture.receipt or {}).get('corrections'):
+                label += 'Historical speech; this meeting has owner corrections. Consult current saved records before treating this quotation as a current fact. '
             for part in chunk_markdown(label + segment['text']):
                 part['metadata'] = {**part.get('metadata', {}), 'meeting_id': str(record.id),
                     'segment_id': segment['segment_id'], 'speaker': segment['speaker_local_id'],

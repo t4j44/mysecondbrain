@@ -69,7 +69,8 @@ async def create_capture(db, owner, payload: CaptureCreate):
     now = datetime.now(timezone.utc)
     meeting = Meeting(user_id=owner, title=payload.title, start_time=payload.meeting_date,
         end_time=payload.meeting_date, venture_id=str(payload.venture_id) if payload.venture_id else None,
-        meta={'timezone': payload.timezone, 'audio_privacy_attestation': {
+        meta={'timezone': payload.timezone, 'output_language': 'en',
+            'source_language': 'und', 'transcription_language_mode': 'automatic', 'audio_privacy_attestation': {
             'non_sensitive_recording': payload.non_sensitive_recording,
             'accepted_by_user': True, 'notice_version': 2}})
     db.add(meeting)
@@ -150,6 +151,7 @@ async def map_speaker(db, owner, identity, payload: SpeakerMapping):
     meeting, capture = await capture_for(db, owner, identity, lock=True)
     if capture.confirmed_at:
         raise ConflictError('Speaker mappings are already saved for this meeting.')
+    require_review_snapshot(meeting, payload.expected_review_token)
     speakers = {s['speaker_local_id'] for s in capture.transcript_segments}
     if payload.speaker not in speakers:
         raise NotFoundError('Speaker is not available.')
@@ -166,12 +168,25 @@ async def map_speaker(db, owner, identity, payload: SpeakerMapping):
     return meeting
 
 
+def require_review_snapshot(meeting, expected_token):
+    from app.schemas.meetings import MeetingResponse
+    current = MeetingResponse.model_validate(meeting).review_token
+    if not expected_token or not current or expected_token != current:
+        raise ConflictError('Meeting details changed or this review is outdated. Reload the meeting and review it before saving.')
+
+
 async def confirm_intelligence(db, owner, identity, payload: ConfirmIntelligence):
     meeting, capture = await capture_for(db, owner, identity, lock=True)
+    selection_request = sorted(set(payload.selections)) if payload.selections is not None else None
     if capture.confirmed_at:
-        return capture.receipt
+        if (payload.expected_review_token and
+                payload.expected_review_token == capture.receipt.get('review_token') and
+                selection_request == capture.receipt.get('selection_request')):
+            return capture.receipt
+        raise ConflictError('This meeting was already saved from a different review. Reload to see the saved selections.')
     if capture.state != 'awaiting_review':
         raise ConflictError('Wait until the meeting is ready to review.')
+    require_review_snapshot(meeting, payload.expected_review_token)
     intelligence = MeetingIntelligence.model_validate(capture.intelligence)
     from app.ai.meeting_evidence import ground_intelligence
     intelligence = ground_intelligence(intelligence, capture.transcript_segments,
@@ -221,6 +236,7 @@ async def confirm_intelligence(db, owner, identity, payload: ConfirmIntelligence
     if project_id:
         await meeting_link('project', project_id, 'related_to')
     receipt: dict = {'meeting_id': str(identity), 'context_event_id': str(event.id),
+        'review_token': payload.expected_review_token, 'selection_request': selection_request,
         'audio_privacy': (capture.receipt or {}).get('audio_privacy', {}),
         'interactions': [], 'commitments': [], 'tasks': [], 'decisions': [], 'memories': [], 'selected': sorted(selected)}
     for person in people.values():

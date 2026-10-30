@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     account,
     ai_portfolio,
+    assistant,
     capture,
     context_events,
     founder,
@@ -19,6 +20,7 @@ from app.api.v1.endpoints import (
 
 api_router = APIRouter()
 api_router.include_router(account.router)
+api_router.include_router(assistant.router)
 api_router.include_router(capture.router)
 api_router.include_router(context_events.router)
 api_router.include_router(relationships.router)

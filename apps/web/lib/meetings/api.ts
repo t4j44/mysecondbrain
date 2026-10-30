@@ -10,8 +10,8 @@ export class MeetingApiClient {
   authorize(id: string, mime: string) { return api.post<UploadAuthorization>(`/meetings/${id}/upload-authorization`, { mime_type: mime }); }
   finalize(id: string) { return api.post<Meeting>(`/meetings/${id}/finalize-upload`, undefined, { timeoutMs: 180000 }); }
   retry(id: string) { return api.post<Meeting>(`/meetings/${id}/retry`); }
-  map(id: string, speaker: string, mapping: SpeakerMapping) { return api.post<Meeting>(`/meetings/${id}/speakers`, { speaker, ...mapping, confirmed: true }); }
-  confirm(id: string, selections?: string[]) { return api.post<Record<string, unknown>>(`/meetings/${id}/confirm`, { confirmed: true, selections: selections ?? null }); }
+  map(id: string, speaker: string, mapping: SpeakerMapping, reviewToken: string) { return api.post<Meeting>(`/meetings/${id}/speakers`, { speaker, ...mapping, confirmed: true, expected_review_token: reviewToken }); }
+  confirm(id: string, selections: string[] | undefined, reviewToken: string) { return api.post<Record<string, unknown>>(`/meetings/${id}/confirm`, { confirmed: true, selections: selections ?? null, expected_review_token: reviewToken }); }
   remove(id: string) { return api.delete(`/meetings/${id}`); }
 }
 export const meetingApi = new MeetingApiClient();

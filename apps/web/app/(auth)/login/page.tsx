@@ -9,7 +9,7 @@ import { Loader2, ArrowRight, KeyRound } from 'lucide-react';
 
 import { GoogleSignIn } from '@/components/shared/google-sign-in';
 import { safeAuthReturnPath } from '@/lib/auth/redirect';
-import { loginSchema, type LoginFormValues } from '@/lib/validation/auth';
+import { loginSchema, type LoginFormInput, type LoginFormValues } from '@/lib/validation/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,7 +27,7 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormValues>({
+  } = useForm<LoginFormInput, unknown, LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
@@ -62,10 +62,10 @@ export default function LoginPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <div className="inline-block rounded px-2 py-0.5 text-sm font-semibold bg-[#251238] text-[#00ff9d] border border-[#00ff9d]/30 tracking-widest">
+        <div className="inline-block rounded px-2 py-0.5 text-sm font-semibold bg-primary/10 text-primary border border-primary/30 tracking-widest">
           Welcome back
         </div>
-        <h2 className="text-3xl font-extrabold tracking-tight text-[#f7f4ea]">
+        <h2 className="text-3xl font-extrabold tracking-tight text-foreground">
           Sign in
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -99,7 +99,7 @@ export default function LoginPage() {
             <Link
               href="/forgot-password"
               prefetch={false}
-              className="inline-flex min-h-11 items-center text-sm text-[#00ff9d] hover:underline"
+              className="inline-flex min-h-11 items-center text-sm text-primary hover:underline"
             >
               Forgot password?
             </Link>
@@ -137,7 +137,7 @@ export default function LoginPage() {
           <div className="w-full border-t border-border" />
         </div>
         <div className="relative flex justify-center text-sm ">
-          <span className="bg-[#12081d] px-2 text-muted-foreground">Or continue with</span>
+          <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
         </div>
       </div>
 
@@ -145,7 +145,7 @@ export default function LoginPage() {
 
       <div className="text-center text-sm text-muted-foreground ">
         New to Second Brain?{' '}
-        <Link href="/signup" prefetch={false} className="inline-flex min-h-11 items-center text-[#00ff9d] hover:underline font-semibold font-sans">
+        <Link href="/signup" prefetch={false} className="inline-flex min-h-11 items-center text-primary hover:underline font-semibold font-sans">
           Create an account
         </Link>
       </div>

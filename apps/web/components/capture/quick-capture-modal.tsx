@@ -281,7 +281,7 @@ export function QuickCaptureModal({
                   {parsed.dueDate && (
                     <span className="text-[10px] font-mono flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/15 border border-blue-500/30 text-blue-300">
                       <Calendar className="h-2.5 w-2.5" />
-                      {new Date(parsed.dueDate).toLocaleDateString()}
+                      {new Date(parsed.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </span>
                   )}
                   {parsed.company && (

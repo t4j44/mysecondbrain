@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    event,
     text,
 )
 from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION, JSONB
@@ -286,6 +287,9 @@ class PersonOrganizationRole(Base):
     deleted_at: Any = Column(DateTime(timezone=True), nullable=True)
 
 
+ACTIVE_COMMITMENT_STATUSES = ('open', 'in_progress', 'waiting', 'snoozed')
+
+
 class Commitment(Base):
     """
     First-class commitment (migration 0022).
@@ -296,6 +300,7 @@ class Commitment(Base):
     """
 
     __tablename__ = "commitments"
+    __table_args__ = (UniqueConstraint('user_id', 'id'),)
 
     id: Any = Column(FlexibleUUID, primary_key=True, default=generate_uuid)
     user_id: Any = Column(FlexibleUUID, nullable=False, index=True)
@@ -310,6 +315,9 @@ class Commitment(Base):
     description: Any = Column(Text, nullable=False)
     status: Any = Column(String(50), default="open", nullable=False)
     due_at: Any = Column(DateTime(timezone=True), nullable=True, index=True)
+    reminder_at: Any = Column(DateTime(timezone=True), nullable=True)
+    source_timezone: Any = Column(String(100), nullable=True)
+    revision: Any = Column(Integer, nullable=False, default=1)
     completed_at: Any = Column(DateTime(timezone=True), nullable=True)
     source: Any = Column(String(255), default="manual", nullable=False)
     created_at: Any = Column(DateTime(timezone=True), default=utc_now, nullable=False)
@@ -317,6 +325,12 @@ class Commitment(Base):
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
     )
     deleted_at: Any = Column(DateTime(timezone=True), nullable=True)
+
+
+@event.listens_for(Commitment, 'before_update')
+def advance_commitment_revision(_mapper, _connection, target):
+    # PostgreSQL enforces OLD + 1 for every writer; this also covers SQLite tests.
+    target.revision = (target.revision or 1) + 1
 
 
 class Interaction(Base):

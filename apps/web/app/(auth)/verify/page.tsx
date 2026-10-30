@@ -41,26 +41,26 @@ export default function VerifyPage() {
 
   return (
     <div className="space-y-6 text-center">
-      <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[#00ff9d]/10 border border-[#00ff9d] text-[#00ff9d] shadow-[0_0_30px_rgba(0,255,157,0.2)]">
+      <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary text-primary shadow-[0_0_30px_rgba(0,255,157,0.2)]">
         <MailCheck className="h-8 w-8" />
       </div>
 
       <div className="space-y-2">
-        <h2 className="text-2xl font-extrabold tracking-tight text-[#f7f4ea]">
-          Verification Required
+        <h2 className="text-2xl font-extrabold tracking-tight text-foreground">
+          Check your email
         </h2>
         <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
-          We have dispatched an identity validation link to <span className="font-mono text-[#00ff9d] font-semibold">{email || 'your registered email'}</span>.
+          Look for a confirmation link in <span className="text-primary font-semibold">{email || 'your registered email'}</span>.
         </p>
       </div>
 
-      <div className="rounded-lg border border-border bg-[#0a0510] p-4 text-left space-y-2">
-        <div className="flex items-center space-x-2 text-xs font-mono text-[#ffb800]">
+      <div className="rounded-lg border border-border bg-card p-4 text-left space-y-2">
+        <div className="flex items-center space-x-2 text-xs font-mono text-muted-foreground">
           <ShieldAlert className="h-4 w-4 shrink-0" />
-          <span>RLS SECURITY ENFORCED</span>
+          <span>Confirm your email to continue</span>
         </div>
         <p className="text-xs text-muted-foreground leading-normal">
-          For your data isolation security, access to the multi-venture command center remains blocked until email ownership verification is confirmed.
+          Open the newest confirmation link, then return to sign in.
         </p>
       </div>
 
@@ -74,18 +74,16 @@ export default function VerifyPage() {
             className="w-full font-mono text-xs"
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            {resent ? 'CONFIRMATION REQUESTED — CHECK EMAIL' : 'RESEND CONFIRMATION EMAIL'}
+            {resent ? 'Confirmation requested — check email' : 'Resend confirmation email'}
           </Button>
         )}
         <p className="text-xs text-muted-foreground">
           If an email link expired, use only the newest message. Already confirmed? Return to sign in.
         </p>
-        <Link href="/login" className="w-full">
-          <Button variant="outline" className="w-full font-mono text-xs">
+          <Button asChild variant="outline" className="w-full text-sm"><Link href="/login">
             <ArrowLeft className="h-3 w-3 mr-2" />
-            RETURN TO SIGN IN
-          </Button>
-        </Link>
+            Return to sign in
+          </Link></Button>
       </div>
     </div>
   );

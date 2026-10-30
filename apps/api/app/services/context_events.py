@@ -27,7 +27,7 @@ def validate_timezone(value):
     try:
         ZoneInfo(value)
     except (ZoneInfoNotFoundError, ValueError) as exc:
-        raise ValueError('Choose an IANA timezone such as Asia/Dhaka.') from exc
+        raise ValueError('Choose a timezone such as Europe/London or America/New_York.') from exc
     return value
 
 

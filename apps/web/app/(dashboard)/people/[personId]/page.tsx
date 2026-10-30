@@ -111,7 +111,7 @@ export default function PersonDetailPage() {
               {person.last_interaction_at && (
                 <p>
                   <span className="text-slate-500 uppercase">Last contact:</span>{' '}
-                  {new Date(person.last_interaction_at).toLocaleDateString()}
+                  {new Date(person.last_interaction_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
               )}
             </div>

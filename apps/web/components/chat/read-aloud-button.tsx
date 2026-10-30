@@ -34,7 +34,7 @@ export function ReadAloudButton({ text }: ReadAloudButtonProps) {
 
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = navigator.language || 'en-US';
+    utterance.lang = 'en-US';
     utterance.rate = 1;
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);

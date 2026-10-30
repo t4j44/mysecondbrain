@@ -3,7 +3,9 @@ import { z } from 'zod';
 export const profileSettingsSchema = z.object({
   fullName: z.string().min(2, { message: 'Full name must be at least 2 characters long.' }),
   bio: z.string().max(300, { message: 'Bio cannot exceed 300 characters.' }).optional(),
-  timezone: z.string().min(1, { message: 'Please select a working timezone.' }),
+  timezone: z.string().trim().min(1, { message: 'Enter your timezone.' }).refine(value => {
+    try { new Intl.DateTimeFormat('en', { timeZone: value }); return true; } catch { return false; }
+  }, { message: 'Use a valid timezone, such as Europe/London.' }),
 });
 
 export const appearanceSettingsSchema = z.object({

@@ -23,5 +23,5 @@ export type HomeData = {
   limits: string;
 };
 export function displayDate(value: string | null) {
-  return value ? new Date(value).toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'}) : 'Not recorded';
+  return value ? new Date(value).toLocaleString('en-GB', {dateStyle: 'medium', timeStyle: 'short'}) : 'Not recorded';
 }

@@ -1,0 +1,30 @@
+# Temporary staging convenience only: not an uptime SLA.
+# Render Free sleeps after 15m idle and this workspace has a 750h/month
+# SHARED free-instance budget. 24/7 warming would consume almost all of it.
+# UTC 03:00-17:50 is 09:00-23:50 in Bangladesh (UTC+06), roughly 15h/day.
+name: Second Brain staging daytime warmup
+on:
+  schedule:
+    - cron: '*/10 3-17 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: second-brain-staging-warmup
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Warm staging backend, report failure
+        run: |
+          curl --fail --silent --show-error --location \
+            --retry 2 --retry-delay 5 --retry-all-errors \
+            --max-time 85 \
+            -o /dev/null \
+            -w 'Staging liveness HTTP %{http_code}, total %{time_total}s\n' \
+            https://second-brain-api-staging.onrender.com/health/live

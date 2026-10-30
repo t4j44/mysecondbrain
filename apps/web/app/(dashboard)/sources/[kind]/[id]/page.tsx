@@ -30,7 +30,7 @@ export default function SourcePage() {
   return <article className="mx-auto max-w-3xl space-y-5">
     <Link href="/assistant" className="underline">Back to Ask</Link>
     <h1 className="text-2xl font-semibold">{source?.title || 'Source record'}</h1>
-    {source ? <><p className="text-sm text-muted-foreground">Private record · Updated {new Date(source.updated_at).toLocaleString()}</p>
+    {source ? <><p className="text-sm text-muted-foreground">Private record · Updated {new Date(source.updated_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</p>
       <div className="whitespace-pre-wrap break-words rounded-xl border p-5">{source.text}</div>
       {kind === 'context_event' && <EventDetails id={id} onDeleted={() => { setSource(null); setMessage('Context deleted. Search access is removed and photo erasure is queued.'); }} />}
       <button className="min-h-11 rounded border px-4" disabled={busy} onClick={async () => {

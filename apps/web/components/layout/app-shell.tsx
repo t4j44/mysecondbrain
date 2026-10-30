@@ -81,6 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Desktop Persistent Sidebar */}
       <Sidebar
+        collapsible
         className="hidden lg:flex"
         onOpenQuickCapture={() => router.push('/capture')}
       />

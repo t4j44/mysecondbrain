@@ -242,7 +242,7 @@ export default function TasksPage() {
                   )}
                   {task.due_date && (
                     <span className="text-[10px] font-mono text-muted-foreground">
-                      Due {new Date(task.due_date).toLocaleDateString()}
+                      Due {new Date(task.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </span>
                   )}
                 </div>

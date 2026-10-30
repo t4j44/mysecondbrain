@@ -77,7 +77,7 @@ class CalendarSchedule(BaseModel):
     integration_id: Optional[str] = None  # which connected Google account; required when several are
     start: AwareDatetime
     duration_minutes: int = Field(default=30, ge=5, le=1440)
-    timezone: str = "Asia/Dhaka"
+    timezone: str = "UTC"
     cancel: bool = False
 
 
