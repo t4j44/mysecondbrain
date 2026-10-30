@@ -95,7 +95,35 @@
   .conversation-shell[data-keyboard="true"] { height: var(--app-height, 100dvh); }
   .app-shell[data-keyboard="true"] .mobile-bottom-bar { display: none; }
   .app-shell[data-keyboard="true"] .workspace-main { padding-bottom: env(safe-area-inset-bottom); }
-  .conversation-shell[data-keyboard="true"] { position: fixed; inset-inline: 0; top: var(--viewport-top, 0px); }
+  /* The keyboard reduces the *visual* viewport, not the CSS layout viewport.
+     Enforce a bounded flex column so the composer cannot remain below the keyboard
+     on short screens (notably 360px Chrome/iPhone-sized devices). */
+  .conversation-shell[data-keyboard="true"] {
+    position: fixed;
+    inset-inline: 0;
+    top: var(--viewport-top, 0px);
+    height: var(--app-height, 100dvh);
+    max-height: var(--app-height, 100dvh);
+    min-height: 0;
+    overflow: hidden;
+  }
+  .conversation-shell[data-keyboard="true"] .workspace-column {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .conversation-shell[data-keyboard="true"] .workspace-main {
+    height: 0;
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow: hidden;
+  }
+  .conversation-shell[data-keyboard="true"] .chat-surface {
+    min-height: 0;
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+  }
 }
 @media (min-width: 1024px) {
   .conversation-shell .workspace-main { padding-bottom: 0; }

@@ -11,8 +11,8 @@ it('loads and preserves saved bio and any valid international timezone', async (
   getUser.mockResolvedValue({ data: { user: { user_metadata: { full_name: 'Avery Chen', bio: 'Independent consultant', timezone: 'Pacific/Auckland' } } }, error: null });
   updateUser.mockResolvedValue({ error: null });
   render(<SettingsProfilePage />);
-  await waitFor(() => expect(screen.getByLabelText('Bio')).toHaveValue('Independent consultant'));
-  expect(screen.getByLabelText('Timezone')).toHaveValue('Pacific/Auckland');
+  await waitFor(() => expect(screen.getByLabelText('Bio (optional)')).toHaveValue('Independent consultant'));
+  expect(screen.getByLabelText('Time zone')).toHaveValue('Pacific/Auckland');
   fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Avery C.' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
   await waitFor(() => expect(updateUser).toHaveBeenCalledWith({ data: { full_name: 'Avery C.', bio: 'Independent consultant', timezone: 'Pacific/Auckland' } }));
@@ -21,7 +21,7 @@ it('loads and preserves saved bio and any valid international timezone', async (
 it('cannot overwrite an unavailable profile with placeholders', async () => {
   getUser.mockRejectedValue(new Error('Offline'));
   render(<SettingsProfilePage />);
-  expect(await screen.findByRole('alert')).toHaveTextContent('could not be loaded');
+  expect(await screen.findByRole('alert')).toHaveTextContent("couldn't load");
   expect(screen.getByRole('button', { name: 'Save profile' })).toBeDisabled();
   expect(screen.getByLabelText('Full name')).toHaveValue('');
   expect(updateUser).not.toHaveBeenCalled();
@@ -32,9 +32,9 @@ it('retains edits and permits retry after a rejected save', async () => {
   updateUser.mockRejectedValue(new Error('Offline'));
   render(<SettingsProfilePage />);
   await waitFor(() => expect(screen.getByRole('button', { name: 'Save profile' })).toBeEnabled());
-  fireEvent.change(screen.getByLabelText('Bio'), { target: { value: 'My edited bio' } });
+  fireEvent.change(screen.getByLabelText('Bio (optional)'), { target: { value: 'My edited bio' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
-  await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Profile not saved' })));
-  expect(screen.getByLabelText('Bio')).toHaveValue('My edited bio');
+  await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Could not save profile' })));
+  expect(screen.getByLabelText('Bio (optional)')).toHaveValue('My edited bio');
   expect(screen.getByRole('button', { name: 'Save profile' })).toBeEnabled();
 });
