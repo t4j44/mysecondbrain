@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, status
@@ -9,7 +10,8 @@ from sqlalchemy import text
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import logger, setup_logging
-from app.dependencies.database import AsyncSessionLocal, init_db
+from app.dependencies.database import admin_db_session, verify_database_ready
+from app.mcp.oauth_routes import router as oauth_router
 from app.mcp.router import router as mcp_http_router
 from app.mcp.server import mcp_asgi_app, mcp_server
 from app.middleware import (
@@ -28,14 +30,29 @@ setup_logging()
 async def lifespan(app: FastAPI):
     logger.info("Initializing Taj's Second Brain FastAPI Backend Architecture...")
     async with mcp_server.session_manager.run():
-        await init_db()
-        yield
+        await verify_database_ready()
+        from app.integrations.telegram_client import delivery_available
+        from app.jobs.runner import queue_worker
+        from app.services.telegram_delivery import delivery_worker
+        worker = asyncio.create_task(queue_worker()) if settings.JOB_WORKER_ENABLED else None
+        telegram_worker = asyncio.create_task(delivery_worker()) if delivery_available() else None
+        try:
+            yield
+        finally:
+            if telegram_worker:
+                telegram_worker.cancel()
+                with suppress(asyncio.CancelledError):
+                    await telegram_worker
+            if worker:
+                worker.cancel()
+                with suppress(asyncio.CancelledError):
+                    await worker
     logger.info("Shutting down FastAPI Backend Gracefully...")
 
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="Production-ready FastAPI backend and domain service layer for Taj's Second Brain, enforcing strict multi-tenant Row Level Security (RLS) and ownership-first portability.",
+    description="FastAPI backend and domain service layer for Taj's Second Brain, enforcing strict multi-tenant Row Level Security (RLS) and ownership-first portability.",
     version=settings.APP_VERSION,
     docs_url="/api/docs" if not settings.is_production() else None,
     redoc_url="/api/redoc" if not settings.is_production() else None,
@@ -64,6 +81,9 @@ app.add_middleware(
 
 # Register API v1 Domain Module Routers
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(oauth_router)
+
+
 
 # Mount MCP Streamable HTTP Application at /mcp (ADR-013)
 app.include_router(mcp_http_router, prefix="/mcp")
@@ -76,6 +96,7 @@ async def health_check():
         "status": "healthy",
         "environment": settings.ENVIRONMENT,
         "version": app.version,
+        "release_sha": settings.verified_release_sha,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -92,12 +113,13 @@ async def liveness_probe():
 )
 async def readiness_probe():
     try:
-        async with AsyncSessionLocal() as session:
-            await session.execute(text("SELECT 1"))
+        async with asyncio.timeout(5):
+            async with admin_db_session(reason="readiness_probe") as session:
+                await session.execute(text("SELECT 1"))
         db_status = "connected"
         http_code = status.HTTP_200_OK
     except Exception as exc:
-        logger.error(f"Database readiness health check failed: {str(exc)}")
+        logger.error("Database readiness health check failed (%s)", type(exc).__name__)
         db_status = "unreachable"
         http_code = status.HTTP_503_SERVICE_UNAVAILABLE
 

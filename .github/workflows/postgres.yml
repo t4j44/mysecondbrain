@@ -1,0 +1,70 @@
+name: PostgreSQL tenant and schema gate
+on:
+  push:
+    branches: [main, 'recovery/**', 'codex/**', 'feature/**']
+  pull_request:
+jobs:
+  postgres:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: second_brain_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 12
+    env:
+      POSTGRES_TEST_DATABASE_URL: postgresql+asyncpg://postgres:test-only-password@localhost:5432/second_brain_test
+      PYTHONPATH: apps/api
+      ENVIRONMENT: test
+      APP_ENV: test
+      GEMINI_API_KEY: mock_ci_key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --require-hashes -r apps/api/requirements.lock
+      - run: python scripts/db/bootstrap_migrations.py
+      - run: pytest apps/api/tests/integration -q -o addopts='' --junitxml=postgres-results.xml
+      - run: python scripts/check_test_evidence.py postgres-results.xml
+      - name: Prove seeded V1 to V1.5 upgrade
+        env:
+          RUN_ISOLATED_UPGRADE_PROOF: '1'
+        run: python scripts/db/verify_v15_upgrade.py
+      - name: Install PostgreSQL recovery client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+      - name: Prove isolated backup and restore
+        env:
+          RUN_ISOLATED_RESTORE_PROOF: '1'
+        run: python scripts/db/verify_backup_restore.py
+      - name: Build actual API Docker image
+        run: docker build -t second-brain-release-smoke -f apps/api/Dockerfile apps/api
+      - name: Run container against disposable migrated PostgreSQL
+        run: |
+          docker run -d --name second-brain-release-smoke --network host \
+            -e DATABASE_URL="$POSTGRES_TEST_DATABASE_URL" -e ENVIRONMENT=e2e -e APP_ENV=e2e \
+            -e RELEASE_SHA="$GITHUB_SHA" -e GEMINI_API_KEY=mock_ci_key \
+            -e JOB_WORKER_ENABLED=true second-brain-release-smoke
+          docker exec second-brain-release-smoke ffmpeg -version
+          docker exec second-brain-release-smoke ffprobe -version
+          python scripts/verify_container_runtime.py
+      - name: Container diagnostics
+        if: always()
+        run: |
+          docker logs second-brain-release-smoke 2>&1 | tail -80
+          docker rm -f second-brain-release-smoke || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: postgres-test-evidence
+          path: |
+            postgres-results.xml
+            restore-results.xml
+            upgrade-results.xml

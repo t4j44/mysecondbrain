@@ -1,0 +1,101 @@
+{
+  "scope": "Real staging HTTP with two disposable synthetic accounts; no customer data",
+  "measurements": [
+    {
+      "route": "/relationships/home",
+      "method": "GET",
+      "status": 200,
+      "ms": 1053,
+      "bytes": 721,
+      "cacheControl": "private, no-store",
+      "serverTiming": null
+    },
+    {
+      "route": "/relationships/home",
+      "method": "GET",
+      "status": 200,
+      "ms": 209,
+      "bytes": 721,
+      "cacheControl": "private, no-store",
+      "serverTiming": null
+    },
+    {
+      "route": "/relationships/home",
+      "method": "GET",
+      "status": 200,
+      "ms": 213,
+      "bytes": 721,
+      "cacheControl": "private, no-store",
+      "serverTiming": null
+    },
+    {
+      "route": "/relationships/home",
+      "method": "GET",
+      "status": 200,
+      "ms": 201,
+      "bytes": 721,
+      "cacheControl": "private, no-store",
+      "serverTiming": null
+    },
+    {
+      "route": "/relationships/home",
+      "method": "GET",
+      "status": 200,
+      "ms": 195,
+      "bytes": 721,
+      "cacheControl": "private, no-store",
+      "serverTiming": null
+    },
+    {
+      "route": "/people",
+      "method": "POST",
+      "status": 201,
+      "ms": 215,
+      "bytes": 523,
+      "cacheControl": "private, no-store",
+      "serverTiming": null
+    },
+    {
+      "route": "/people/:synthetic-id",
+      "method": "GET",
+      "status": 200,
+      "ms": 167,
+      "bytes": 523,
+      "cacheControl": "private, no-store",
+      "serverTiming": null
+    },
+    {
+      "route": "/people/:synthetic-id",
+      "method": "GET",
+      "status": 404,
+      "ms": 142,
+      "bytes": 144,
+      "cacheControl": "private, no-store",
+      "serverTiming": null
+    },
+    {
+      "route": "/people/:synthetic-id",
+      "method": "DELETE",
+      "status": 204,
+      "ms": 549,
+      "bytes": 0,
+      "cacheControl": "private, no-store",
+      "serverTiming": null
+    }
+  ],
+  "checks": [
+    {
+      "name": "Dashboard audit write and private no-store responses",
+      "status": "PASS"
+    },
+    {
+      "name": "Person persists and second account cannot read it",
+      "status": "PASS"
+    },
+    {
+      "name": "Synthetic person cleanup",
+      "status": "PASS"
+    }
+  ],
+  "status": "PASS"
+}

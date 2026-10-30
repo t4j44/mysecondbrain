@@ -79,7 +79,9 @@ def decode_and_verify_token(token: str) -> Dict[str, Any]:
                 token,
                 signing_key.key,
                 algorithms=["RS256", "ES256", "RS384", "RS512", "ES384", "ES512", "EdDSA"],
-                options={"verify_exp": True, "verify_sub": True},
+                audience="authenticated",
+                issuer=settings.SUPABASE_URL.rstrip("/") + "/auth/v1" if settings.SUPABASE_URL else None,
+                options={"verify_exp": True, "verify_sub": True, "require": ["sub", "exp", "aud"]},
             )
         except jwt.ExpiredSignatureError as exc:
             raise AuthenticationError(
@@ -103,7 +105,9 @@ def decode_and_verify_token(token: str) -> Dict[str, Any]:
                 token,
                 symmetric_secret,
                 algorithms=["HS256", "HS384", "HS512"],
-                options={"verify_exp": True, "verify_sub": True},
+                audience="authenticated",
+                issuer=settings.SUPABASE_URL.rstrip("/") + "/auth/v1" if settings.SUPABASE_URL else None,
+                options={"verify_exp": True, "verify_sub": True, "require": ["sub", "exp", "aud"]},
             )
         except jwt.ExpiredSignatureError as exc:
             raise AuthenticationError(
@@ -161,6 +165,13 @@ async def get_current_user(
             message="Token payload is missing required subject claim.",
             code=ErrorCode.INVALID_ACCESS_TOKEN,
         )
+
+    if request.url.path not in {"/api/v1/account/deletion-status", "/api/v1/account/delete"}:
+        from app.dependencies.database import admin_db_session
+        from app.models.entities import AccountClosure
+        async with admin_db_session(reason="account_active_check") as db:
+            if await db.get(AccountClosure, str(user_id)):
+                raise AuthenticationError("Account deletion is in progress.")
 
     return AuthenticatedUser(
         id=str(user_id),

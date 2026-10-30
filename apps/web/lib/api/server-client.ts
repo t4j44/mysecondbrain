@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server';
  */
 export function createServerApi(): FastApiClient {
   return new FastApiClient(async () => {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { session } } = await supabase.auth.getSession();
     return session?.access_token ?? null;
   });

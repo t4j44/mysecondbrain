@@ -3,6 +3,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.ai.capsule import MAX_CAPSULES, Capsule
+
 
 # --- MEMORIES SCHEMAS (Task 18) ---
 class MemoryCreate(BaseModel):
@@ -211,7 +213,18 @@ class SearchResultItem(BaseModel):
     entity_type: str
     title: str
     snippet: str
-    score: float
+    # Confidence is unavailable until real vector ranking (G4). Never invent a constant.
+    score: Optional[float] = None
+    confidence_available: bool = False
+    search_mode: str = "keyword"
+    chunk_id: Optional[str] = None
+    chunk_index: Optional[int] = None
+    section: Optional[str] = None
+    page: Optional[int] = None
+    segment_id: Optional[str] = None
+    speaker_id: Optional[str] = None
+    start_seconds: Optional[float] = None
+    end_seconds: Optional[float] = None
 
 
 class SearchResultResponse(BaseModel):
@@ -222,9 +235,11 @@ class SearchResultResponse(BaseModel):
 
 class AIContentGenerateRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=4000)
+    timezone: Optional[str] = Field(default=None, max_length=100)
     context_record_ids: List[str] = []
     tone: str = "professional"
     output_format: str = "markdown"
+    conversation: List[Capsule] = Field(default_factory=list, max_length=MAX_CAPSULES * 2)
 
 
 class AIContentGenerateResponse(BaseModel):
@@ -232,6 +247,8 @@ class AIContentGenerateResponse(BaseModel):
     provider_used: str
     model_used: str
     source_citations: List[str] = []
+    citations: List[Dict[str, str]] = []
+    capsule: Optional[Dict[str, Any]] = None
 
 
 class AICoverletterRequest(BaseModel):

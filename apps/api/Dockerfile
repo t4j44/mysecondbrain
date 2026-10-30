@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+COPY requirements.lock .
+RUN pip install --no-cache-dir --require-hashes --prefix=/install -r requirements.lock
 
 # Final production stage
 FROM python:3.11-slim AS runner
@@ -20,6 +20,8 @@ FROM python:3.11-slim AS runner
 WORKDIR /app
 
 # Create non-root user
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd -g 10001 appgroup && \
     useradd -u 10001 -g appgroup -s /bin/sh appuser
 

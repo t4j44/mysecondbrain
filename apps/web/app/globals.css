@@ -68,6 +68,65 @@
     @apply bg-background text-foreground antialiased selection:bg-[#00ff9d] selection:text-[#0a0510];
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+  :where(a, button, input, textarea, select, summary):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 3px;
+  }
+  input, textarea, select { min-width: 0; font-size: 1rem; }
+  main { overflow-wrap: anywhere; }
+  main :where(input, textarea, select) { font-size: max(1rem, 1em); }
+  main :where(button, input, select, summary) { min-height: 44px; }
+  main :where(input[type="checkbox"], input[type="radio"]) { min-height: auto; }
+}
+
+.conversation-shell { height: max(100dvh, 32rem); min-height: 0; overflow: clip; }
+.conversation-shell .workspace-main { padding-bottom: var(--bottom-nav-height, calc(3.75rem + env(safe-area-inset-bottom))); }
+.chat-surface { min-height: 0; flex: 1; }
+/* Enlarged text needs document scrolling when the header and composer no longer
+   fit in a short viewport. Preserve the normal conversation scroller otherwise. */
+.conversation-shell[data-expanded-text="true"] { position: relative; height: auto; min-height: 100dvh; overflow: visible; }
+.conversation-shell[data-expanded-text="true"] .chat-surface { min-height: 24rem; }
+/* At enlarged text sizes the whole conversation scrolls. Anchor navigation to
+   that document, so viewport scrolling cannot place it over the composer. */
+.conversation-shell[data-expanded-text="true"] .mobile-bottom-bar { position: absolute; }
+@media (max-width: 1023px) {
+  .workspace-main { padding-bottom: var(--bottom-nav-height, calc(5rem + env(safe-area-inset-bottom))); }
+  .conversation-shell { height: max(var(--app-height, 100dvh), 32rem); }
+  .conversation-shell[data-keyboard="true"] { height: var(--app-height, 100dvh); }
+  .app-shell[data-keyboard="true"] .mobile-bottom-bar { display: none; }
+  .app-shell[data-keyboard="true"] .workspace-main { padding-bottom: env(safe-area-inset-bottom); }
+  /* The keyboard reduces the *visual* viewport, not the CSS layout viewport.
+     Enforce a bounded flex column so the composer cannot remain below the keyboard
+     on short screens (notably 360px Chrome/iPhone-sized devices). */
+  .conversation-shell[data-keyboard="true"] {
+    position: fixed;
+    inset-inline: 0;
+    top: var(--viewport-top, 0px);
+    height: var(--app-height, 100dvh);
+    max-height: var(--app-height, 100dvh);
+    min-height: 0;
+    overflow: hidden;
+  }
+  .conversation-shell[data-keyboard="true"] .workspace-column {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .conversation-shell[data-keyboard="true"] .workspace-main {
+    height: 0;
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow: hidden;
+  }
+  .conversation-shell[data-keyboard="true"] .chat-surface {
+    min-height: 0;
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+  }
+}
+@media (min-width: 1024px) {
+  .conversation-shell .workspace-main { padding-bottom: 0; }
 }
 
 /* Accessibility: Visible Focus Indicators and Reduced Motion Compliance */
@@ -100,4 +159,49 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #00ff9d;
+}
+
+/* Shared interaction language — restrained, accessible and touch-safe. */
+@layer components {
+  .sb-interactive {
+    transition: background-color 160ms ease, border-color 160ms ease,
+      color 160ms ease, box-shadow 160ms ease, filter 160ms ease, transform 160ms ease;
+  }
+
+  .sb-card-link {
+    transition: background-color 180ms ease, border-color 180ms ease,
+      box-shadow 180ms ease, transform 180ms ease;
+  }
+
+  .sb-interactive:focus-visible,
+  .sb-card-link:focus-visible,
+  .sb-field:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 3px;
+  }
+
+  .sb-field {
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .sb-field:focus-visible {
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.12);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sb-interactive:not(:disabled):hover { filter: brightness(1.08); }
+  .sb-card-link:hover {
+    transform: translateY(-2px);
+    border-color: hsl(var(--primary) / 0.35);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  }
+}
+
+.sb-interactive:not(:disabled):active { transform: scale(0.985); }
+.sb-card-link:active { transform: scale(0.995); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-interactive, .sb-card-link, .sb-field { transition: none !important; transform: none !important; }
 }

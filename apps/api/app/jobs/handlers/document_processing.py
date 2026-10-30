@@ -1,61 +1,57 @@
-from datetime import datetime, timezone
+import asyncio
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.provider import get_llm_provider
-from app.core.logging import logger
-from app.models.entities import MemoryEmbedding
-from app.repositories.knowledge import DocumentRepository, MemoryEmbeddingRepository
+from app.repositories.knowledge import DocumentRepository
 
 
 async def process_document_handler(db: AsyncSession, user_id: str, payload: dict) -> dict:
+    """
+    Extract uploaded bytes locally and index minimized text.
+
+    Success requires both real extraction and durable real vectors.
+    """
     doc_id = payload.get("document_id")
     if not doc_id:
         raise ValueError("Missing document_id in job payload.")
 
     doc_repo = DocumentRepository()
-    doc = await doc_repo.get_by_id(db, user_id=user_id, id=doc_id, include_archived=True)
+    doc = await doc_repo.get_by_id(db, user_id=user_id, id=doc_id)
     if not doc:
         raise ValueError(f"Document {doc_id} not found for user {user_id}.")
 
     doc.processing_status = "processing"
     await db.flush()
 
+    from app.ai.indexing import index_record
+    from app.integrations.storage_client import StorageService
+    from app.services.document_normalizer import converter_identity, normalize
+
     try:
-        extracted = f"[Extracted knowledge from {doc.sanitized_filename}]\nThis canonical text encapsulates strategic findings and architectural notes associated with Taj's Second Brain."
-        doc.extracted_text = extracted
-
-        chunks = [extracted[i : i + 500] for i in range(0, len(extracted), 400)]
-        doc.chunking_state = f"chunked_{len(chunks)}"
-
-        llm = get_llm_provider()
-        emb_repo = MemoryEmbeddingRepository()
-        await emb_repo.delete_by_entity(db, user_id=user_id, entity_id=doc.id)
-
-        for idx, chunk_text in enumerate(chunks):
-            vector = await llm.embed_text(chunk_text)
-            emb = MemoryEmbedding(
-                user_id=user_id,
-                entity_type="document",
-                entity_id=doc.id,
-                content=chunk_text,
-                embedding=str(vector[:10]) + "...",
-                metadata_payload={"chunk_index": idx, "filename": doc.sanitized_filename},
-            )
-            db.add(emb)
-
+        metadata = doc.conversion_metadata or {}
+        if not doc.extracted_text or metadata.get("source_checksum") != doc.checksum or metadata.get("converter_identity") != converter_identity():
+            content = await StorageService().read_file(doc.storage_path)
+            markdown, metadata = await asyncio.to_thread(normalize, content, doc.filename)
+            # Conversion ran outside the event loop; recheck deletion before saving.
+            await db.refresh(doc)
+            if doc.deleted_at is not None:
+                raise ValueError("Document was deleted during conversion")
+            doc.extracted_text = markdown
+            doc.conversion_metadata = metadata
+        doc.chunking_state = "extracted"
+        # Preserve successful local extraction even when free AI is unavailable.
+        await db.commit()
+        result = await index_record(db, user_id, "document", str(doc.id))
         doc.processing_status = "completed"
-        doc.updated_at = datetime.now(timezone.utc)
+        doc.chunking_state = "completed"
+        doc.error_state = None
         await db.commit()
-        logger.info(
-            f"Document processing complete for ID {doc.id}. Generated {len(chunks)} embeddings."
-        )
-        return {"status": "completed", "chunks_generated": len(chunks)}
-
+        return result
     except Exception as exc:
-        doc.processing_status = "error"
-        doc.error_state = str(exc)
-        doc.updated_at = datetime.now(timezone.utc)
-        await db.commit()
-        logger.error(f"Document processing failed for ID {doc.id}: {str(exc)}", exc_info=True)
-        raise exc
+        await db.rollback()
+        doc = await doc_repo.get_by_id(db, user_id=user_id, id=doc_id)
+        if doc:
+            doc.processing_status = "failed"
+            doc.error_state = getattr(exc, "code", "DOCUMENT_PROCESSING_FAILED")
+            await db.commit()
+        raise

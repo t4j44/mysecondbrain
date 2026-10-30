@@ -9,8 +9,18 @@ from app.integrations.storage_client import StorageService
 
 
 def test_production_settings_reject_placeholder_configuration() -> None:
+    # Explicit empty secrets so OS env from CI/local pytest does not leak into this case.
     with pytest.raises(ValidationError, match="Production configuration is missing real values"):
-        Settings(_env_file=None, ENVIRONMENT="production", APP_ENV="production")
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            APP_ENV="production",
+            SUPABASE_URL="",
+            SUPABASE_SECRET_KEY="",
+            SUPABASE_SERVICE_ROLE_KEY="",
+            TOKEN_ENCRYPTION_KEY="placeholder_should_fail",
+            DATABASE_URL="sqlite+aiosqlite:///:memory:",
+        )
 
 
 def test_production_settings_valid_with_supabase_secret_key() -> None:
@@ -21,6 +31,7 @@ def test_production_settings_valid_with_supabase_secret_key() -> None:
         APP_ENV="production",
         SUPABASE_URL="https://prod.supabase.co",
         SUPABASE_SECRET_KEY="sb_secret_real_production_key_123456789",
+        SUPABASE_SERVICE_ROLE_KEY="",
         TOKEN_ENCRYPTION_KEY="real_fernet_production_master_encryption_key",
         DATABASE_URL="postgresql+asyncpg://postgres:pass@db.prod.supabase.co:5432/postgres",
         MCP_ISSUER_URL="https://tajs-second-brain.onrender.com",
@@ -38,6 +49,7 @@ def test_production_settings_valid_with_legacy_service_role_key() -> None:
         ENVIRONMENT="production",
         APP_ENV="production",
         SUPABASE_URL="https://prod.supabase.co",
+        SUPABASE_SECRET_KEY="",  # force legacy path; do not inherit CI mock secret
         SUPABASE_SERVICE_ROLE_KEY="legacy_service_role_secret_key_12345",
         TOKEN_ENCRYPTION_KEY="real_fernet_production_master_encryption_key",
         DATABASE_URL="postgresql+asyncpg://postgres:pass@db.prod.supabase.co:5432/postgres",
@@ -73,14 +85,15 @@ def test_storage_service_headers_with_legacy_key(monkeypatch: pytest.MonkeyPatch
     assert headers["Authorization"] == "Bearer legacy_service_key_xyz789"
 
 
-def test_production_storage_requires_supabase_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
-    monkeypatch.setattr(settings, "APP_ENV", "production")
+@pytest.mark.parametrize("environment", ["production", "staging"])
+def test_production_storage_requires_supabase_credentials(monkeypatch: pytest.MonkeyPatch, environment) -> None:
+    monkeypatch.setattr(settings, "ENVIRONMENT", environment)
+    monkeypatch.setattr(settings, "APP_ENV", environment)
     monkeypatch.setattr(settings, "SUPABASE_URL", "")
     monkeypatch.setattr(settings, "SUPABASE_SECRET_KEY", "")
     monkeypatch.setattr(settings, "SUPABASE_SERVICE_ROLE_KEY", "")
 
-    with pytest.raises(RuntimeError, match="Production document storage requires"):
+    with pytest.raises(RuntimeError, match="Production and staging document storage requires"):
         StorageService()
 
 
@@ -103,9 +116,12 @@ async def test_development_storage_uses_local_fallback(
     expected = tmp_path / ".storage_buckets" / storage.bucket_name / relative_path
     assert expected.read_bytes() == b"local development only"
 
-    # Test local signed URL
-    local_signed = await storage.get_signed_url(relative_path)
-    assert f"/api/storage/{storage.bucket_name}/{relative_path}" in local_signed
+    # Local files must be served through an authenticated download, never a fake URL.
+    with pytest.raises(RuntimeError, match='authenticated download'):
+        await storage.get_signed_url(relative_path)
+    assert await storage.read_file(relative_path) == b"local development only"
+    with pytest.raises(ValueError):
+        await storage.read_file('../outside.txt')
 
     # Test local delete
     deleted = await storage.delete_file(relative_path)
@@ -154,7 +170,7 @@ async def test_supabase_get_signed_url_with_secret_key(monkeypatch: pytest.Monke
     async def mock_post(self, url, headers=None, json=None, **kwargs):
         assert headers["apikey"] == "sb_secret_test_sign_key_456"
         assert headers["Authorization"] == "Bearer sb_secret_test_sign_key_456"
-        assert json == {"expiresIn": 1800}
+        assert json == {"expiresIn": 300}  # Private links are capped at five minutes.
         req = httpx.Request("POST", str(url), headers=headers)
         return httpx.Response(
             200,
@@ -189,3 +205,20 @@ async def test_supabase_delete_file_with_secret_key(monkeypatch: pytest.MonkeyPa
     storage = StorageService(bucket_name="test-bucket")
     success = await storage.delete_file("usr_123/file.txt")
     assert success is True
+
+
+@pytest.mark.asyncio
+async def test_owner_cleanup_fails_if_provider_does_not_delete(monkeypatch, test_user_id):
+    monkeypatch.setattr(settings, 'SUPABASE_URL', 'https://staging.supabase.co')
+    monkeypatch.setattr(settings, 'SUPABASE_SECRET_KEY', 'synthetic-server-key')
+    attempts = []
+    async def mock_post(self, url, **kwargs):
+        return httpx.Response(200, json=[{'id': 'fixture-id', 'name': 'fixture.txt'}], request=httpx.Request('POST', url))
+    async def mock_delete(self, path):
+        attempts.append(path)
+        return True
+    monkeypatch.setattr(httpx.AsyncClient, 'post', mock_post)
+    monkeypatch.setattr(StorageService, 'delete_file', mock_delete)
+    with pytest.raises(RuntimeError, match='did not make progress'):
+        await StorageService().delete_owner_files(test_user_id)
+    assert attempts == [test_user_id + '/fixture.txt']

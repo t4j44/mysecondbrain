@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
-from app.dependencies.database import get_db_session
+from app.dependencies import database as database_module
+from app.dependencies.database import get_rls_db_session
 from app.main import app
 from app.models.entities import Base
 
@@ -24,13 +25,30 @@ test_engine = create_async_engine(
 TestingSessionLocal = async_sessionmaker(test_engine, expire_on_commit=False, class_=AsyncSession)
 
 
-# Override database dependency for tests
+@pytest.fixture
+def fresh_mcp_transport(monkeypatch):
+    """The SDK permits one lifespan per transport instance, as in a real process."""
+    from app.mcp.server import create_mcp_transport, mcp_server
+    original = mcp_server.session_manager
+    transport = create_mcp_transport()
+    monkeypatch.setattr(app.routes[-1], 'app', transport)
+    yield
+    mcp_server._lowlevel_server._session_manager = original
+
+
+# Override the database dependency for unit tests. SQLite has no roles, GUCs or RLS, so the
+# isolated in-memory database is the tenant boundary here; real RLS is proven only by the
+# postgres integration suite in tests/integration/.
 async def override_get_db_session() -> AsyncGenerator[AsyncSession, None]:
     async with TestingSessionLocal() as session:
         yield session
 
 
-app.dependency_overrides[get_db_session] = override_get_db_session
+app.dependency_overrides[get_rls_db_session] = override_get_db_session
+
+# Paths that open their own session (MCP tool invocation, job runner, probes) go through the
+# canonical factory, so the unit suite redirects the factory itself at the SQLite fixture.
+database_module.AsyncSessionLocal = TestingSessionLocal
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -42,6 +60,22 @@ async def prepare_database():
     yield
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+
+
+@pytest.fixture(autouse=True)
+def isolate_http_rate_limit_state():
+    """Each test is independent; requests inside a test retain real throttling.
+
+    The shared ASGI app survives database resets. On fast CI runners unrelated
+    tests otherwise share one IP counter and fail based on execution speed.
+    """
+    from app.middleware.rate_limiting import RateLimitingMiddleware
+
+    middleware = app.middleware_stack
+    while middleware is not None:
+        if isinstance(middleware, RateLimitingMiddleware):
+            middleware.tracker.clear()
+        middleware = getattr(middleware, 'app', None)
 
 
 @pytest_asyncio.fixture
@@ -64,24 +98,31 @@ def other_user_id() -> str:
 @pytest.fixture
 def auth_headers(test_user_id: str) -> dict:
     payload = {
+        "aud": "authenticated",
+        "iss": settings.SUPABASE_URL.rstrip("/") + "/auth/v1",
         "sub": test_user_id,
         "email": "taj@founder.local",
         "role": "founder",
         "exp": datetime.now(timezone.utc) + timedelta(hours=1),
         "iat": datetime.now(timezone.utc),
     }
-    token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    # Must match decode_and_verify_token: SUPABASE_JWT_SECRET takes precedence over JWT_SECRET
+    secret = settings.SUPABASE_JWT_SECRET or settings.JWT_SECRET
+    token = jwt.encode(payload, secret, algorithm=settings.JWT_ALGORITHM)
     return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
 def other_auth_headers(other_user_id: str) -> dict:
     payload = {
+        "aud": "authenticated",
+        "iss": settings.SUPABASE_URL.rstrip("/") + "/auth/v1",
         "sub": other_user_id,
         "email": "intruder@external.local",
         "role": "viewer",
         "exp": datetime.now(timezone.utc) + timedelta(hours=1),
         "iat": datetime.now(timezone.utc),
     }
-    token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    secret = settings.SUPABASE_JWT_SECRET or settings.JWT_SECRET
+    token = jwt.encode(payload, secret, algorithm=settings.JWT_ALGORITHM)
     return {"Authorization": f"Bearer {token}"}

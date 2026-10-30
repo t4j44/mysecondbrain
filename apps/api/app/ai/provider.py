@@ -1,8 +1,11 @@
+import math
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 import httpx
 
+from app.ai.language import english_first_instruction
+from app.ai.privacy import prepare_text
 from app.core.config import settings
 from app.core.constants import ErrorCode
 from app.core.errors import AIProviderError
@@ -22,104 +25,147 @@ class BaseLLMProvider(ABC):
 
 
 class GeminiLLMProvider(BaseLLMProvider):
-    def __init__(self, api_key: Optional[str] = None, model: str = settings.GEMINI_MODEL):
+    """
+    Official Google Gemini AI provider for Second Brain LLM synthesis & embeddings.
+    Uses configurable Gemini generation and embedding models.
+    """
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: str = settings.GEMINI_MODEL,
+        embedding_model: str = settings.GEMINI_EMBEDDING_MODEL,
+    ):
         self.api_key = api_key or settings.GEMINI_API_KEY
         self.model = model
+        self.embedding_model = embedding_model
         self.provider_name = "google_gemini"
+
+    def _is_unconfigured(self) -> bool:
+        """Treat missing / placeholder / CI mock keys as offline (fail-closed in production)."""
+        if not self.api_key:
+            return True
+        key = self.api_key.lower()
+        markers = (
+            "placeholder",
+            "mock",
+            "your-",
+            "changeme",
+            "test_only",
+            "for_testing",
+            "for_local",
+        )
+        return any(marker in key for marker in markers)
 
     async def generate_content(
         self, prompt: str, system_instruction: Optional[str] = None, **kwargs: Any
     ) -> str:
-        if not self.api_key or "placeholder" in self.api_key:
-            if settings.is_production():
-                raise AIProviderError(
-                    message="Gemini API key is unconfigured in production environment.",
-                    code=ErrorCode.AI_PROVIDER_NOT_CONFIGURED,
-                )
-            # Safe synthetic generation for local development and offline automated test runs
-            return f"[Simulated Gemini Output for: {prompt[:30]}...]\nBased on Taj's Second Brain architecture, here is the synthesized intelligence report with grounded citations."
+        if self._is_unconfigured():
+            raise AIProviderError(
+                message="Gemini is not configured. Your saved records remain available.",
+                code=ErrorCode.AI_PROVIDER_NOT_CONFIGURED,
+            )
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
-                payload: Dict[str, Any] = {"contents": [{"parts": [{"text": prompt}]}]}
-                if system_instruction:
-                    payload["system_instruction"] = {"parts": [{"text": system_instruction}]}
-                response = await client.post(url, json=payload)
+                minimized, privacy = await prepare_text(prompt)
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
+                payload: Dict[str, Any] = {"contents": [{"parts": [{"text": minimized}]}],
+                    "generationConfig": {"maxOutputTokens": settings.AI_MAX_OUTPUT_TOKENS}}
+                if kwargs.get('response_mime_type'):
+                    payload['generationConfig']['responseMimeType'] = kwargs['response_mime_type']
+                    payload['generationConfig']['maxOutputTokens'] = min(int(kwargs.get('max_output_tokens', settings.AI_MAX_OUTPUT_TOKENS)), 8192)
+                payload["system_instruction"] = {"parts": [{"text": english_first_instruction(system_instruction)}]}
+                response = await client.post(url, json=payload, headers={"x-goog-api-key": self.api_key})
+
+                if response.status_code == 429:
+                    raise AIProviderError(
+                        message="Gemini API rate limit or quota exceeded.",
+                        code=ErrorCode.AI_PROVIDER_ERROR,
+                        details={"status_code": 429, "provider": "gemini"},
+                    )
+
                 response.raise_for_status()
                 data = response.json()
-                return data["candidates"][0]["content"]["parts"][0]["text"]
+                result = data["candidates"][0]["content"]["parts"][0]["text"]
+                return privacy.restore(result) if privacy else result
+        except AIProviderError:
+            raise
+        except httpx.HTTPStatusError as e:
+            logger.error("Gemini API HTTP error %s", e.response.status_code)
+            raise AIProviderError(
+                message=f"Gemini model generation failed with status {e.response.status_code}.",
+                code=ErrorCode.AI_PROVIDER_ERROR,
+                details={"status_code": e.response.status_code},
+            ) from e
         except Exception as e:
-            logger.error(f"Gemini API request failed: {str(e)}")
+            from app.ai.privacy import PrivacyBlocked
+            if isinstance(e, PrivacyBlocked):
+                raise
+            logger.error("Gemini API request failed (%s)", type(e).__name__)
             raise AIProviderError(
                 message="Gemini model generation failed.",
                 code=ErrorCode.AI_PROVIDER_ERROR,
-                details={"provider": "gemini", "error": str(e)},
+                details={"provider": "gemini"},
             ) from e
 
-    async def embed_text(self, text: str) -> List[float]:
-        if not self.api_key or "placeholder" in self.api_key:
-            # Return synthetic vector dimension (768) for local development & unit tests
-            return [0.01] * 768
+    async def embed_text(self, text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> List[float]:
+        """
+        Generate complete 768-dimensional numeric embedding vector.
+        Never truncates or returns synthetic vectors in production.
+        """
+        if self._is_unconfigured():
+            raise AIProviderError(
+                message="Gemini embeddings are not configured.",
+                code=ErrorCode.AI_PROVIDER_NOT_CONFIGURED,
+            )
+
         try:
+            clean_text, _privacy = await prepare_text(text)
+            clean_text = clean_text.strip()
+            if not clean_text:
+                raise AIProviderError("Empty text cannot produce an embedding.")
+
             async with httpx.AsyncClient(timeout=15.0) as client:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_EMBEDDING_MODEL}:embedContent?key={self.api_key}"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.embedding_model}:embedContent"
                 response = await client.post(
-                    url, json={"content": {"parts": [{"text": text[:2000]}]}}
+                    url, headers={"x-goog-api-key": self.api_key},
+                    json={"content": {"parts": [{"text": clean_text}]},
+                          "taskType": task_type, "outputDimensionality": 768}
                 )
+
+                if response.status_code == 429:
+                    raise AIProviderError(
+                        message="Gemini embedding rate limit exceeded.",
+                        code=ErrorCode.AI_PROVIDER_ERROR,
+                        details={"status_code": 429},
+                    )
+
                 response.raise_for_status()
                 data = response.json()
-                return data["embedding"]["values"]
+                values = data.get("embedding", {}).get("values", [])
+                if not values:
+                    raise ValueError("Gemini returned empty embedding vector.")
+                from app.ai.embeddings_storage import require_storable_embedding_vector
+                vector = require_storable_embedding_vector(values)
+                magnitude = math.sqrt(sum(v * v for v in vector))
+                if not magnitude or not math.isfinite(magnitude):
+                    raise ValueError("Invalid embedding vector")
+                return [v / magnitude for v in vector]
+        except AIProviderError:
+            raise
         except Exception as e:
-            logger.error(f"Gemini embedding failed: {str(e)}")
+            from app.ai.privacy import PrivacyBlocked
+            if isinstance(e, PrivacyBlocked):
+                raise
+            logger.error("Gemini embedding failed (%s)", type(e).__name__)
             raise AIProviderError(
-                "Failed to generate embedding vector.", code=ErrorCode.AI_PROVIDER_ERROR
+                "Failed to generate embedding vector.",
+                code=ErrorCode.AI_PROVIDER_ERROR,
+                details={"provider": "gemini"},
             ) from e
-
-
-class OpenAILLMProvider(BaseLLMProvider):
-    def __init__(self, api_key: Optional[str] = None, model: str = settings.OPENAI_MODEL):
-        self.api_key = api_key or settings.OPENAI_API_KEY
-        self.model = model
-        self.provider_name = "openai"
-
-    async def generate_content(
-        self, prompt: str, system_instruction: Optional[str] = None, **kwargs: Any
-    ) -> str:
-        if not self.api_key or "placeholder" in self.api_key:
-            if settings.is_production():
-                raise AIProviderError(
-                    message="OpenAI API key is unconfigured in production environment.",
-                    code=ErrorCode.AI_PROVIDER_NOT_CONFIGURED,
-                )
-            return f"[Simulated OpenAI Output for: {prompt[:30]}...]\nStructured analysis derived from canonical memory records."
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                url = "https://api.openai.com/v1/chat/completions"
-                headers = {"Authorization": f"Bearer {self.api_key}"}
-                messages = []
-                if system_instruction:
-                    messages.append({"role": "system", "content": system_instruction})
-                messages.append({"role": "user", "content": prompt})
-                response = await client.post(
-                    url, json={"model": self.model, "messages": messages}, headers=headers
-                )
-                response.raise_for_status()
-                return response.json()["choices"][0]["message"]["content"]
-        except Exception as e:
-            logger.error(f"OpenAI API request failed: {str(e)}")
-            raise AIProviderError(
-                "OpenAI model generation failed.", code=ErrorCode.AI_PROVIDER_ERROR
-            ) from e
-
-    async def embed_text(self, text: str) -> List[float]:
-        if not self.api_key or "placeholder" in self.api_key:
-            return [0.02] * 768
-        return [0.02] * 768
 
 
 def get_llm_provider(prefer_provider: str = "gemini") -> BaseLLMProvider:
-    """Factory function delivering standard AI provider interface pursuant to ADR-006."""
-    if prefer_provider.lower() == "openai":
-        return OpenAILLMProvider()
+    """Factory delivering the primary Gemini AI provider for Taj's Second Brain."""
     return GeminiLLMProvider()

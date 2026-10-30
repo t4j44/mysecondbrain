@@ -1,112 +1,50 @@
-# Database Migration & Local Development Guide — Taj's Second Brain
+# Database migration and recovery guide
 
-This document outlines the operational workflows for managing Supabase PostgreSQL schema migrations, seeding development data, running RLS isolation test suites, and regenerating type bindings for both Next.js TypeScript and Python FastAPI services.
+The canonical schema is `supabase/migrations`; `app/db/schema_contract.py` lists the expected files and critical types/policies. Deployment must use migrations, never SQLAlchemy `create_all`. Keep `DATABASE_SCHEMA_VERIFY=true`.
 
----
+## V1.5 changes
 
-## 1. Prerequisites
-Before running migrations or tests locally, ensure the following tools are present:
-- **Docker Desktop** (running locally for Supabase container engine)
-- **Supabase CLI** (v1.150+ recommended)
-- **Node.js / npm** (for TypeScript client type generation)
-- **Python 3.11+ / Pydantic** (for backend API type validation)
+After the V1 ledger through migration 28:
 
----
+1. `20260927000029_context_events.sql`: owner-scoped source events, original and recorded times, raw source, privacy classification, private media metadata, temporal graph history and composite owner foreign keys.
+2. `20260927000030_outreach_receipts.sql`: separate opened/sent receipt actions; opening an external app does not record delivery.
+3. `20260927000031_mcp_oauth.sql`: registered clients, pending requests, owner grants, hashed codes/tokens. Only grant metadata is readable by the authenticated owner; other vault tables are server-only.
 
-## 2. Supabase CLI Setup & Environment Verification
-If Supabase CLI is not installed on your system (e.g. Windows via WinGet or Scoop), install it:
-```powershell
-# Using Scoop
-scoop install supabase
+These migrations are additive except replacing the graph's all-history uniqueness constraint with uniqueness for current edges. Existing edges keep their original created/recorded time. They do not migrate existing provider secrets or change AI billing mode.
 
-# Using NPM (Global CLI wrap)
-npm install -g supabase
+## Existing isolated staging
+
+Verify the target project, backup and applied migration ledger first. Apply only outstanding migrations in filename order with the project's normal migration process. Do not replay historical files, reset a populated database, or treat the empty-database bootstrap script as an incremental migration command. Validate schema on backend startup and compare `/health` release SHA with both deployment records. Apply database changes before deploying code that requires them.
+
+No hosted migration or production change is authorized by the local test commands below. Stage and verify before dogfood or production promotion. Rolling the application back does not require immediately removing the additive tables; do not drop private records to roll back code. Restore from a verified backup only as a separately reviewed recovery operation.
+
+## Disposable PostgreSQL evidence
+
+Docker is optional on the developer workstation. GitHub's `PostgreSQL tenant and schema gate` creates PostgreSQL 16 with pgvector and runs the scripts below. A locally installed PostgreSQL/pgvector server can also be used. Set `POSTGRES_TEST_DATABASE_URL` in the environment to an empty disposable test database and install `apps/api/requirements.txt`.
+
+```text
+python scripts/db/bootstrap_migrations.py
+pytest apps/api/tests/integration -q -o addopts= --junitxml=postgres-results.xml
+python scripts/check_test_evidence.py postgres-results.xml
 ```
 
-Verify operational readiness:
-```bash
-supabase --version
-docker --version
-```
-*(Note: If local Docker/Supabase engines are currently unavailable on your workstation, all schema migrations, seed SQL, and pgTAP tests have been fully pre-written and validated for immediate CI/CD or remote cloud execution).*
+Bootstrap refuses a populated public schema and production-looking targets. Remote empty staging requires explicit `BOOTSTRAP_ALLOW_ISOLATED=1`; prefer CI for routine proofs.
 
----
+The additional scripts require a loopback server, an explicitly named test database and their own opt-in environment flags:
 
-## 3. Local Database Setup & Initialization
-To initialize the local Supabase container ecosystem defined in `supabase/config.toml`:
-```bash
-supabase start
-```
-This launches:
-- PostgreSQL database on port `54322`
-- REST API (PostgREST) on port `54321`
-- Supabase Studio Dashboard on `http://localhost:54323`
-
----
-
-## 4. Applying & Resetting Migrations
-When active migrations in `supabase/migrations/` are modified or newly pulled:
-```bash
-# Reset database from zero, re-run all migrations in sequential order, and apply seed SQL
-supabase db reset
-
-# Check status of applied versus unapplied migration versions
-supabase migration list
+```text
+RUN_ISOLATED_UPGRADE_PROOF=1
+python scripts/db/verify_v15_upgrade.py
+RUN_ISOLATED_RESTORE_PROOF=1
+python scripts/db/verify_backup_restore.py
 ```
 
----
+Set flags using the shell's environment syntax (PowerShell: `$env:RUN_ISOLATED_UPGRADE_PROOF = '1'`). Each script creates and drops only its own uniquely generated disposable database. Upgrade starts from migrations 1–28 with seeded V1 records, applies 29–31 and verifies retained history before rerunning integration tests. Restore uses real `pg_dump`/`pg_restore` and reruns the same integration suite. Install matching PostgreSQL 16 client tools for recovery checks.
 
-## 5. Seeding Development Data
-The seed file is located at `supabase/seed/development_seed.sql`.
-When running `supabase db reset`, Supabase automatically loads this seed file into the fresh schema.
-- **Test User ID**: `11111111-1111-1111-1111-111111111111` (`taj@dev.local`, password: `DevPassword123!`)
-- **Seeded Domain Data**: Justor AI, Zqtion, IEXF, CMOOS ventures, active projects, tasks, CRM contact (Yousuf Imran at Mangosteen Studio), meeting transcripts, memories, vector placeholders, and KPIs.
+CI retains `postgres-results.xml`, `upgrade-results.xml`, and `restore-results.xml`. Empty, failed or skipped evidence is rejected. Read the [V1.5 release report](../beta/V1_5_RELEASE.md) for actual results; code existence is not proof that these passed.
 
----
+## Boundaries
 
-## 6. Type Generation Strategy (TypeScript & Python)
-Whenever schema changes occur, regenerate synchronized type bindings:
+SQLite tests exercise application behavior but cannot certify PostgreSQL types, RLS, pgvector or migration compatibility. The container's minimal auth shim does not certify hosted Supabase Auth or Storage. Database dumps do not contain uploaded Storage bytes, external Google files/events or provider settings. Portable account JSON exports also exclude binary attachments and OAuth vault material.
 
-### TypeScript (Next.js & Shared Packages)
-Generate strict database type definitions for `@supabase/supabase-js` / `@supabase/ssr`:
-```bash
-supabase gen types typescript --local > packages/database/generated/types.ts
-```
-
-### Python (FastAPI & Pydantic ORM)
-Do not manually duplicate SQL table schemas in Python. Maintain alignment using automated schema reflection or `datamodel-code-generator` against the PostgreSQL OpenAPI/JSON schema:
-```bash
-# Example script to generate Pydantic v2 models from PostgreSQL schema
-python -m datamodel_code_generator --input-file http://localhost:54321/ --input-file-type openapi --output packages/database/generated/pydantic_models.py
-```
-
----
-
-## 7. Creating a New Migration
-To introduce schema additions without mutating existing history:
-```bash
-supabase migration new add_calendar_sync_fields
-```
-This generates a timestamped file in `supabase/migrations/<timestamp>_add_calendar_sync_fields.sql`.
-Always include down/rollback thoughts in migration documentation and follow RLS enablement rules.
-
----
-
-## 8. Automated Verification & Testing
-Execute unit tests for database tables, functions, and strict RLS user isolation:
-```bash
-# Lints database structure against security best practices
-supabase db lint
-
-# Run pgTAP unit tests (schema, RLS policies, and vector search)
-supabase test db
-```
-
----
-
-## 9. Production Migration Precautions & Rollbacks
-When deploying migrations to production Supabase instances:
-1. **Never mutate old migrations**: Always apply forward incremental migrations.
-2. **Avoid Exclusive Table Locks**: Use `CREATE INDEX CONCURRENTLY` in production environments when indexing millions of vector rows.
-3. **Backup Before Application**: Take automated cloud snapshots before pushing destructive transformations.
-4. **Rollbacks**: If a migration fails in production, generate a corrective corrective migration rather than executing manual SQL adjustments via Studio console.
+Keep dumps private, encrypted and outside Git; the scripts do not encrypt them. Private photo erasure is queued, so the worker and retry monitoring must be active. See [beta runbook](../beta/RUNBOOK.md) for hosted two-account acceptance and [data inventory](../privacy/data_inventory.md) for deletion/export behavior.

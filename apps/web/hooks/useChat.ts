@@ -1,7 +1,24 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
-import { ChatMessage, UseChatOptions, UseChatHelpers, Citation } from '../types/chat';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { env } from '@/lib/env';
+import { ChatMessage, UseChatOptions, UseChatHelpers, Citation, Capsule } from '../types/chat';
+
+const MAX_CAPSULES = 4;
+
+export function isCapsule(value: unknown): value is Capsule {
+  const item = value as Capsule | null;
+  return !!item && typeof item.question === 'string' && typeof item.answer === 'string' && Array.isArray(item.sources);
+}
+
+/** The newest few capsules from finished answers; the full transcript is never uploaded. */
+export function recentCapsules(messages: ChatMessage[]): Capsule[] {
+  return messages
+    .filter((message) => message.role === 'assistant' && message.status === 'completed' && isCapsule(message.capsule))
+    .slice(-MAX_CAPSULES)
+    .map((message) => message.capsule as Capsule);
+}
 
 /**
  * Custom hook `useChat` for managing real-time AI conversation streams.
@@ -10,7 +27,7 @@ import { ChatMessage, UseChatOptions, UseChatHelpers, Citation } from '../types/
  */
 export function useChat(options: UseChatOptions = {}): UseChatHelpers {
   const {
-    api = '/api/v1/ai/search',
+    api = '/api/v1/ai/content-generate',
     initialMessages = [],
     onFinish,
     onError,
@@ -25,6 +42,11 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
   const [error, setError] = useState<Error | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const inFlightRef = useRef(false);
+  const generationRef = useRef(0);
+  useEffect(() => () => { generationRef.current++; abortControllerRef.current?.abort(); }, []);
+  const messagesRef = useRef<ChatMessage[]>(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -34,18 +56,24 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
   );
 
   const stop = useCallback(() => {
+    generationRef.current++;
+    inFlightRef.current = false;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
     setIsLoading(false);
     setIsThinking(false);
+    setMessages(previous => previous.map(message => message.status === 'thinking' || message.status === 'streaming'
+      ? { ...message, status: 'completed', isThinking: false, content: message.content ? `${message.content}\n[Stopped]` : 'Answer stopped.' } : message));
   }, []);
 
   const sendMessage = useCallback(
-    async (customContent?: string) => {
+    async (customContent?: string, retryUserId?: string) => {
       const messageText = (customContent !== undefined ? customContent : input).trim();
-      if (!messageText || isLoading) return;
+      if (!messageText || isLoading || inFlightRef.current) return;
+      inFlightRef.current = true;
+      const generation = ++generationRef.current;
 
       setError(null);
       if (customContent === undefined) {
@@ -53,8 +81,8 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
       }
 
       const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const userMessageId = `user-${Date.now()}`;
-      const assistantMessageId = `assistant-${Date.now() + 1}`;
+      const userMessageId = `user-${crypto.randomUUID()}`;
+      const assistantMessageId = `assistant-${crypto.randomUUID()}`;
 
       const userMessage: ChatMessage = {
         id: userMessageId,
@@ -71,14 +99,18 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         status: 'thinking',
         isThinking: true,
-        thinkingText: 'Querying Second Brain & Vector Memory...',
+        thinkingText: 'Checking your saved context…',
         citations: [],
       };
 
-      let currentMessagesState: ChatMessage[] = [];
-      setMessages((prev) => {
-        currentMessagesState = [...prev, userMessage, pendingAssistantMessage];
-        return currentMessagesState;
+      // Read before queueing the new messages: state updaters run lazily, so a value
+      // captured inside one may not exist yet when the request body is built.
+      const conversation = recentCapsules(messagesRef.current);
+      setMessages(prev => {
+        const retryIndex = retryUserId ? prev.findIndex(message => message.id === retryUserId) : -1;
+        return retryIndex >= 0
+          ? [...prev.slice(0, retryIndex + 1), pendingAssistantMessage]
+          : [...prev, userMessage, pendingAssistantMessage];
       });
 
       setIsLoading(true);
@@ -88,26 +120,74 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
       abortControllerRef.current = abortController;
 
       try {
-        const response = await fetch(api, {
+        const {
+          data: { session },
+        } = await createClient().auth.getSession();
+        const token = session?.access_token;
+
+        // Fail loudly instead of sending an anonymous request. Previously the
+        // Authorization header was spread in conditionally, so a missing session
+        // produced an unauthenticated call and the backend's opaque
+        // "401 AUTHENTICATION_REQUIRED / Missing authentication Bearer token".
+        if (!token) {
+          throw new Error(
+            'Your session has expired. Please sign in again to use the assistant.'
+          );
+        }
+
+        // Resolve against the configured API origin rather than relying on the
+        // Next.js rewrite. The rewrite is evaluated at BUILD time from
+        // NEXT_PUBLIC_API_BASE_URL, so a preview build or a missing build-time
+        // variable silently sends this request to the frontend origin instead of
+        // the backend. Every other call already goes through FastApiClient,
+        // which builds absolute URLs the same way.
+        const requestUrl = /^https?:\/\//i.test(api)
+          ? api
+          : `${env.NEXT_PUBLIC_API_BASE_URL.replace(/\/$/, '')}/${api
+              .replace(/^\/?api\/v1\/?/, '')
+              .replace(/^\//, '')}`;
+
+        const response = await fetch(requestUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             ...headers,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             query: messageText,
             prompt: messageText,
-            messages: currentMessagesState.filter(
-              (m) => m.id !== assistantMessageId && m.status !== 'error'
-            ),
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+            conversation,
             ...body,
           }),
           signal: abortController.signal,
+          cache: 'no-store',
         });
+        if (generation !== generationRef.current) return;
 
         if (!response.ok) {
-          const errorText = await response.text().catch(() => response.statusText);
-          throw new Error(`API returned ${response.status}: ${errorText}`);
+          const requestId = response.headers.get('x-request-id');
+          throw new Error(`The answer service could not complete this request (HTTP ${response.status})${requestId ? `. Request: ${requestId}` : ''}.`);
+        }
+
+        if (response.headers.get('content-type')?.includes('application/json')) {
+          const result = await response.json();
+          if (typeof result.generated_text !== 'string' || !result.generated_text.trim()) {
+            throw new Error('The assistant returned an unexpected response. Please try again.');
+          }
+          const finalMessage: ChatMessage = {
+            ...pendingAssistantMessage, content: result.generated_text,
+            status: 'completed', isThinking: false, citations: result.citations || [],
+            capsule: isCapsule(result.capsule) ? result.capsule : undefined,
+          };
+          setMessages(prev => prev.map(message => message.id === assistantMessageId ? finalMessage : message));
+          setIsThinking(false);
+          setIsLoading(false);
+          abortControllerRef.current = null;
+          inFlightRef.current = false;
+          onFinish?.(finalMessage);
+          return;
         }
 
         if (!response.body) {
@@ -123,13 +203,12 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
 
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
+          if (generation !== generationRef.current) { await reader.cancel(); return; }
+          const chunk = done ? decoder.decode() : decoder.decode(value, { stream: true });
           buffer += chunk;
 
           const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+          buffer = done ? '' : lines.pop() || '';
 
           for (const line of lines) {
             const trimmedLine = line.trim();
@@ -214,43 +293,21 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
               );
             }
           }
-        }
-
-        if (buffer.trim()) {
-          let textDelta = buffer.trim();
-          if (textDelta.startsWith('0:')) {
-            try { textDelta = JSON.parse(textDelta.slice(2)); } catch {}
-          }
-          if (textDelta && !textDelta.startsWith('data:') && !textDelta.startsWith('e:')) {
-            accumulatedContent += textDelta;
-          }
+          if (done) break;
         }
 
         setIsThinking(false);
         setIsLoading(false);
         abortControllerRef.current = null;
+        inFlightRef.current = false;
+        if (!accumulatedContent.trim()) throw new Error('No answer was returned. Try again.');
 
-        let finalMessage: ChatMessage | null = null;
-        setMessages((prev) =>
-          prev.map((msg) => {
-            if (msg.id === assistantMessageId) {
-              finalMessage = {
-                ...msg,
-                content: accumulatedContent || msg.content || 'Response complete.',
-                citations: accumulatedCitations,
-                status: 'completed',
-                isThinking: false,
-              };
-              return finalMessage;
-            }
-            return msg;
-          })
-        );
-
-        if (onFinish && finalMessage) {
-          onFinish(finalMessage);
-        }
+        const finalMessage: ChatMessage = {...pendingAssistantMessage,content:accumulatedContent,
+          citations:accumulatedCitations,status:'completed',isThinking:false};
+        setMessages(previous=>previous.map(message=>message.id===assistantMessageId?finalMessage:message));
+        onFinish?.(finalMessage);
       } catch (err: any) {
+        if (generation !== generationRef.current) return;
         if (err.name === 'AbortError') {
           setMessages((prev) =>
             prev.map((msg) =>
@@ -287,6 +344,7 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
         setIsThinking(false);
         setIsLoading(false);
         abortControllerRef.current = null;
+        inFlightRef.current = false;
       }
     },
     [api, body, headers, input, isLoading, onError, onFinish]
@@ -306,7 +364,7 @@ export function useChat(options: UseChatOptions = {}): UseChatHelpers {
     if (messages.length === 0 || isLoading) return;
     const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
     if (lastUserMsg) {
-      await sendMessage(lastUserMsg.content);
+        await sendMessage(lastUserMsg.content, lastUserMsg.id);
     }
   }, [isLoading, messages, sendMessage]);
 

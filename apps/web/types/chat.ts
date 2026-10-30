@@ -1,9 +1,17 @@
 export interface Citation {
   id: string;
-  entity_type: 'venture' | 'project' | 'person' | 'interaction' | 'memory' | 'document' | 'idea';
+  entity_type: 'venture' | 'project' | 'person' | 'interaction' | 'memory' | 'document' | 'idea' | 'organization' | 'meeting' | 'task' | 'commitment' | 'achievement' | 'work_session' | 'evidence' | 'decision';
   title: string;
   uri?: string;
   snippet?: string;
+  segment_id?: string;
+}
+
+/** A question and its answer reduced to the few facts a follow-up needs. Built by the server, kept on this device. */
+export interface Capsule {
+  question: string;
+  answer: string;
+  sources: { entity_type: string; title: string }[];
 }
 
 export type MessageRole = 'user' | 'assistant' | 'system';
@@ -18,6 +26,7 @@ export interface ChatMessage {
   isThinking?: boolean;
   thinkingText?: string;
   citations?: Citation[];
+  capsule?: Capsule;
   error?: string;
 }
 

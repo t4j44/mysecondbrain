@@ -118,8 +118,49 @@ class IntegrationError(AppError):
         message: str,
         code: Any = ErrorCode.INTEGRATION_NOT_CONNECTED,
         details: Optional[Dict[str, Any]] = None,
+        status_code: int = 400,
     ):
-        super().__init__(message=message, code=code, status_code=400, details=details)
+        super().__init__(
+            message=message, code=code, status_code=status_code, details=details
+        )
+
+
+class DocumentExtractionNotImplementedError(AppError):
+    """Raised when the document job would invent text instead of extracting bytes."""
+
+    def __init__(
+        self,
+        message: str = (
+            "Document text extraction is not implemented. "
+            "The pipeline refuses to store fabricated extracted text."
+        ),
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            message=message,
+            code=ErrorCode.DOCUMENT_EXTRACTION_NOT_IMPLEMENTED,
+            status_code=501,
+            details=details,
+        )
+
+
+class EmbeddingStorageNotImplementedError(AppError):
+    """Raised when truncated or non-vector embeddings would be reported as success."""
+
+    def __init__(
+        self,
+        message: str = (
+            "Real embedding vector storage is not implemented. "
+            "Truncated or synthetic embedding success is forbidden."
+        ),
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            message=message,
+            code=ErrorCode.EMBEDDING_STORAGE_NOT_IMPLEMENTED,
+            status_code=501,
+            details=details,
+        )
 
 
 class StorageError(AppError):

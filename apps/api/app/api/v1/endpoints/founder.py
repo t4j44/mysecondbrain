@@ -37,7 +37,14 @@ from app.schemas import (
     WeeklyReviewCreate,
     WeeklyReviewResponse,
 )
-from app.schemas.founder import KPICreate, KPIEntryCreate, KPIEntryResponse, KPIResponse
+from app.schemas.founder import (
+    KPICreate,
+    KPIEntryCreate,
+    KPIEntryResponse,
+    KPIEntryUpdate,
+    KPIResponse,
+    KPIUpdate,
+)
 
 router = APIRouter()
 
@@ -324,6 +331,52 @@ async def record_kpi_entry(
     _user: AuthenticatedUser = Depends(get_current_user),
 ):
     return await service.record_entry(kpi_id, payload.model_dump(exclude_unset=True))
+
+@router.patch("/kpis/{id}", response_model=KPIResponse, summary="Update KPI details")
+async def update_kpi(
+    id: str,
+    payload: KPIUpdate,
+    service: KPIService = Depends(get_kpi_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.update_kpi(id, payload.model_dump(exclude_unset=True))
+
+
+@router.delete("/kpis/{id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete KPI")
+async def delete_kpi(
+    id: str,
+    service: KPIService = Depends(get_kpi_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    await service.delete_kpi(id)
+
+
+@router.patch(
+    "/kpis/entries/{entry_id}",
+    response_model=KPIEntryResponse,
+    summary="Update KPI entry",
+)
+async def update_kpi_entry(
+    entry_id: str,
+    payload: KPIEntryUpdate,
+    service: KPIService = Depends(get_kpi_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    return await service.update_entry(entry_id, payload.model_dump(exclude_unset=True))
+
+
+@router.delete(
+    "/kpis/entries/{entry_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete KPI entry",
+)
+async def delete_kpi_entry(
+    entry_id: str,
+    service: KPIService = Depends(get_kpi_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    await service.delete_entry(entry_id)
+
 
 
 # --- WEEKLY REVIEWS ENDPOINTS (Task 28) ---

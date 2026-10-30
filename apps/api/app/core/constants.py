@@ -17,9 +17,12 @@ class ErrorCode(str, Enum):
     FILE_TOO_LARGE = "FILE_TOO_LARGE"
     FILE_UPLOAD_FAILED = "FILE_UPLOAD_FAILED"
     DOCUMENT_PROCESSING_FAILED = "DOCUMENT_PROCESSING_FAILED"
+    DOCUMENT_EXTRACTION_NOT_IMPLEMENTED = "DOCUMENT_EXTRACTION_NOT_IMPLEMENTED"
+    EMBEDDING_STORAGE_NOT_IMPLEMENTED = "EMBEDDING_STORAGE_NOT_IMPLEMENTED"
     INTEGRATION_NOT_CONNECTED = "INTEGRATION_NOT_CONNECTED"
     INTEGRATION_TOKEN_INVALID = "INTEGRATION_TOKEN_INVALID"  # nosec B105
     INTEGRATION_REAUTH_REQUIRED = "INTEGRATION_REAUTH_REQUIRED"
+    INTEGRATION_NOT_IMPLEMENTED = "INTEGRATION_NOT_IMPLEMENTED"
     SYNC_JOB_FAILED = "SYNC_JOB_FAILED"
     EXPORT_JOB_FAILED = "EXPORT_JOB_FAILED"
     AI_PROVIDER_NOT_CONFIGURED = "AI_PROVIDER_NOT_CONFIGURED"
@@ -36,6 +39,12 @@ MAX_PAGE_SIZE = 100
 MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB limit
 ALLOWED_MIME_TYPES = {
     "application/pdf": "pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "text/csv": "csv",
+    "application/json": "json",
+    "text/html": "html",
     "text/plain": "txt",
     "text/markdown": "md",
     "image/jpeg": "jpg",

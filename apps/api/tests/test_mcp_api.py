@@ -2,6 +2,7 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 
+from app.mcp.router import MCP_ALL_TOOLS, MCP_WRITE_TOOLS_MANIFEST
 from app.models.entities import Profile
 
 
@@ -51,13 +52,15 @@ async def test_mcp_credentials_rest_endpoints(
     assert list_data[0]["credential_id"] == cred_id
 
     # 3. Test /mcp status and tools list
-    mcp_info = await async_client.get("/mcp")
+    mcp_info = await async_client.get("/mcp/info")
     assert mcp_info.status_code == 200
     assert mcp_info.json()["status"] == "online"
 
     tools_resp = await async_client.get("/mcp/tools")
     assert tools_resp.status_code == 200
-    assert len(tools_resp.json()["tools"]) == 9
+    advertised = tools_resp.json()["tools"]
+    assert len(advertised) == len(MCP_ALL_TOOLS)
+    assert len([t for t in advertised if t.get("write")]) == len(MCP_WRITE_TOOLS_MANIFEST)
 
     # 4. Invoke MCP tool with valid key
     mcp_headers = {"X-MCP-API-KEY": plaintext_key}

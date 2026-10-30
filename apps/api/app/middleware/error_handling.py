@@ -56,17 +56,20 @@ def setup_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(IntegrityError)
     async def integrity_error_handler(request: Request, exc: IntegrityError) -> JSONResponse:
         request_id = getattr(request.state, "request_id", "N/A")
+        sqlstate = getattr(exc.orig, 'sqlstate', None) or getattr(exc.orig, 'pgcode', None)
+        is_conflict = sqlstate not in {'23502', '23514'}
+        code = ErrorCode.CONFLICT.value if is_conflict else ErrorCode.INTERNAL_ERROR.value
         logger.error(
-            f"Database integrity constraint violated during request: {str(exc.orig)}",
-            extra={"request_id": request_id, "error_code": ErrorCode.CONFLICT.value},
+            f"Database integrity constraint violated during request: {type(exc.orig).__name__}",
+            extra={"request_id": request_id, "error_code": code, "sqlstate": sqlstate},
         )
         # Never leak raw SQL or database internal identifiers
         return JSONResponse(
-            status_code=status.HTTP_409_CONFLICT,
+            status_code=status.HTTP_409_CONFLICT if is_conflict else status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
                 "error": {
-                    "code": ErrorCode.CONFLICT.value,
-                    "message": "Resource state conflict or duplicate detected in database.",
+                    "code": code,
+                    "message": "This record conflicts with an existing record. Review and try again." if is_conflict else "The service could not complete this request. Please try again.",
                     "details": None,
                     "request_id": request_id,
                 }
@@ -78,9 +81,8 @@ def setup_exception_handlers(app: FastAPI) -> None:
     async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         request_id = getattr(request.state, "request_id", "N/A")
         logger.error(
-            f"Unhandled system failure: {str(exc)}",
+            f"Unhandled system failure: {type(exc).__name__}",
             extra={"request_id": request_id, "error_code": ErrorCode.INTERNAL_ERROR.value},
-            exc_info=True,
         )
         # Prevent stack trace exposure in production
         return JSONResponse(

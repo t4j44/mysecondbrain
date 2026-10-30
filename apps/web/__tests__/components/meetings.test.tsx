@@ -1,0 +1,82 @@
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({ usage: vi.fn(), create: vi.fn(), authorize: vi.fn(), finalize: vi.fn(), list: vi.fn(), get: vi.fn(), map: vi.fn(), confirm: vi.fn(), people: vi.fn(), start: vi.fn(), stop: vi.fn(), pause: vi.fn(), resume: vi.fn(), dispose: vi.fn(), liveStart: vi.fn(), liveStop: vi.fn(), save: vi.fn(), remove: vi.fn(), upload: vi.fn() }));
+vi.mock('@/lib/meetings/api', () => ({ meetingApi: { usage: mocks.usage, create: mocks.create, authorize: mocks.authorize, finalize: mocks.finalize, list: mocks.list, get: mocks.get, map: mocks.map, confirm: mocks.confirm } }));
+vi.mock('@/lib/api/browser-client', () => ({ api: { get: mocks.people } }));
+vi.mock('next/navigation', () => ({ useParams: () => ({meetingId:'meeting-1'}), useRouter: () => ({push:vi.fn()}) }));
+vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ auth: { getSession: async () => ({ data: { session: { access_token: 'synthetic', user: { id: 'owner' } } } }) } }) }));
+vi.mock('@/lib/meetings/local-recordings', () => ({ listLocalRecordings: async () => [], saveLocalRecording: mocks.save, deleteLocalRecording: mocks.remove }));
+vi.mock('@/lib/meetings/recorder', () => ({ BrowserRecorderAdapter: class { start = mocks.start; stop = mocks.stop; pause = mocks.pause; resume = mocks.resume; dispose = mocks.dispose; } }));
+vi.mock('@/lib/meetings/live', () => ({ BrowserLiveTranscriptClient: class { start = mocks.liveStart; stop = mocks.liveStop; send() {} } }));
+vi.mock('@/lib/meetings/upload', () => ({ BrowserAudioUploadClient: class { upload = mocks.upload; } }));
+import { CapturePanel } from '@/components/meetings/capture-panel';
+import { useMeetings } from '@/hooks/useMeetings';
+import { statusLabel, timerLabel } from '@/lib/meetings/types';
+import { ApiError } from '@/lib/api/errors';
+import MeetingDetailPage from '@/app/(dashboard)/meetings/[meetingId]/page';
+import MeetingsPage from '@/app/(dashboard)/meetings/page';
+
+async function consent() { await waitFor(() => expect(screen.getByText(/3h 10m/)).toBeInTheDocument()); screen.getAllByRole('checkbox').forEach(box => fireEvent.click(box)); }
+beforeEach(() => { vi.clearAllMocks(); mocks.usage.mockResolvedValue({ used_seconds: 11400, limit_seconds:18000, remaining_seconds:6600, percentage_used:63.33, data_mode:'free_redacted' }); mocks.create.mockResolvedValue({id:'meeting-1',title:'Meeting'}); mocks.start.mockResolvedValue(undefined); mocks.stop.mockResolvedValue(new Blob(['audio'], {type:'audio/webm'})); mocks.dispose.mockResolvedValue(undefined); mocks.authorize.mockResolvedValue({upload_url:null,local_upload_endpoint:'/meetings/meeting-1/audio',mime_type:'audio/webm',max_bytes:104857600}); mocks.finalize.mockResolvedValue({id:'meeting-1'}); mocks.upload.mockResolvedValue(undefined); mocks.list.mockResolvedValue({items:[{id:'m',title:'Actual API meeting'}],total:1}); });
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+
+describe('meeting capture', () => {
+  it('keeps the recorder mounted when collapsed and prevents hiding active capture', async () => {
+    mocks.list.mockResolvedValue({ items: [], total: 0 });
+    render(<MeetingsPage />);
+    fireEvent.click(screen.getByRole('button', { name: '+ Record or upload' }));
+    await consent();
+    fireEvent.change(screen.getByLabelText('Meeting name (optional)'), { target: { value: 'Retained title' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Hide recorder' }));
+    fireEvent.click(screen.getByRole('button', { name: '+ Record or upload' }));
+    expect(screen.getByLabelText('Meeting name (optional)')).toHaveValue('Retained title');
+    expect(screen.getByRole('button', { name: 'Record meeting' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Record meeting' }));
+    await screen.findByText('● Recording');
+    expect(screen.getByRole('button', { name: 'Hide recorder' })).toBeDisabled();
+    expect(mocks.dispose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'End meeting' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Hide recorder' })).toBeEnabled());
+    expect(mocks.finalize).toHaveBeenCalledWith('meeting-1');
+  });
+  it('shows quota and requires recording consent and free-tier acceptance', async () => { render(<CapturePanel onSaved={() => undefined} />); await waitFor(() => expect(screen.getByText(/3h 10m/)).toBeInTheDocument()); expect(screen.getByRole('button',{name:'Record meeting'})).toBeDisabled(); expect(screen.getByText(/Avoid confidential meetings/)).toBeInTheDocument(); await consent(); expect(screen.getByRole('button',{name:'Record meeting'})).toBeEnabled(); });
+  it('records, pauses, resumes and uploads the source independently of live text', async () => { const saved=vi.fn(); render(<CapturePanel onSaved={saved} />); await consent(); fireEvent.click(screen.getByRole('button',{name:'Record meeting'})); await screen.findByText('● Recording'); fireEvent.click(screen.getByRole('button',{name:'Pause'})); expect(mocks.pause).toHaveBeenCalled(); fireEvent.click(screen.getByRole('button',{name:'Resume'})); expect(mocks.resume).toHaveBeenCalled(); fireEvent.click(screen.getByRole('button',{name:'End meeting'})); await waitFor(() => expect(mocks.finalize).toHaveBeenCalledWith('meeting-1')); expect(mocks.save).toHaveBeenCalled(); expect(mocks.upload).toHaveBeenCalled(); expect(mocks.remove).toHaveBeenCalledWith('meeting-1'); expect(saved).toHaveBeenCalled(); });
+  it('explains microphone denial without claiming a recording exists', async () => { mocks.start.mockRejectedValue(new DOMException('Denied','NotAllowedError')); render(<CapturePanel onSaved={() => undefined} />); await consent(); fireEvent.click(screen.getByRole('button',{name:'Record meeting'})); expect(await screen.findByRole('alert')).toHaveTextContent('Microphone access was denied'); expect(mocks.finalize).not.toHaveBeenCalled(); });
+  it('keeps recording when live text reconnects and renders provisional text', async () => { render(<CapturePanel onSaved={() => undefined} />); await consent(); fireEvent.click(screen.getByRole('button',{name:'Record meeting'})); await screen.findByText('● Recording'); const [, , onText, onState]=mocks.liveStart.mock.calls[0]; act(() => { onState('Live transcript reconnecting...'); onText({sequence:0,start_offset:0,end_offset:2,text:'বাংলা and English'}); }); expect(screen.getByText('Live transcript reconnecting...')).toBeInTheDocument(); expect(screen.getByText('বাংলা and English')).toBeInTheDocument(); expect(mocks.stop).not.toHaveBeenCalled(); });
+  it('upload calls authorization and finalization and retains failed sources', async () => { mocks.upload.mockRejectedValue(new Error('Connection lost')); render(<CapturePanel onSaved={() => undefined} />); await consent(); fireEvent.change(screen.getByLabelText('Upload recording file'), { target: { files: [new File(['synthetic'],'voice.webm',{type:'audio/webm'})] } }); await waitFor(() => expect(mocks.upload).toHaveBeenCalled()); expect(mocks.authorize).toHaveBeenCalledWith('meeting-1','audio/webm'); expect(mocks.remove).not.toHaveBeenCalled(); expect(mocks.finalize).not.toHaveBeenCalled(); });
+  it('formats the timer and processing states in plain language', () => { expect(timerLabel(1062)).toBe('00:17:42'); expect(statusLabel('transcribing')).toBe('Processing...'); expect(statusLabel('failed')).toBe('Failed — Retry'); });
+  it('advances the timer and excludes paused time', async () => { let now=100000; vi.spyOn(Date,'now').mockImplementation(()=>now); render(<CapturePanel onSaved={()=>undefined} />); await consent(); fireEvent.click(screen.getByRole('button',{name:'Record meeting'})); await screen.findByText('● Recording'); now+=2000; await screen.findByText('00:00:02'); fireEvent.click(screen.getByRole('button',{name:'Pause'})); now+=20000; expect(screen.getByLabelText('Recording timer')).toHaveTextContent('00:00:02'); fireEvent.click(screen.getByRole('button',{name:'Resume'})); now+=1000; await screen.findByText('00:00:03'); });
+  it('keeps recording and explains when live audio support is unavailable', async () => { mocks.start.mockImplementation(async (_pcm,_chunk,_end,onUnavailable)=>onUnavailable()); render(<CapturePanel onSaved={()=>undefined} />); await consent(); fireEvent.click(screen.getByRole('button',{name:'Record meeting'})); await screen.findByText('Live transcript unavailable. Recording continues.'); expect(mocks.liveStart).not.toHaveBeenCalled(); expect(screen.getByRole('button',{name:'End meeting'})).toBeInTheDocument(); });
+});
+it('useMeetings reads items and total from the actual API shape', async () => { function List() { const {meetings,total}=useMeetings(); return <div>{total}{meetings.map(m => <p key={m.id}>{m.title}</p>)}</div>; } render(<List />); expect(await screen.findByText('Actual API meeting')).toBeInTheDocument(); expect(mocks.list).toHaveBeenCalled(); });
+
+function ready(state='awaiting_review') { return {id:'meeting-1', review_token:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', title:'Meeting with Sarah', meeting_date:'2026-10-08T00:00:00Z',duration_minutes:10, transcript_text:'I will send the report.', capture:{state, confirmed_at:state==='completed'?'2026-10-08T01:00:00Z':null, audio_deleted_at:'2026-10-08', receipt:{selected:[]}, speaker_mappings:{}, transcript_segments:[{speaker_local_id:'c0:spk_1'}],intelligence:{summary:'Discussed the report',commitments:[{description:'Send report',evidence_text:'I will send the report.',confidence:.9}]}}}; }
+it('retries a failed detail request without leaving the error visible after recovery', async () => {
+  mocks.get.mockRejectedValueOnce(new Error('Synthetic unavailable')).mockResolvedValue(ready());
+  mocks.people.mockResolvedValue([]);
+  render(<MeetingDetailPage />);
+  expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load this meeting");
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+  await screen.findByText('Meeting with Sarah');
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+it('detail reads the direct meeting response and shows final processing status', async () => { mocks.get.mockResolvedValue(ready('transcribing')); mocks.people.mockResolvedValue([]); render(<MeetingDetailPage />); expect(await screen.findByText('Meeting with Sarah')).toBeInTheDocument(); expect(screen.getByRole('status')).toHaveTextContent('Processing...'); expect(screen.queryByRole('button',{name:'Save all'})).not.toBeInTheDocument(); });
+it('maps a speaker explicitly and confirms the selected suggestions', async () => { mocks.get.mockResolvedValue(ready()); mocks.people.mockResolvedValue([{id:'person-1',name:'Sarah'}]); mocks.map.mockResolvedValue(undefined); mocks.confirm.mockResolvedValue({}); render(<MeetingDetailPage />); await screen.findByText('Meeting with Sarah'); await screen.findByRole('option',{name:'Sarah'}); fireEvent.change(screen.getByRole('combobox',{name:'Map speaker 1'}),{target:{value:'person-1'}}); await waitFor(()=>expect(mocks.map).toHaveBeenCalledWith('meeting-1','c0:spk_1',{kind:'person',person_id:'person-1'},'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')); await waitFor(()=>expect(screen.getByRole('button',{name:'Save all'})).toBeEnabled()); fireEvent.click(screen.getByRole('button',{name:'Save all'})); await waitFor(()=>expect(mocks.confirm).toHaveBeenCalledWith('meeting-1',['commitments:0'],'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')); });
+it('labels a deselected suggestion as not saved after confirmation', async () => { mocks.get.mockResolvedValue(ready('completed')); mocks.people.mockResolvedValue([]); render(<MeetingDetailPage />); await screen.findByText('Meeting with Sarah'); expect(screen.getByText('Not saved')).toBeInTheDocument(); expect(screen.queryByRole('button',{name:'Save all'})).not.toBeInTheDocument(); });
+
+it('requires a fresh explicit review after a conflict and drops stale selections on reload', async () => {
+  mocks.get.mockResolvedValue(ready()); mocks.people.mockResolvedValue([]);
+  mocks.confirm.mockRejectedValueOnce(new ApiError(409, 'Conflict')).mockResolvedValue({});
+  render(<MeetingDetailPage />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Save all' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Reload the meeting');
+  expect(mocks.confirm).toHaveBeenCalledTimes(1);
+  const current = ready(); current.review_token = 'b'.repeat(64); current.capture.intelligence.commitments = [];
+  mocks.get.mockResolvedValue(current);
+  fireEvent.click(screen.getByRole('button', { name: 'Reload meeting' }));
+  const save = await screen.findByRole('button', { name: 'Save meeting' });
+  expect(mocks.confirm).toHaveBeenCalledTimes(1);
+  fireEvent.click(save);
+  await waitFor(() => expect(mocks.confirm).toHaveBeenLastCalledWith('meeting-1', [], 'b'.repeat(64)));
+});

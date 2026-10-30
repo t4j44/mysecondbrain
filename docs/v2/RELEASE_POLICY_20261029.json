@@ -1,0 +1,15 @@
+{
+  "planning": "deep",
+  "context_depth": "dependency",
+  "verification_depth": "impact",
+  "delegation": "none",
+  "reason_codes": ["integrated-release", "english-defaults", "source-corrections", "hosted-acceptance"],
+  "allowed_write_scope": ["apps/", "scripts/", "docs/v2/", ".github/workflows/"],
+  "decisions": [
+    {"action": "Merge origin/main into isolated integrated V2 branch", "evidence": "Only divergent commit 5402a5e adds staging warmup workflow", "risk": "low; main unchanged"},
+    {"action": "Apply shared English generation policy and preserve original source evidence", "evidence": "Provider had no default language; outreach explicitly encouraged Bangla-English mixing", "risk": "model output remains probabilistic; provider acceptance separate"},
+    {"action": "Repair profile preferences and plain-English settings", "evidence": "Profile loaded only name and could overwrite saved bio/timezone with fabricated defaults", "risk": "verify loading, failures and international timezone roundtrip"}
+  ],
+  "main_authorization": "2026-10-30: user explicitly requested all latest work pushed to GitHub main. Preserve history and reconcile newer remote release branches before push.",
+  "excluded_actions": ["force-push", "production-deployment", "real-outbound-messages", "customer-data-tests", "paid-activation", "billing"]
+}

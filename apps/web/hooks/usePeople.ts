@@ -1,131 +1,128 @@
-import { useState, useEffect, useCallback } from 'react';
+'use client';
 
-export interface Person {
-  id: string;
-  name: string;
-  organization_id?: string;
-  role?: string;
-  company?: string;
-  industry?: string;
-  location?: string;
-  email?: string;
-  phone?: string;
-  linkedin_url?: string;
-  relationship_type: 'mentor' | 'investor' | 'peer' | 'collaborator' | 'lead' | 'client' | 'contact';
-  last_interaction_at?: string;
-  notes?: string;
-  tags: string[];
-  metadata: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-}
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { api } from '@/lib/api/browser-client';
+import { ApiError } from '@/lib/api/errors';
+import { toApiError } from '@/lib/api/format-error';
+import type { ListResponse, Person, PersonCreateInput } from '@/lib/api/domains';
 
-export interface UsePeopleParams {
-  q?: string;
-  relationship_type?: string;
+export type { Person, PersonCreateInput };
+
+type PeopleOptions = {
+  enabled?: boolean;
+  search?: string;
   tag?: string;
-  limit?: number;
-  offset?: number;
-  sort_by?: string;
-  sort_order?: 'asc' | 'desc';
-}
+  pageSize?: number;
+};
 
-export function usePeople(params: UsePeopleParams = {}) {
+export function usePeople({ search = '', tag = 'all', pageSize = 100, enabled = true }: PeopleOptions = {}) {
   const [people, setPeople] = useState<Person[]>([]);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<ApiError | null>(null);
+  const requestVersion = useRef(0);
 
-  const fetchPeople = useCallback(async () => {
+  const params = useCallback((offset: number) => ({
+    limit: pageSize,
+    offset,
+    ...(search.trim() ? { q: search.trim() } : {}),
+    ...(tag !== 'all' ? { relationship_type: tag } : {}),
+  }), [pageSize, search, tag]);
+
+  const refetch = useCallback(async () => {
+    const current = ++requestVersion.current;
+    if (!enabled) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     try {
-      const queryParams = new URLSearchParams();
-      if (params.q) queryParams.append('q', params.q);
-      if (params.relationship_type) queryParams.append('relationship_type', params.relationship_type);
-      if (params.tag) queryParams.append('tag', params.tag);
-      if (params.limit) queryParams.append('limit', String(params.limit));
-      if (params.offset) queryParams.append('offset', String(params.offset));
-      if (params.sort_by) queryParams.append('sort_by', params.sort_by);
-      if (params.sort_order) queryParams.append('sort_order', params.sort_order);
-
-      const token = localStorage.getItem('supabase_session_token');
-      const response = await fetch(`/api/v1/people?${queryParams.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token || ''}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch people: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      setPeople(result.data);
-      setTotal(result.pagination?.total || result.data.length);
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+      const res = await api.get<ListResponse<Person>>('/people', { params: params(0) });
+      if (current !== requestVersion.current) return;
+      setPeople(res.items ?? []);
+      setTotal(res.total ?? 0);
+    } catch (err) {
+      if (current === requestVersion.current) setError(toApiError(err));
     } finally {
-      setLoading(false);
+      if (current === requestVersion.current) setLoading(false);
     }
-  }, [params.q, params.relationship_type, params.tag, params.limit, params.offset, params.sort_by, params.sort_order]);
+  }, [params, enabled]);
 
   useEffect(() => {
-    fetchPeople();
-  }, [fetchPeople]);
+    void refetch();
+    return () => { requestVersion.current++; };
+  }, [refetch]);
 
-  const createPerson = async (data: Partial<Person>) => {
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || people.length >= total) return;
+    const current = requestVersion.current;
+    setLoadingMore(true);
+    try {
+      const res = await api.get<ListResponse<Person>>('/people', { params: params(people.length) });
+      if (current !== requestVersion.current) return;
+      setPeople((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        return [...prev, ...(res.items ?? []).filter((p) => !seen.has(p.id))];
+      });
+      setTotal(res.total ?? total);
+    } catch (err) {
+      if (current === requestVersion.current) setError(toApiError(err));
+    } finally {
+      if (current === requestVersion.current) setLoadingMore(false);
+    }
+  }, [loading, loadingMore, people.length, total, params]);
+
+  const createPerson = async (data: PersonCreateInput) => {
     setError(null);
     try {
-      const token = localStorage.getItem('supabase_session_token');
-      const response = await fetch('/api/v1/people', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token || ''}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Creation failed: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      setPeople((prev) => [result.data, ...prev]);
-      return result.data;
-    } catch (err: any) {
-      setError(err.message || 'Failed to create person');
-      throw err;
+      const created = await api.post<Person>('/people', data);
+      await refetch();
+      return created;
+    } catch (err) {
+      const apiErr = toApiError(err);
+      setError(apiErr);
+      throw apiErr;
     }
   };
 
   const updatePerson = async (id: string, data: Partial<Person>) => {
     setError(null);
     try {
-      const token = localStorage.getItem('supabase_session_token');
-      const response = await fetch(`/api/v1/people/${id}`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token || ''}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Update failed: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      setPeople((prev) => prev.map((p) => (p.id === id ? result.data : p)));
-      return result.data;
-    } catch (err: any) {
-      setError(err.message || 'Failed to update person');
-      throw err;
+      const updated = await api.patch<Person>(`/people/${id}`, data);
+      setPeople((prev) => prev.map((p) => (p.id === id ? updated : p)));
+      return updated;
+    } catch (err) {
+      const apiErr = toApiError(err);
+      setError(apiErr);
+      throw apiErr;
     }
   };
 
-  return { people, total, loading, error, refetch: fetchPeople, createPerson, updatePerson };
+  const deletePerson = async (id: string) => {
+    setError(null);
+    try {
+      await api.delete(`/people/${id}`);
+      setPeople((prev) => prev.filter((p) => p.id !== id));
+      setTotal((t) => Math.max(0, t - 1));
+    } catch (err) {
+      const apiErr = toApiError(err);
+      setError(apiErr);
+      throw apiErr;
+    }
+  };
+
+  const getPerson = async (id: string) => {
+    setError(null);
+    try {
+      return await api.get<Person>(`/people/${id}`);
+    } catch (err) {
+      const apiErr = toApiError(err);
+      setError(apiErr);
+      throw apiErr;
+    }
+  };
+
+  return {
+    people, total, loading, loadingMore, hasMore: people.length < total,
+    error, refetch, loadMore, createPerson, updatePerson, deletePerson, getPerson,
+  };
 }

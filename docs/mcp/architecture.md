@@ -1,26 +1,27 @@
-# MCP Server Technical Architecture & Security Model
+# MCP architecture — V1.5
 
-## Overview
-The Secure Model Context Protocol (MCP) Server for Taj's Second Brain is an enterprise-grade integration bridge engineered by **Agent 10**. It enables approved external AI assistants—including Claude Desktop, ChatGPT, Claude Code CLI, and Gemini CLI—to query founder memories, network relationship intelligence (CRM), project milestones, and career portfolio case studies without compromising privacy or architectural boundaries.
+The live application entrypoint is `apps/api/app/main.py`. It mounts the official
+SDK transport from `app/mcp/server.py` after REST and discovery routes. Domain tools
+reuse application services, the canonical Supabase migrations and existing pgvector
+indexing. The separate historical `apps/mcp-server` directory is not deployed.
 
-## Core Architectural Design (Option A: Repository Direct)
-To maximize runtime speed and guarantee schema compatibility without generating duplicate network traffic or writing raw untyped SQL, the Python MCP Server (`apps/mcp-server`) acts as an asynchronous domain service integration layer directly atop the shared FastAPI repositories (`apps/api/app/repositories`).
+OAuth routes use SDK registration/authorization/token handlers and a database-backed
+provider. The adapter enforces exact resource binding in token requests, verifies
+hashed client secrets and supplies client IDs for standard Basic authentication.
+Consent is a Supabase-authenticated UI using an expiring one-use pending request;
+its secret is carried in a URL fragment then sessionStorage, not a server query log.
+Authorization codes and opaque tokens have SHA-256 lookup digests. Refresh rotation
+and revocation are durable PostgreSQL transactions. Legacy bearer keys are verified
+through the existing credential repository. Vault access uses narrowly scoped server
+sessions; domain calls use the verified owner's RLS claims.
 
-```mermaid
-graph TD
-    Client[External AI / Claude Desktop] -->|Stdio / SSE JSON-RPC| MCP[MCP Server Core]
-    MCP -->|Token Validation & Rate Limit| Auth[Middleware Gatekeeper]
-    Auth -->|Constant-Time SHA-256 Verify| DB[(PostgreSQL / SQLite)]
-    Auth -->|Derive Token Subject sub| Domain[DomainClient Abstraction]
-    Domain -->|Async ORM Repo Call| Repo[Shared Backend Repositories]
-    Repo -->|Strict user_id RLS Filter| DB
-    Domain -->|Source Grounded Dict| Client
-    Auth -->|Telemetry & Violation Logging| Audit[public.audit_logs]
-```
+Session finalization serializes per owner, preserves the submitted summary separately
+from derived data, and records a context event with source/time/provenance links.
+Equivalent stable session references replay the existing receipt. Erased sessions
+cannot be resurrected through a replay. Recommendations and retrieval revalidate
+owner, deletion, privacy and index fingerprints before exposing sources.
 
-## Security Principles & Threat Mitigation
-1. **Read-Only by Default**: All exploratory tools (`search_people`, `search_memory`, `get_projects`, `get_tasks`, `get_calendar`, `get_relationship_history`) execute strictly under non-destructive database transactions. Content drafting tools generate in-memory structural prototypes and explicitly forbid automatic external publishing.
-2. **Never Trust Client-Supplied User IDs**: If an external client parameter attempts to supply a `user_id`, the middleware interceptor rejects or overwrites it with the authenticated identity derived from the API key's cryptographic subject claim.
-3. **Zero Raw SQL Constraint**: Absolutely no ad-hoc SQL text statements exist within the MCP server codebase. All queries rely entirely on tested repository wrappers.
-4. **Source-Grounded Responses**: Every retrieved entity is decorated with verifiable origin identifiers (`origin_id`), classification type (`source_type`), and direct URI links (`citation_uri`, e.g., `mcp://people/uuid`).
-5. **Cryptographic Credential Persistence**: API keys are generated with secure randomness (`sb_mcp_...`), salted with 16-byte random hexadecimal salts, and persisted exclusively as SHA-256 digests inside `public.profiles.settings["mcp_credentials"]`. Verification utilizes `hmac.compare_digest` to defeat timing side-channel attacks.
+The free-redacted Gemini provider is unchanged. OAuth itself neither needs paid AI
+nor passes through a Supabase/Google credential. See client setup for the DCR-only
+compatibility boundary and staging acceptance; SDK-level tests do not prove live
+ChatGPT/Claude interoperability.

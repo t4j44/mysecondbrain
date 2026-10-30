@@ -7,8 +7,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, ArrowRight, KeyRound } from 'lucide-react';
 
-import { createClient } from '@/lib/supabase/client';
-import { loginSchema, type LoginFormValues } from '@/lib/validation/auth';
+import { GoogleSignIn } from '@/components/shared/google-sign-in';
+import { safeAuthReturnPath } from '@/lib/auth/redirect';
+import { loginSchema, type LoginFormInput, type LoginFormValues } from '@/lib/validation/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,13 +20,14 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
-  const redirectUrl = searchParams.get('redirect') || '/dashboard';
+  const signingIn = React.useRef(false);
+  const redirectUrl = safeAuthReturnPath(searchParams.get('redirect'));
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormValues>({
+  } = useForm<LoginFormInput, unknown, LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
@@ -35,76 +37,71 @@ export default function LoginPage() {
   });
 
   async function onSubmit(data: LoginFormValues) {
+    if (signingIn.current) return;
+    signingIn.current = true;
     setIsLoading(true);
-    const supabase = createClient();
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email: data.email,
-      password: data.password,
-    });
-
-    setIsLoading(false);
-
-    if (error) {
+    try {
+      // The auth SDK is needed on submission, not for reading the login form.
+      const { createClient } = await import('@/lib/supabase/client');
+      const { error } = await createClient().auth.signInWithPassword({email:data.email,password:data.password});
+      if (error) throw error;
+      router.push(redirectUrl);
+      router.refresh();
+    } catch (error) {
       toast({
-        title: 'AUTHENTICATION REJECTED',
-        description: error.message || 'Invalid credentials provided for operator login.',
+        title: 'Could not sign in',
+        description: error instanceof Error ? error.message : 'Check your connection, email and password, then try again.',
         variant: 'destructive',
       });
-      return;
+    } finally {
+      signingIn.current = false;
+      setIsLoading(false);
     }
-
-    toast({
-      title: 'ACCESS GRANTED',
-      description: 'Redirecting operator to Command Center...',
-    });
-
-    router.push(redirectUrl);
-    router.refresh();
   }
 
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <div className="inline-block rounded px-2 py-0.5 text-[11px] font-mono font-semibold bg-[#251238] text-[#00ff9d] border border-[#00ff9d]/30 uppercase tracking-widest">
-          Operator Authentication
+        <div className="inline-block rounded px-2 py-0.5 text-sm font-semibold bg-primary/10 text-primary border border-primary/30 tracking-widest">
+          Welcome back
         </div>
-        <h2 className="text-3xl font-extrabold tracking-tight text-[#f7f4ea]">
-          Sign in to Terminal
+        <h2 className="text-3xl font-extrabold tracking-tight text-foreground">
+          Sign in
         </h2>
         <p className="text-sm text-muted-foreground">
-          Enter your operator email and passkey to access your ventures.
+          Use your email and password to open Second Brain.
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-xs font-mono uppercase text-muted-foreground">
+          <Label htmlFor="email" className="text-sm text-muted-foreground">
             Email Address
           </Label>
           <Input
             id="email"
             type="email"
-            placeholder="taj@tajssecondbrain.ai"
+            placeholder="you@example.com"
             autoComplete="email"
             disabled={isLoading}
             {...register('email')}
           />
           {errors.email && (
-            <p className="text-xs font-mono text-destructive">{errors.email.message}</p>
+            <p className="text-sm text-destructive">{errors.email.message}</p>
           )}
         </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label htmlFor="password" className="text-xs font-mono uppercase text-muted-foreground">
-              Security Passkey
+            <Label htmlFor="password" className="text-sm text-muted-foreground">
+              Password
             </Label>
             <Link
               href="/forgot-password"
-              className="text-xs font-mono text-[#00ff9d] hover:underline"
+              prefetch={false}
+              className="inline-flex min-h-11 items-center text-sm text-primary hover:underline"
             >
-              Forgot passkey?
+              Forgot password?
             </Link>
           </div>
           <Input
@@ -116,19 +113,19 @@ export default function LoginPage() {
             {...register('password')}
           />
           {errors.password && (
-            <p className="text-xs font-mono text-destructive">{errors.password.message}</p>
+            <p className="text-sm text-destructive">{errors.password.message}</p>
           )}
         </div>
 
-        <Button type="submit" className="w-full h-11 font-mono tracking-wider text-sm font-bold mt-2" disabled={isLoading}>
+        <Button type="submit" className="w-full h-11 tracking-wider text-sm font-bold mt-2" disabled={isLoading}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              AUTHENTICATING...
+              Signing in…
             </>
           ) : (
             <>
-              INITIALIZE SESSION
+              Sign in
               <ArrowRight className="ml-2 h-4 w-4" />
             </>
           )}
@@ -139,15 +136,17 @@ export default function LoginPage() {
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-border" />
         </div>
-        <div className="relative flex justify-center text-xs uppercase font-mono">
-          <span className="bg-[#12081d] px-2 text-muted-foreground">Or access via</span>
+        <div className="relative flex justify-center text-sm ">
+          <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
         </div>
       </div>
 
-      <div className="text-center text-sm text-muted-foreground font-mono">
-        Need operator authorization?{' '}
-        <Link href="/signup" className="text-[#00ff9d] hover:underline font-semibold font-sans">
-          Request system credentials
+      <GoogleSignIn next={redirectUrl} />
+
+      <div className="text-center text-sm text-muted-foreground ">
+        New to Second Brain?{' '}
+        <Link href="/signup" prefetch={false} className="inline-flex min-h-11 items-center text-primary hover:underline font-semibold font-sans">
+          Create an account
         </Link>
       </div>
     </div>

@@ -1,0 +1,209 @@
+"""
+Bootstrap an empty PostgreSQL database from the canonical supabase/migrations.
+
+Usage (PowerShell):
+    $env:POSTGRES_TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@127.0.0.1:54322/postgres"
+    python scripts/db/bootstrap_migrations.py
+
+The application's backend contract is asyncpg (see app/db/dsn.py); psycopg2 is not
+installed. A bare `postgresql://` URL is accepted here and normalized, but the
+integration suite is documented with the explicit `postgresql+asyncpg://` form.
+
+Steps: safety check -> auth shim (local containers only) -> migrations 1..N in order ->
+schema validation against app/db/schema_contract.py.
+
+Refuses any URL that looks like production. Never point this at the production project.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import os
+import sys
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
+sys.path.insert(0, str(REPO_ROOT / "apps" / "api"))
+
+PRODUCTION_MARKERS = ("prod", "production", "live")
+
+# Supabase provides auth.users, auth.uid() and the anon/authenticated roles natively; plain
+# Postgres containers do not. The migrations reference auth.users(id) and the RLS policies call
+# auth.uid(), so local bootstrap creates minimal stand-ins. Everything here is guarded so it is
+# a no-op on Supabase and never overwrites the platform's own definitions.
+AUTH_SHIM_SQL = """
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE TABLE IF NOT EXISTS auth.users (
+    id UUID PRIMARY KEY,
+    email TEXT,
+    raw_user_meta_data JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+        CREATE ROLE anon NOLOGIN NOINHERIT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+        CREATE ROLE authenticated NOLOGIN NOINHERIT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+        CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
+    END IF;
+END $$;
+
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT USAGE ON SCHEMA auth TO anon, authenticated;
+
+-- Only define the Supabase auth helpers when the platform has not already provided them.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'auth' AND p.proname = 'jwt'
+    ) THEN
+        CREATE FUNCTION auth.jwt() RETURNS JSONB
+        LANGUAGE sql STABLE AS $fn$
+            SELECT COALESCE(
+                NULLIF(current_setting('request.jwt.claims', true), '')::jsonb,
+                '{}'::jsonb
+            )
+        $fn$;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'auth' AND p.proname = 'uid'
+    ) THEN
+        CREATE FUNCTION auth.uid() RETURNS UUID
+        LANGUAGE sql STABLE AS $fn$
+            SELECT NULLIF(
+                COALESCE(
+                    auth.jwt() ->> 'sub',
+                    NULLIF(current_setting('request.jwt.claim.sub', true), '')
+                ),
+                ''
+            )::uuid
+        $fn$;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'auth' AND p.proname = 'role'
+    ) THEN
+        CREATE FUNCTION auth.role() RETURNS TEXT
+        LANGUAGE sql STABLE AS $fn$
+            SELECT COALESCE(auth.jwt() ->> 'role', 'anon')
+        $fn$;
+    END IF;
+END $$;
+
+GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION auth.jwt() TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION auth.role() TO anon, authenticated;
+"""
+
+# Applied after the migrations so the `authenticated` role can reach the RLS policies on a
+# plain container. Migration 0020 grants per table; this covers sequences and functions.
+POST_MIGRATION_GRANT_SQL = """
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+-- Do not re-grant all functions: migration 35 revokes trigger RPC access.
+REVOKE ALL ON public.integration_tokens FROM authenticated;
+"""
+
+
+def resolve_target_url() -> str:
+    url = (os.getenv("POSTGRES_TEST_DATABASE_URL") or "").strip()
+    if not url:
+        raise SystemExit(
+            "POSTGRES_TEST_DATABASE_URL is not set. Configure a separate development/staging "
+            "PostgreSQL or Supabase project (see docs/production-recovery/G1_DATABASE_SCHEMA_GATE.md)."
+        )
+    parsed = urlsplit(url.replace('postgresql+asyncpg://', 'postgresql://'))
+    if parsed.scheme not in {'postgres', 'postgresql'} or not parsed.hostname:
+        raise SystemExit('A PostgreSQL test database URL is required.')
+    # Never print connection strings, even partially: they can start with passwords.
+    identity = (parsed.hostname + '/' + unquote(parsed.path)).lower()
+    if any(marker in identity for marker in PRODUCTION_MARKERS):
+        raise SystemExit('Refusing to bootstrap a production-looking database.')
+    if parsed.hostname not in {'localhost', '127.0.0.1', '::1'} and os.getenv('BOOTSTRAP_ALLOW_ISOLATED') != '1':
+        raise SystemExit('Remote bootstrap requires BOOTSTRAP_ALLOW_ISOLATED=1 and an empty isolated database.')
+    return url
+
+
+def asyncpg_url(url: str) -> str:
+    from app.db.dsn import to_libpq_dsn
+
+    return to_libpq_dsn(url)
+
+
+def sqlalchemy_url(url: str) -> str:
+    from app.db.dsn import to_async_dsn
+
+    return to_async_dsn(url)
+
+
+def migration_paths() -> list[Path]:
+    from app.db.schema_contract import MIGRATION_FILES
+
+    on_disk = sorted(p.name for p in MIGRATIONS_DIR.glob("*.sql"))
+    if on_disk != sorted(MIGRATION_FILES):
+        raise SystemExit(
+            "Migration contract drift: supabase/migrations does not match "
+            f"app/db/schema_contract.MIGRATION_FILES.\n  on disk: {on_disk}\n  contract: {sorted(MIGRATION_FILES)}"
+        )
+    return [MIGRATIONS_DIR / name for name in sorted(MIGRATION_FILES)]
+
+
+async def apply_migrations(url: str) -> None:
+    import asyncpg
+
+    conn = await asyncpg.connect(asyncpg_url(url))
+    try:
+        count = await conn.fetchval("SELECT count(*) FROM pg_tables WHERE schemaname='public'")
+        if count:
+            raise SystemExit('Bootstrap requires an empty public schema; use normal migrations for an existing database.')
+        await conn.execute(AUTH_SHIM_SQL)
+        print("auth.users shim ensured (no-op on Supabase).")
+        for path in migration_paths():
+            print(f"applying {path.name} ...")
+            await conn.execute(path.read_text(encoding="utf-8"))
+        await conn.execute(POST_MIGRATION_GRANT_SQL)
+        print("authenticated role privileges granted (RLS reachable).")
+    finally:
+        await conn.close()
+
+
+async def validate(url: str) -> None:
+    from app.db.schema_verify import verify_migrated_schema
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    engine = create_async_engine(sqlalchemy_url(url), future=True)
+    try:
+        await verify_migrated_schema(engine)
+    finally:
+        await engine.dispose()
+
+
+async def main() -> int:
+    from app.db.schema_verify import SchemaVerificationError
+
+    url = resolve_target_url()
+    await apply_migrations(url)
+    try:
+        await validate(url)
+    except SchemaVerificationError as exc:
+        print(f"SCHEMA VALIDATION FAILED: {exc}")
+        return 1
+    print("Bootstrap complete: migrations applied and schema contract validated.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(asyncio.run(main()))

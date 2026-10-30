@@ -1,0 +1,320 @@
+/** Synthetic fixtures prove UI behavior, not hosted authentication/providers/devices. */
+import {test,expect,type Page} from '@playwright/test';
+import {createRequire} from 'node:module';
+import path from 'node:path';
+import fs from 'node:fs/promises';
+const require=createRequire(path.resolve('package.json'));
+const {default:AxeBuilder}=require(path.resolve('../../.test-tmp/mobile-tools/node_modules/@axe-core/playwright'));
+const home={followups:[],projects:[],meetings:[],recent_activity:[],opportunities:[],limits:'Synthetic data only.',activation:{counts:{people:0},targets:{people:5},first_activated_at:null}};
+async function noOverflow(page:Page){expect(await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:document.documentElement.clientWidth}))).toEqual(expect.objectContaining({width:expect.any(Number)}));expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)).toBe(true);}
+async function capture(page:Page,name:string,project:string){
+ if(![320,390,430,768].includes(page.viewportSize()!.width))return;
+ const out=path.resolve(process.env.MOBILE_AUDIT_OUTPUT||'../../.test-tmp/mobile-overhaul','after');await fs.mkdir(out,{recursive:true});
+ await page.screenshot({path:path.join(out,`${name}-${project}.png`),fullPage:false,animations:'disabled'});
+}
+
+test('commitment actions: sourced Help, explicit Snooze and conflict recovery',async({page},info)=>{
+ let revision=1,status='open',conflict=false;
+ const row=()=>({id:'synthetic-promise',description:'Send the reviewed proposal বাংলা',direction:'owed_by_me',due_at:null,from_person_id:null,to_person_id:null,revision,status,reminder_at:null,source_timezone:null});
+ await page.route('**/api/v1/commitments?*',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(status==='completed'?[]:[row()])}));
+ await page.route('**/api/v1/commitments/synthetic-promise/action',async route=>{
+  const data=route.request().postDataJSON();
+  if(conflict){conflict=false;revision++;return route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:{code:'CONFLICT',message:'Changed'}})});}
+  if(data.expected_revision!==revision)throw new Error('Fixture received an old reviewed revision');
+  let help=null;
+  if(data.action==='help')help={label:'Draft to review',text:'Could we agree on a next step?',suggestion:'Review the source.',sources:[{id:'synthetic-promise',kind:'commitment',uri:'/sources/commitment/synthetic-promise'}]};
+  else {revision++;status=data.action==='done'?'completed':data.action==='snooze'?'snoozed':'in_progress';}
+  await route.fulfill({contentType:'application/json',body:JSON.stringify({commitment:row(),action:data.action,self_reported:data.action==='done',help})});
+ });
+ await page.goto('/work/commitments');
+ await page.getByRole('button',{name:'Help',exact:true}).click();
+ await expect(page.getByLabel('Draft to review')).toBeVisible();
+ await page.getByRole('button',{name:'Snooze',exact:true}).click();
+ const date=new Date();date.setDate(date.getDate()+2);
+ const future=[date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-')+'T10:30';
+ await page.getByLabel(/Check-in time in/).fill(future);
+ await noOverflow(page);await capture(page,'commitment-actions',info.project.name);
+ if(info.project.name.endsWith('-390'))expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+ await page.getByRole('button',{name:'Save check-in time'}).click();
+ await expect(page.getByText('Snoozed',{exact:true})).toBeVisible();
+ conflict=true;await page.getByRole('button',{name:'Done',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Done',exact:true})).toBeDisabled();
+ await page.getByRole('button',{name:'Reload promises'}).click();
+ await page.getByRole('button',{name:'Done',exact:true}).click();
+ await expect(page.getByText('Marked done based on your confirmation.')).toBeVisible();
+ await expect(page.getByRole('button',{name:'Done',exact:true})).toHaveCount(0);
+});
+
+test('meeting preparation: saved sources and failed reload clears old facts',async({page},info)=>{
+ let fail=false;
+ await page.route('**/api/v1/meetings/people-search*',route=>route.fulfill({contentType:'application/json',body:'[]'}));
+ await page.route('**/api/v1/meetings/synthetic-meeting',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({id:'synthetic-meeting',title:'Proposal review',meeting_date:'2026-10-30T12:00:00Z',duration_minutes:30,metadata:{},capture:null,participant_person_ids:['person'],action_items:[]})}));
+ await page.route('**/api/v1/meetings/synthetic-meeting/preparation',route=>route.fulfill({status:fail?503:200,contentType:'application/json',body:JSON.stringify(fail?{error:{message:'Synthetic unavailable'}}:{generated_at:'2026-10-29T12:00:00Z',basis:'Saved records only. Calendar freshness is not verified.',more_people:false,people:[{person:{id:'person',title:'Farzana বাংলা',uri:'/people/person'},notes:'Prefers a short agenda.',saved_role:'Design lead',saved_company:'Fictional studio',last_interaction:{source:{uri:'/sources/interaction/last'},summary:'Review the proposal scope.',date:'2026-10-28T12:00:00Z'},more_commitments:false,commitments:[{source:{id:'promise',uri:'/sources/commitment/promise'},description:'Send the reviewed proposal',direction:'owed_by_me',status:'in_progress',due_at:null}]}]})}));
+ await page.goto('/meetings/synthetic-meeting');await page.getByRole('button',{name:'Prepare meeting',exact:true}).click();
+ await expect(page.getByRole('link',{name:'Send the reviewed proposal'})).toHaveAttribute('href','/sources/commitment/promise');
+ await expect(page.getByText('You owe · Working · No deadline recorded')).toBeVisible();
+ await page.getByText('Last saved conversation',{exact:true}).click();
+ await expect(page.getByText('Review the proposal scope.')).toBeVisible();
+ await noOverflow(page);await page.getByRole('link',{name:'Farzana বাংলা'}).evaluate(element=>element.scrollIntoView({block:'center'}));await capture(page,'meeting-preparation',info.project.name);
+ if(info.project.name.endsWith('-390'))expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+ fail=true;await page.getByRole('button',{name:'Reload preparation'}).click();
+ await expect(page.getByRole('alert')).toContainText('Preparation could not be loaded');
+ await expect(page.getByRole('link',{name:'Send the reviewed proposal'})).toHaveCount(0);
+});
+
+test('telegram reminders: explicit consent and uncertain delivery history',async({page},info)=>{
+ let preferences={version:1,timezone:'Asia/Dhaka',quiet_start_minute:1320,quiet_end_minute:480,quiet_enabled:true,telegram_enabled:false,include_details:false,daily_cap:3};
+ await page.route('**/api/v1/assistant/connections/telegram',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({available:true,delivery_available:true,status:'active',linked_at:null,expires_at:null})}));
+ await page.route('**/api/v1/assistant/preferences',async route=>{
+  if(route.request().method()==='PUT'){
+   const payload=route.request().postDataJSON();expect(payload.consent).toBe(true);expect(payload.include_details).toBe(false);expect(payload.expected_version).toBe(1);
+   preferences={...preferences,telegram_enabled:payload.telegram_enabled,version:2};
+  }
+  await route.fulfill({contentType:'application/json',body:JSON.stringify(preferences)});
+ });
+ await page.route('**/api/v1/assistant/activity?*',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({items:[{id:'unknown-check-in',commitment_id:'synthetic-promise',status:'uncertain',scheduled_at:'2026-10-29T10:00:00Z'}],next_offset:null})}));
+ await page.goto('/settings/integrations');
+ const consent=page.getByLabel('Allow check-ins in my private Telegram chat');await expect(consent).not.toBeChecked();
+ await expect(page.getByLabel('Include commitment details in Telegram messages')).not.toBeChecked();
+ await consent.check();await page.getByRole('button',{name:'Save reminder preferences'}).click();
+ await expect(page.getByText(/Preferences saved. Choose a new check-in/)).toBeVisible();
+ await page.getByRole('button',{name:'View reminder history'}).click();
+ await expect(page.getByText('Delivery unknown',{exact:true})).toBeVisible();
+ await expect(page.getByText(/We will not resend automatically/)).toBeVisible();
+ await noOverflow(page);await page.getByRole('link',{name:'View commitment',exact:true}).evaluate(element=>element.scrollIntoView({block:'center'}));await capture(page,'telegram-history',info.project.name);
+ if(info.project.name.endsWith('-390'))expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+});
+
+test('telegram settings: explicit linking, truthful pending state and revocation',async({page},info)=>{
+ let available=false, status='not_connected';
+ await page.route('**/api/v1/assistant/connections/telegram',async route=>{
+  if(route.request().method()==='DELETE')status='revoked';
+  await route.fulfill({contentType:'application/json',body:JSON.stringify({available,status,linked_at:null,expires_at:null})});
+ });
+ await page.route('**/api/v1/assistant/connections/telegram/start',async route=>{
+  status='pending';await route.fulfill({contentType:'application/json',body:JSON.stringify({url:'https://t.me/SyntheticBrainBot?start=synthetic',expires_at:'2026-10-28T10:10:00Z'})});
+ });
+ await page.goto('/settings/integrations');
+ await expect(page.getByText('Telegram setup is not available in this release.')).toBeVisible();
+ await expect(page.getByRole('button',{name:'Link my Telegram'})).toHaveCount(0);
+ available=true;await page.getByRole('button',{name:'Refresh Telegram status'}).click();
+ await page.getByRole('button',{name:'Link my Telegram'}).click();
+ await expect(page.getByRole('link',{name:'Open Telegram and tap Start'})).toHaveAttribute('href','https://t.me/SyntheticBrainBot?start=synthetic');
+ await expect(page.getByText('Waiting for you to start the bot in Telegram.')).toBeVisible();
+ await noOverflow(page);await capture(page,'telegram-pending',info.project.name);
+ if(info.project.name.endsWith('-390')){
+  const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();expect(result.violations).toEqual([]);
+ }
+ status='active';available=false;await page.getByRole('button',{name:'Refresh Telegram status'}).click();
+ await page.getByRole('button',{name:'Disconnect Telegram'}).click();
+ await expect(page.getByText('Telegram disconnected. Notification permission has been removed.')).toBeVisible();
+ await expect(page.getByRole('link',{name:'Open Telegram and tap Start'})).toHaveCount(0);
+});
+
+for(const route of ['dashboard','people','assistant','work','capture','meetings'])test(`${route}: readable layout, navigation and accessibility`,async({page},info)=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.goto('/'+route);await expect(page.locator('main h1')).toBeVisible();
+ await expect(page.locator('main [role="status"]').filter({hasText:/Loading your/})).toHaveCount(0);
+ await noOverflow(page);
+ if(page.viewportSize()!.width<768){
+  const nav=page.getByRole('navigation',{name:'Mobile Primary Navigation'});await expect(nav).toBeVisible();
+  await expect(nav.getByRole('link')).toHaveCount(4);
+  await expect(nav.getByRole('button',{name:'More',exact:true})).toBeVisible();
+  for(const link of await nav.locator('a, button').all()){const box=await link.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(44);expect(box!.width).toBeGreaterThanOrEqual(44);}
+ }
+ for(const button of await page.locator('main button:visible, header button:visible').all()){
+  const box=await button.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(43.9);expect(box!.width).toBeGreaterThanOrEqual(43.9);
+ }
+ await capture(page,route,info.project.name);
+ if(info.project.name.endsWith('-390')){
+  const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();
+  await info.attach('axe',{body:JSON.stringify(result.violations,null,2),contentType:'application/json'});
+  expect(result.violations.map((v:{id:string;impact:string})=>({id:v.id,impact:v.impact}))).toEqual([]);
+ }
+ expect(errors).toEqual([]);
+});
+
+test('capture choices preserve a draft and open the real recorder consent step',async({page},info)=>{
+ await page.goto('/capture');
+ const note=page.getByRole('textbox',{name:'Capture text'});
+ await note.fill('A fictional note to keep.');
+ await page.getByRole('button',{name:'Quick note / voice',exact:true}).click();await expect(note).toBeFocused();
+ await page.getByRole('button',{name:'Document / photo',exact:true}).click();
+ await expect(page.getByRole('link',{name:'Upload a document',exact:true})).toHaveAttribute('href','/documents');
+ await page.getByText('Photo / business card',{exact:true}).click();
+ await expect(page.getByLabel('Read a business card')).toBeVisible();await noOverflow(page);
+ await capture(page,'capture-uploads',info.project.name);
+ await page.getByRole('button',{name:'Document / photo',exact:true}).click();await expect(note).toHaveValue('A fictional note to keep.');
+ await page.getByRole('link',{name:'Record meeting',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Hide recorder',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Record meeting',exact:true})).toBeDisabled();
+ await expect(page.getByText('● Recording',{exact:true})).toHaveCount(0);
+ await capture(page,'meeting-consent',info.project.name);await noOverflow(page);
+});
+
+test('existing dark theme and collapsed desktop sidebar remain usable',async({page},info)=>{
+ test.skip(![390,1440].includes(page.viewportSize()!.width),'Representative theme and sidebar widths');
+ for(const route of ['dashboard','capture','meetings']){
+  await page.goto('/'+route+'?theme=dark');await expect(page.locator('main h1')).toBeVisible();await noOverflow(page);
+  const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();expect(result.violations).toEqual([]);
+  await capture(page,`${route}-dark`,info.project.name);
+ }
+ if(page.viewportSize()!.width>=1024){
+  await page.getByRole('button',{name:'Collapse sidebar'}).click();
+  await expect(page.getByRole('navigation',{name:'Primary Navigation',exact:true}).getByRole('link',{name:'Meetings',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Expand sidebar'}).click();await noOverflow(page);
+ }
+});
+
+test('authentication forms stay readable in both themes without calling a provider',async({page},info)=>{
+ test.skip(page.viewportSize()!.width!==390,'Representative auth theme width');
+ for(const theme of ['light','dark']) for(const route of ['login','signup','forgot-password','reset-password','verify']){
+  await page.goto(`/${route}?theme=${theme}`);await expect(page.locator('main h2')).toBeVisible();await noOverflow(page);
+  const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();
+  expect(result.violations.map((v:{id:string;nodes:unknown[]})=>({id:v.id,nodes:v.nodes}))).toEqual([]);
+  await capture(page,`${route}-${theme}`,info.project.name);
+ }
+});
+
+test('home: conflict is distinct from empty and retry recovers',async({page},info)=>{
+ let failed=true;await page.route('**/api/v1/relationships/home',route=>route.fulfill({status:failed?409:200,contentType:'application/json',body:JSON.stringify(failed?{error:{code:'CONFLICT',message:'Resource state conflict or duplicate detected in database',request_id:'synthetic-request-409'}}:home)}));
+ await page.goto('/dashboard');await expect(page.getByRole('alert')).toContainText('service error');
+ await expect(page.getByText('No follow-ups due',{exact:false})).toHaveCount(0);
+ await page.getByText('Support details',{exact:true}).click();await expect(page.getByText(/synthetic-request-409/)).toBeVisible();
+ await expect(page.getByText('Resource state conflict or duplicate detected in database',{exact:true})).toHaveCount(0);
+ await capture(page,'dashboard-error',info.project.name);failed=false;await page.getByRole('button',{name:'Try again',exact:true}).click();
+ await expect(page.getByText(/No follow-ups due/)).toBeVisible();await noOverflow(page);
+});
+
+test('people: paginates without duplicates and searches the complete fixture dataset',async({page})=>{
+ const searches:string[]=[];page.on('request',request=>{if(request.url().includes('/api/v1/people?'))searches.push(request.url());});
+ await page.goto('/people');await expect(page.getByTestId('person-card')).toHaveCount(30);
+ await page.getByRole('button',{name:'Load more contacts',exact:true}).click();await expect(page.getByTestId('person-card')).toHaveCount(60);
+ const names=await page.getByTestId('person-card').allTextContents();expect(new Set(names).size).toBe(60);
+ await page.getByTestId('people-search').fill('Farzana');await expect(page.getByTestId('person-card')).toHaveCount(1);
+ await expect(page.getByTestId('person-card')).toContainText('বাংলা');expect(searches.filter(url=>url.includes('q=Farzana')).length).toBe(1);await noOverflow(page);
+});
+
+test('people: failed quick add preserves typed text and does not claim success',async({page})=>{
+ await page.route('**/api/v1/people',async route=>{if(route.request().method()==='POST')return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:{code:'UNAVAILABLE',message:'Synthetic failure'}})});await route.continue();});
+ await page.goto('/people');await page.getByText('Quick add from a short note',{exact:true}).click();
+ const input=page.getByRole('textbox',{name:'Quick add person'});await input.fill('Farzana বাংলা, Designer @ Fictional Studio');await page.getByRole('button',{name:'Save person',exact:true}).click();
+ await expect(input).toHaveValue('Farzana বাংলা, Designer @ Fictional Studio');await expect(page.getByText('Could not save this person.',{exact:false})).toBeVisible();await noOverflow(page);
+});
+
+test('person form: labelled create/edit, persisted refresh and archive confirmation',async({page},info)=>{
+ const name=`Synthetic নাবিলা ${info.project.name} ${Date.now()}`;
+ await page.goto('/people/new');await page.getByRole('textbox',{name:'Full name'}).fill(name);
+ await page.getByRole('textbox',{name:'Company',exact:true}).fill('Fictional company বাংলা '+ 'long-company'.repeat(15));
+ await page.getByRole('textbox',{name:'Notes',exact:true}).fill('Met at a fictional event. Keep this note after refresh.');
+ await page.getByRole('button',{name:'Save person',exact:true}).click();await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();
+ await page.reload();await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();await noOverflow(page);await capture(page,'person-detail',info.project.name);
+ const url=page.url();await page.goto(url+'/edit');await page.getByRole('textbox',{name:'Full name'}).fill(name+' updated');await page.getByRole('button',{name:'Save changes',exact:true}).click();
+ await expect(page.getByRole('heading',{name:name+' updated',exact:true})).toBeVisible();await page.reload();await expect(page.getByRole('heading',{name:name+' updated',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Archive contact',exact:true}).click();
+ const dialog=page.getByRole('alertdialog');await expect(dialog).toBeVisible();await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
+ await expect(page.getByRole('heading',{name:name+' updated',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Archive contact',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Archive Contact',exact:true}).click();
+ await expect(page).toHaveURL(/\/people$/);expect((await page.request.get(url.replace('/people/','/api/v1/people/'))).status()).toBe(404);
+});
+
+test('assistant: sends once, wraps long sources and keeps composer above navigation',async({page},info)=>{
+ let count=0;await page.route('**/api/v1/ai/content-generate',async route=>{count++;await new Promise(resolve=>setTimeout(resolve,150));await route.fulfill({contentType:'application/json',body:JSON.stringify({generated_text:'বাংলা saved excerpt. '+ 'https://example.invalid/'+ 'long-path'.repeat(100),citations:[{id:'synthetic-source',entity_type:'interaction',title:'Fictional conversation বাংলা '+ 'long-source-'.repeat(10)}]})});});
+ await page.goto('/assistant');await page.getByRole('textbox',{name:'Your question'}).fill('What did I promise?');
+ await page.locator('main form').evaluate(form=>{form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+ await expect(page.getByRole('navigation',{name:'Supporting sources'})).toBeVisible();expect(count).toBe(1);await noOverflow(page);
+ const composer=await page.getByRole('textbox',{name:'Your question'}).boundingBox();
+ if(page.viewportSize()!.width<768){const nav=await page.getByRole('navigation',{name:'Mobile Primary Navigation'}).boundingBox();expect(composer!.y+composer!.height).toBeLessThanOrEqual(nav!.y);}
+ await capture(page,'assistant-answer',info.project.name);
+});
+
+test('assistant: visual viewport keyboard simulation keeps focused composer visible',async({page},info)=>{
+ test.skip(page.viewportSize()!.width>=768,'Phone keyboard simulation only; physical keyboard behavior is a separate gate.');
+ await page.goto('/assistant');await page.getByRole('textbox',{name:'Your question'}).focus();
+ const visible=await page.evaluate(()=>{
+  const height=innerHeight-Math.min(300,Math.round(innerHeight*.4));
+  Object.defineProperty(visualViewport,'height',{configurable:true,value:height});visualViewport!.dispatchEvent(new Event('resize'));return height;
+ });
+ await expect(page.getByRole('navigation',{name:'Mobile Primary Navigation'})).toBeHidden();
+ const box=await page.getByRole('textbox',{name:'Your question'}).boundingBox();expect(box!.y+box!.height).toBeLessThanOrEqual(visible+1);expect(box!.y).toBeGreaterThanOrEqual(0);
+ await capture(page,'assistant-keyboard-simulation',info.project.name);await noOverflow(page);
+});
+
+test('capture: restores only the same-session draft and does not prefetch contact data',async({page})=>{
+ let peopleRequests=0;page.on('request',request=>{if(request.url().includes('/api/v1/people'))peopleRequests++;});
+ await page.goto('/capture');await page.getByRole('textbox',{name:'Capture text'}).fill('Fictional note বাংলা kept until confirmed.');await page.reload();
+ await expect(page.getByRole('textbox',{name:'Capture text'})).toHaveValue('Fictional note বাংলা kept until confirmed.');expect(peopleRequests).toBe(0);await noOverflow(page);
+});
+
+test('drawer and page search trap focus, close on Escape and restore trigger focus',async({page})=>{
+ await page.goto('/dashboard');
+ if(page.viewportSize()!.width<768){
+  await page.getByRole('button',{name:'More',exact:true}).click();const drawer=page.getByRole('dialog',{name:'Navigation',exact:true});await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole('link',{name:'Documents',exact:true})).toBeVisible();
+  await page.keyboard.press('Tab');expect(await drawer.evaluate(element=>element.contains(document.activeElement))).toBe(true);await page.keyboard.press('Escape');await expect(drawer).toBeHidden();await expect(page.getByRole('button',{name:'More',exact:true})).toBeFocused();
+ }
+ await page.getByRole('button',{name:'Find a page',exact:true}).click();const search=page.getByRole('dialog',{name:'Find a page',exact:true});await expect(search).toBeVisible();
+ await page.getByRole('searchbox',{name:'Search pages'}).fill('privacy');await expect(search.getByRole('link',{name:'Privacy',exact:true})).toBeVisible();await page.keyboard.press('Escape');await expect(search).toBeHidden();await expect(page.getByRole('button',{name:'Find a page',exact:true})).toBeFocused();
+});
+
+test('200 percent text remains usable without horizontal overflow',async({page},info)=>{
+ for(const route of ['dashboard','people','assistant','capture','work']){
+  await page.goto('/'+route);await page.locator('html').evaluate(element=>{element.style.fontSize='200%';});await noOverflow(page);
+  if(route==='assistant'){
+   await page.getByRole('textbox',{name:'Your question'}).fill('Readable at 200%');
+   const send=page.getByRole('button',{name:'Send question'});
+   expect((await page.getByRole('textbox',{name:'Your question'}).boundingBox())!.width).toBeGreaterThanOrEqual(150);
+   // Enlarged text intentionally uses document scrolling. The send control must
+   // remain reachable and uncovered, rather than being clipped by a fixed shell.
+   await send.scrollIntoViewIfNeeded();await expect(send).toBeInViewport();
+   expect(await send.evaluate(button=>{const box=button.getBoundingClientRect();return button.contains(document.elementFromPoint(box.x+box.width/2,box.y+box.height/2));})).toBe(true);
+   await capture(page,'assistant-text-200',info.project.name);
+  }
+ }
+});
+
+test('slow home request keeps a loading state until real data arrives',async({page})=>{
+ await page.goto('/dashboard');
+ let release!:()=>void;
+ const pending=new Promise<void>(resolve=>{release=resolve;});
+ await page.route('**/api/v1/relationships/home',async route=>{await pending;await route.fulfill({contentType:'application/json',body:JSON.stringify(home)});});
+ await page.reload({waitUntil:'domcontentloaded'});
+ await expect(page.getByRole('status').filter({hasText:/Loading your/})).toBeVisible();
+ await expect(page.getByText(/No follow-ups due/)).toHaveCount(0);
+ release();await expect(page.getByText(/No follow-ups due/)).toBeVisible();await noOverflow(page);
+});
+
+test('offline assistant preserves the question and recovers after reconnecting',async({page,context})=>{
+ await page.goto('/assistant');await context.setOffline(true);
+ await page.getByRole('textbox',{name:'Your question'}).fill('Fictional question kept while offline');
+ await page.getByRole('button',{name:'Send question'}).click();
+ await expect(page.getByRole('alert')).toBeVisible();
+ await expect(page.getByRole('article',{name:'Your question'})).toContainText('Fictional question kept while offline');
+ await context.setOffline(false);await page.getByRole('button',{name:'Try again',exact:true}).click();
+ await expect(page.getByRole('navigation',{name:'Supporting sources'})).toBeVisible();
+ await expect(page.getByRole('article',{name:'Your question'})).toHaveCount(1);await noOverflow(page);
+});
+
+test('saved tools load actual records, paginate, and distinguish service errors',async({page},info)=>{
+ test.skip(![320,390,768,1440].includes(page.viewportSize()!.width),'Secondary route sweep at four representative widths.');
+ for(const route of ['organizations','memories','ideas','achievements','kpis','content']){
+  await page.goto('/'+route);await expect(page.locator('main article')).toHaveCount(20);await noOverflow(page);
+  await page.getByRole('button',{name:'Load more saved records'}).click();await expect.poll(()=>page.locator('main article').count()).toBeGreaterThan(20);
+  await capture(page,route,info.project.name);
+  if(info.project.name.endsWith('-390')){
+   const scan=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();expect(scan.violations.map((item:{id:string})=>item.id)).toEqual([]);
+  }
+ }
+ await page.route('**/api/v1/memories?**',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:{code:'UNAVAILABLE',message:'Synthetic failure'}})}));
+ await page.goto('/memories');await expect(page.getByRole('alert')).toContainText('service error');await expect(page.getByText(/No records saved here/)).toHaveCount(0);
+});
+
+test('note form saves canonical fields, opens the source and survives refresh',async({page},info)=>{
+ const title=`Fictional note ${info.project.name} ${Date.now()}`;
+ let payload:Record<string,unknown>={};
+ page.on('request',request=>{if(request.method()==='POST'&&request.url().endsWith('/api/v1/memories'))payload=request.postDataJSON();});
+ await page.goto('/memories/new');await page.getByRole('textbox',{name:'Title',exact:true}).fill(title);await page.getByRole('textbox',{name:'Note',exact:true}).fill('Fictional evidence বাংলা kept after refresh.');
+ await page.getByRole('button',{name:'Save note',exact:true}).click();await expect(page).toHaveURL(/\/sources\/memory\//);
+ await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();await page.reload();await expect(page.getByText('Fictional evidence বাংলা kept after refresh.',{exact:true})).toBeVisible();
+ expect(payload).toMatchObject({title,body:'Fictional evidence বাংলা kept after refresh.',type:'note',visibility:'private'});expect(payload).not.toHaveProperty('content');await noOverflow(page);
+});

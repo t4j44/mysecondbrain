@@ -32,9 +32,21 @@ class IntegrationManagementService:
         return res
 
     async def trigger_drive_sync(
-        self, folder_id: Optional[str], sync_mode: str, background_tasks: Optional[BackgroundTasks]
+        self, folder_id: Optional[str], sync_mode: str, background_tasks: Optional[BackgroundTasks],
+        integration_id: Optional[str] = None,
     ) -> JobRecord:
-        job = await self.google_service.trigger_drive_sync_job(folder_id, sync_mode)
+        job = await self.google_service.trigger_drive_sync_job(folder_id, sync_mode, integration_id)
+        await self.db.commit()
+        if background_tasks:
+            from app.jobs.runner import process_job_async
+
+            background_tasks.add_task(process_job_async, job.id)
+        return job
+
+    async def trigger_gmail_sync(
+        self, background_tasks: Optional[BackgroundTasks], integration_id: Optional[str] = None,
+    ) -> JobRecord:
+        job = await self.google_service.trigger_gmail_sync_job(integration_id)
         await self.db.commit()
         if background_tasks:
             from app.jobs.runner import process_job_async
@@ -43,9 +55,10 @@ class IntegrationManagementService:
         return job
 
     async def trigger_calendar_sync(
-        self, calendar_id: str, background_tasks: Optional[BackgroundTasks]
+        self, calendar_id: str, background_tasks: Optional[BackgroundTasks],
+        integration_id: Optional[str] = None,
     ) -> JobRecord:
-        job = await self.google_service.trigger_calendar_sync_job(calendar_id)
+        job = await self.google_service.trigger_calendar_sync_job(calendar_id, integration_id)
         await self.db.commit()
         if background_tasks:
             from app.jobs.runner import process_job_async
@@ -88,6 +101,7 @@ class ExportService:
                     "export_id": exp_record.id,
                     "export_type": export_type,
                     "target_module": target_module,
+                    "record_id": record_id,
                 },
             },
         )

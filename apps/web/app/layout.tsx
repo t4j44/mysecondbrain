@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, JetBrains_Mono, Outfit } from 'next/font/google';
+import { JetBrains_Mono, Outfit } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/providers/theme-provider';
-import { QueryProvider } from '@/providers/query-provider';
 import { Toaster } from '@/components/ui/toaster';
 
 const outfit = Outfit({ 
@@ -11,16 +10,11 @@ const outfit = Outfit({
   display: 'swap',
 });
 
-const inter = Inter({ 
-  subsets: ['latin'], 
-  variable: '--font-inter',
-  display: 'swap',
-});
-
 const jetbrainsMono = JetBrains_Mono({ 
   subsets: ['latin'], 
   variable: '--font-jetbrains-mono',
   display: 'swap',
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -28,9 +22,9 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
   title: {
     template: '%s | Taj’s Second Brain',
-    default: 'Taj’s Second Brain — Retro-Futuristic Founder Terminal',
+    default: 'Second Brain — Your saved context',
   },
-  description: 'AI-Native OS for Multi-Venture Mastery, Execution, and Network Synthesis.',
+  description: 'Save useful context about people and work, then recall it with supporting sources.',
   keywords: ['Second Brain', 'AI OS', 'Founder Terminal', 'Multi-Venture', 'Productivity'],
   authors: [{ name: 'Taj', url: 'https://tajssecondbrain.ai' }],
   appleWebApp: {
@@ -53,13 +47,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased selection:bg-[#00ff9d] selection:text-[#0a0510]">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <QueryProvider>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             {children}
             <Toaster />
-          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

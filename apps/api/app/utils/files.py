@@ -35,8 +35,8 @@ def validate_upload_file(
     final_mime = (content_type or guessed_mime or "application/octet-stream").lower()
 
     # Check if format is supported
-    valid_exts = set(ALLOWED_MIME_TYPES.values())
-    if final_mime not in ALLOWED_MIME_TYPES and ext not in valid_exts:
+    valid_exts = set(ALLOWED_MIME_TYPES.values()) | {"jpeg"}
+    if ext not in valid_exts or (final_mime != "application/octet-stream" and ALLOWED_MIME_TYPES.get(final_mime) != ext and not (ext == "jpeg" and final_mime == "image/jpeg") and not (ext in {"md", "csv", "json"} and final_mime == "text/plain")):
         raise StorageError(
             message=f"File format '{final_mime}' or extension '.{ext}' is not supported.",
             code=ErrorCode.FILE_TYPE_NOT_SUPPORTED,

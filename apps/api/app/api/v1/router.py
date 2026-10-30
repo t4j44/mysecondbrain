@@ -1,16 +1,32 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    account,
     ai_portfolio,
+    assistant,
+    capture,
+    context_events,
     founder,
     knowledge,
     mcp,
+    meeting_intelligence,
     network,
     pdf_analysis,
+    portfolio_beta,
+    relationships,
+    sources,
     system,
 )
 
 api_router = APIRouter()
+api_router.include_router(account.router)
+api_router.include_router(assistant.router)
+api_router.include_router(capture.router)
+api_router.include_router(context_events.router)
+api_router.include_router(relationships.router)
+api_router.include_router(sources.router)
+api_router.include_router(meeting_intelligence.router)
+api_router.include_router(portfolio_beta.router)
 
 
 @api_router.get("", include_in_schema=False)

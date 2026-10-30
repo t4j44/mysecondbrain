@@ -25,20 +25,31 @@ class GoogleCallbackRequest(BaseModel):
 
 
 class GoogleCallbackResponse(BaseModel):
-    status: str = "connected"
+    status: str = Field(
+        ...,
+        description="connected | not_implemented | disabled — never invent connected without OAuth",
+    )
     provider: str = "google"
-    account_identifier: str
+    account_identifier: Optional[str] = None
+    integration_id: Optional[str] = None
     scopes_granted: List[str] = []
-    message: str = "Google integration connected and credentials encrypted successfully."
+    message: str
+    code: Optional[str] = None
 
 
 class SyncDriveRequest(BaseModel):
     folder_id: Optional[str] = None
     sync_mode: str = "one_way"  # one_way or two_way
+    integration_id: Optional[str] = None  # which connected Google account; required when several are
+
+
+class SyncGmailRequest(BaseModel):
+    integration_id: Optional[str] = None
 
 
 class SyncCalendarRequest(BaseModel):
     calendar_id: Optional[str] = "primary"
+    integration_id: Optional[str] = None
     time_min: Optional[datetime] = None
     time_max: Optional[datetime] = None
 

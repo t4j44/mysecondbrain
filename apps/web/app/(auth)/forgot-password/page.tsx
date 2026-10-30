@@ -41,8 +41,8 @@ export default function ForgotPasswordPage() {
 
     if (error) {
       toast({
-        title: 'RECOVERY ERROR',
-        description: error.message || 'Failed to dispatch passkey recovery instructions.',
+        title: 'Could not request reset',
+        description: error.message || 'Could not request a password reset. Please try again.',
         variant: 'destructive',
       });
       return;
@@ -50,34 +50,34 @@ export default function ForgotPasswordPage() {
 
     setIsSubmitted(true);
     toast({
-      title: 'RECOVERY INSTRUCTIONS SENT',
-      description: 'Check your operator email inbox for the passkey reset link.',
+      title: 'Reset link requested',
+      description: 'Check your email for a password reset link.',
     });
   }
 
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <div className="inline-flex items-center space-x-1 rounded px-2 py-0.5 text-[11px] font-mono font-semibold bg-[#251238] text-[#00ff9d] border border-[#00ff9d]/30 uppercase tracking-widest">
+        <div className="inline-flex items-center space-x-1 rounded px-2 py-0.5 text-[11px] font-mono font-semibold bg-primary/10 text-primary border border-primary/30 uppercase tracking-widest">
           <KeyRound className="h-3 w-3 mr-1" />
           <span>Credential Recovery</span>
         </div>
-        <h2 className="text-3xl font-extrabold tracking-tight text-[#f7f4ea]">
-          Reset Passkey
+        <h2 className="text-3xl font-extrabold tracking-tight text-foreground">
+          Reset password
         </h2>
         <p className="text-sm text-muted-foreground">
-          Enter your registered operator email to receive access restoration instructions.
+          Enter your email to request a password reset link.
         </p>
       </div>
 
       {isSubmitted ? (
-        <div className="rounded-lg border border-[#00ff9d]/40 bg-[#0a0510] p-6 text-center space-y-4 shadow-[0_0_25px_rgba(0,255,157,0.1)]">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#00ff9d]/10 text-[#00ff9d]">
+        <div className="rounded-lg border border-primary/40 bg-card p-6 text-center space-y-4 shadow-[0_0_25px_rgba(0,255,157,0.1)]">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
             <KeyRound className="h-6 w-6" />
           </div>
-          <h3 className="text-lg font-bold text-[#f7f4ea]">Recovery Link Dispatched</h3>
+          <h3 className="text-lg font-bold text-foreground">Check your email</h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            If an account matching that email address exists in our RLS registry, a secure reset protocol link has been transmitted to your inbox.
+            If an account with that email exists, you will receive a password reset link.
           </p>
           <div className="pt-2">
             <Link href="/login">
@@ -109,17 +109,17 @@ export default function ForgotPasswordPage() {
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                DISPATCHING RECOVERY LINK...
+                Requesting reset link…
               </>
             ) : (
-              'SEND RESET PROTOCOL'
+              'Send reset link'
             )}
           </Button>
 
           <div className="pt-2 text-center">
-            <Link href="/login" className="inline-flex items-center text-xs font-mono text-muted-foreground hover:text-[#00ff9d] transition-colors">
+            <Link href="/login" className="inline-flex items-center text-xs font-mono text-muted-foreground hover:text-primary transition-colors">
               <ArrowLeft className="h-3 w-3 mr-1.5" />
-              Return to Operator Sign In
+              Return to sign in
             </Link>
           </div>
         </form>

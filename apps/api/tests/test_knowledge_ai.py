@@ -83,7 +83,11 @@ async def test_ai_search_and_generation(async_client, auth_headers):
 
 
 @pytest.mark.asyncio
-async def test_ai_cover_letter_and_linkedin(async_client, auth_headers):
+async def test_ai_cover_letter_and_linkedin(async_client, auth_headers, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from app.ai.provider import GeminiLLMProvider
+    monkeypatch.setattr(GeminiLLMProvider, 'generate_content', AsyncMock(return_value='Test provider output grounded in the selected achievement.'))
     # 1. Record an achievement first
     ach_res = await async_client.post(
         "/api/v1/achievements",

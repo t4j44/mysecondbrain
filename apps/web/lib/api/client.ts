@@ -14,7 +14,9 @@ export class FastApiClient {
 
   private async request<T>(endpoint: string, method: HttpMethod, options: RequestOptions = {}): Promise<T> {
     const { params, body, headers = {}, timeoutMs = 15000, ...fetchOptions } = options;
-    const url = new URL(`${this.baseUrl.replace(/\/$/, '')}/${endpoint.replace(/^\//, '')}`);
+    const base = this.baseUrl.replace(/\/$/, '');
+    const path = base.endsWith('/api/v1') ? endpoint.replace(/^\/?api\/v1\/?/, '') : endpoint;
+    const url = new URL(`${base}/${path.replace(/^\//, '')}`);
 
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -48,6 +50,8 @@ export class FastApiClient {
         body: body !== undefined ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
         signal: controller.signal,
         ...fetchOptions,
+        // Personal context must never enter a shared HTTP/Next.js cache.
+        cache: 'no-store',
       });
 
       clearTimeout(timeoutId);
@@ -58,6 +62,7 @@ export class FastApiClient {
       }
 
       const contentType = response.headers.get('content-type');
+      if (response.ok && contentType?.startsWith('image/')) return await response.blob() as T;
       let data: any;
       if (contentType && contentType.includes('application/json')) {
         data = await response.json();

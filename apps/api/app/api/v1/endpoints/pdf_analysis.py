@@ -3,15 +3,17 @@ import time
 import uuid
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, File, Form, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
 from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.core.errors import InvalidPayloadError
+from app.dependencies.auth import get_current_user
 from app.services.gemini_client import GoogleGenAIClient
 from app.services.pdf_validator import PDFValidator
 
-router = APIRouter(prefix="/analyze", tags=["PDF & Document Analysis"])
+router = APIRouter(prefix="/analyze", tags=["PDF & Document Analysis"],
+                   dependencies=[Depends(get_current_user)])
 
 
 class PDFAnalysisRequest(BaseModel):

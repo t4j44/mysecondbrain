@@ -1,9 +1,16 @@
-from typing import Optional
+from datetime import timedelta
+from typing import Literal, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
+from fastapi.responses import Response
+from pydantic import AwareDatetime, BaseModel, Field
+from sqlalchemy import select
 
+from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.pagination import PaginatedResponse, PaginationParams
 from app.dependencies.auth import AuthenticatedUser, get_current_user
+from app.dependencies.database import get_rls_db_session
 from app.dependencies.services import (
     AuditService,
     ExportService,
@@ -12,6 +19,8 @@ from app.dependencies.services import (
     get_export_service,
     get_integration_service,
 )
+from app.integrations.google_client import GoogleIntegrationService
+from app.models.entities import JobRecord, Task
 from app.schemas import (
     AuditLogResponse,
     ExportRequest,
@@ -23,8 +32,104 @@ from app.schemas import (
     SyncCalendarRequest,
     SyncDriveRequest,
 )
+from app.schemas.integrations import SyncGmailRequest
+from app.services.release_gates import optional_enabled, require_google_release
 
 router = APIRouter()
+
+
+@router.get('/release-capabilities')
+async def release_capabilities(_user: AuthenticatedUser = Depends(get_current_user)):
+    return {'google_integrations': optional_enabled('GOOGLE_INTEGRATIONS_RELEASE_VERIFIED'),
+        'portfolio_publishing': optional_enabled('PORTFOLIO_PUBLISHING_RELEASE_VERIFIED'),
+        'notice': 'Optional hosted integrations require recorded acceptance before enabling for this release.'}
+
+
+@router.get('/exports/{export_id}/download')
+async def download_export(export_id: str, user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    from app.integrations.storage_client import StorageService
+    from app.repositories.integrations import ExportRepository
+    record = await ExportRepository().get_by_id(db, user.id, export_id)
+    if not record or record.status != 'completed' or not record.file_path:
+        raise NotFoundError('Export is not ready.')
+    if not record.file_path.startswith(f'{user.id}/'):
+        raise NotFoundError('Export is not available.')
+    content = await StorageService().read_file(record.file_path)
+    return Response(content, media_type='text/markdown', headers={
+        'Content-Disposition': 'attachment; filename="second-brain-export.md"',
+        'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'})
+
+
+@router.post("/integrations/google/authorize")
+async def google_authorize(provider: Literal["google_drive", "google_calendar", "gmail"], login_hint: Optional[str] = Query(default=None, max_length=254),
+                           user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    require_google_release()
+    return await GoogleIntegrationService(db, user.id).authorize(provider, login_hint)
+
+
+@router.delete("/integrations/google/{provider}")
+async def google_disconnect(provider: Literal["google_drive", "google_calendar", "gmail"], integration_id: Optional[str] = None,
+                           user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    return {"disconnected": await GoogleIntegrationService(db, user.id).disconnect_provider(provider, integration_id)}
+
+
+class CalendarSchedule(BaseModel):
+    integration_id: Optional[str] = None  # which connected Google account; required when several are
+    start: AwareDatetime
+    duration_minutes: int = Field(default=30, ge=5, le=1440)
+    timezone: str = "UTC"
+    cancel: bool = False
+
+
+@router.post("/integrations/google/tasks/{task_id}/schedule", status_code=202)
+async def schedule_task(task_id: str, payload: CalendarSchedule,
+                        user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    require_google_release()
+    try:
+        ZoneInfo(payload.timezone)
+    except ZoneInfoNotFoundError:
+        raise ValidationError("Choose a valid timezone.") from None
+    task = (await db.execute(select(Task).where(Task.id == task_id,
+        Task.user_id == user.id, Task.deleted_at.is_(None)))).scalar_one_or_none()
+    if task is None:
+        raise NotFoundError("Task not found.")
+    google = GoogleIntegrationService(db, user.id)
+    integration = await google.select_integration("google_calendar", payload.integration_id)
+    await google.access_token("google_calendar", integration.id)
+    placed_on = (task.calendar_sync_metadata or {}).get("integration_id")
+    if task.gcal_event_id and placed_on and placed_on != str(integration.id):
+        # An event lives in exactly one account's calendar; moving it silently would orphan the first.
+        raise ConflictError("This task is already on another Google account's calendar. Remove it there first.")
+    task.calendar_sync_metadata = {**(task.calendar_sync_metadata or {}), "enabled": True, "cancel": payload.cancel,
+        "start": payload.start.isoformat(), "end": (payload.start + timedelta(minutes=payload.duration_minutes)).isoformat(),
+        "timezone": payload.timezone, "status": "pending", "integration_id": str(integration.id)}
+    job = JobRecord(user_id=user.id, job_type="sync_google_calendar", status="pending",
+                    result_payload={"task_id": str(task.id), "calendar_id": "primary", "integration_id": str(integration.id)})
+    db.add(job)
+    await db.commit()
+    return {"job_id": str(job.id), "status": "pending"}
+
+
+@router.get("/jobs/{job_id}")
+async def job_status(job_id: str, user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    job = (await db.execute(select(JobRecord).where(JobRecord.id == job_id,
+        JobRecord.user_id == user.id))).scalar_one_or_none()
+    if not job:
+        raise NotFoundError("Job not found.")
+    return {"id": str(job.id), "status": job.status, "error_code": job.error_code,
+            "retry_count": job.retry_count}
+
+
+@router.post("/jobs/{job_id}/retry")
+async def retry_job(job_id: str, user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    from app.jobs.runner import RUNNABLE
+    job = (await db.execute(select(JobRecord).where(JobRecord.id == job_id,
+        JobRecord.user_id == user.id).with_for_update())).scalar_one_or_none()
+    if not job or job.job_type not in RUNNABLE or job.status != "failed":
+        raise NotFoundError("No failed job available to retry.")
+    job.status, job.retry_count = "pending", 0
+    await db.commit()
+    return {"status": "pending"}
 
 
 # --- INTEGRATIONS ENDPOINTS (Tasks 29, 30, 31) ---
@@ -54,6 +159,7 @@ async def google_oauth_callback(
     service: IntegrationManagementService = Depends(get_integration_service),
     _user: AuthenticatedUser = Depends(get_current_user),
 ):
+    require_google_release()
     res = await service.handle_google_callback(payload.code, payload.state)
     return GoogleCallbackResponse(**res)
 
@@ -70,9 +176,11 @@ async def sync_google_drive(
     service: IntegrationManagementService = Depends(get_integration_service),
     _user: AuthenticatedUser = Depends(get_current_user),
 ):
+    require_google_release()
     req = payload or SyncDriveRequest()
     job = await service.trigger_drive_sync(
-        req.folder_id, req.sync_mode, background_tasks=background_tasks
+        req.folder_id, req.sync_mode, background_tasks=background_tasks,
+        integration_id=req.integration_id,
     )
     return job
 
@@ -89,11 +197,30 @@ async def sync_google_calendar(
     service: IntegrationManagementService = Depends(get_integration_service),
     _user: AuthenticatedUser = Depends(get_current_user),
 ):
+    require_google_release()
     req = payload or SyncCalendarRequest()
     job = await service.trigger_calendar_sync(
-        req.calendar_id or "primary", background_tasks=background_tasks
+        req.calendar_id or "primary", background_tasks=background_tasks,
+        integration_id=req.integration_id,
     )
     return job
+
+
+@router.post(
+    "/sync/gmail",
+    response_model=JobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Refresh when you last emailed each saved person (dates only; no subjects or message text)",
+)
+async def sync_gmail(
+    background_tasks: BackgroundTasks,
+    payload: Optional[SyncGmailRequest] = None,
+    service: IntegrationManagementService = Depends(get_integration_service),
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    require_google_release()
+    return await service.trigger_gmail_sync(
+        background_tasks, integration_id=(payload or SyncGmailRequest()).integration_id)
 
 
 # --- EXPORT ENDPOINTS (Task 32) ---

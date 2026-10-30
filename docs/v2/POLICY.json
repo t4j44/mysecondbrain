@@ -1,0 +1,16 @@
+{
+  "planning": "deep",
+  "context_depth": "dependency",
+  "verification_depth": "impact",
+  "delegation": "none",
+  "reason_codes": ["existing-release-reconciliation", "recorder-lifecycle", "security-dependency"],
+  "mode": "implement",
+  "allowed_write_scope": ["apps/", "packages/", "scripts/", "docs/v2/", "supabase/migrations/", ".github/workflows/", "pnpm-lock.yaml"],
+  "excluded_actions": ["production-promotion", "hosted-migrations", "paid-service-activation", "sensitive-data-processing", "third-party-messages"],
+  "phase_0_acceptance": ["preserve-pilot-ancestry", "repair-locked-audit-without-suppression", "reconcile-PR13-and-PR14", "protect-recorder-lifetime", "record-exact-SHA-CI", "draft-reviewable-PR"],
+  "decision": {
+    "action": "Raise the pypdf minimum and regenerate locks; align stale Pillow requirements with the existing lock",
+    "evidence": "GitHub run 40139964710, job 121009434894: pypdf 6.21.1 has CVE-2026-115572, CVE-2026-115585, CVE-2026-115580; fix version 6.21.2",
+    "risk": "PDF conversion compatibility; validate converters and full backend before release"
+  }
+}

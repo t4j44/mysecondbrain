@@ -2,9 +2,11 @@
 .env
 .env.*
 !.env.example
+!.env.local.example
 **/.env
 **/.env.*
 !**/.env.example
+!**/.env.local.example
 
 # JavaScript / Next.js
 node_modules/
@@ -13,6 +15,7 @@ node_modules/
 coverage/
 playwright-report/
 test-results/
+**/e2e/.auth/
 *.tsbuildinfo
 
 # Python
@@ -38,3 +41,13 @@ supabase/.temp/
 .idea/
 .DS_Store
 Thumbs.db
+
+.test-tmp/
+
+# Regenerable graphify parser cache; graph.json/report remain intentional outputs.
+graphify-out/cache/
+
+# Private database backup artifacts
+backups/
+*.dump
+*.partial

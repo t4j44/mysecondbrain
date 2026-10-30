@@ -1,0 +1,133 @@
+name: Staging public smoke checks
+on:
+  push:
+    branches:
+      - codex/second-brain-release-hardening
+    paths:
+      - '.github/workflows/staging-smoke.yml'
+      - 'apps/api/**'
+      - 'apps/web/**'
+      - 'supabase/migrations/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check readiness, auth pages and public MCP discovery
+        env:
+          API: https://second-brain-api-staging.onrender.com
+          WEB: https://second-brain-web-staging-seven.vercel.app
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import time
+          from urllib.error import HTTPError, URLError
+          from urllib.request import Request, urlopen
+
+          def fetch(path, origin, retries=7):
+              error = None
+              for attempt in range(retries):
+                  try:
+                      request = Request(origin + path, headers={'User-Agent': 'SecondBrain-Staging-Health/1.0'})
+                      with urlopen(request, timeout=30) as response:
+                          return response.status, response.read(1_000_000).decode('utf-8')
+                  except (HTTPError, URLError, TimeoutError) as exc:
+                      error = f'{type(exc).__name__}: {getattr(exc, "code", "connection error")}'
+                      if attempt < retries - 1:
+                          time.sleep(10)
+              raise AssertionError(f'{path} unavailable after {retries} attempts ({error})')
+
+          status, body = fetch('/health/ready', os.environ['API'])
+          data = json.loads(body)
+          assert status == 200 and data.get('status') == 'ready' and data.get('database') == 'connected', (
+              f'Backend readiness failed: HTTP {status} / {data}')
+          print('PASS backend readiness: HTTP 200, database connected')
+
+          status, body = fetch('/.well-known/oauth-protected-resource/mcp', os.environ['API'])
+          metadata = json.loads(body)
+          assert status == 200 and str(metadata.get('resource', '')).endswith('/mcp'), (
+              'MCP public resource metadata missing or invalid')
+          assert metadata.get('authorization_servers'), 'MCP OAuth issuer not advertised'
+          print('PASS public MCP discovery metadata (not an authenticated MCP test)')
+
+          status, body = fetch('/.well-known/oauth-authorization-server', os.environ['API'])
+          oauth = json.loads(body)
+          assert status == 200 and oauth.get('issuer') == os.environ['API'], (
+              'OAuth issuer does not match the hosted backend')
+          assert 'S256' in oauth.get('code_challenge_methods_supported', []), (
+              'OAuth metadata does not advertise PKCE S256')
+          print('PASS OAuth authorization-server discovery and PKCE S256')
+
+
+          # Black-box auth boundary checks; never create credentials or accounts.
+          def unauthenticated_status(path):
+              request = Request(os.environ['API'] + path,
+                  headers={'User-Agent': 'SecondBrain-Staging-AuthBoundary/1.0'})
+              try:
+                  with urlopen(request, timeout=30) as response:
+                      return response.status
+              except HTTPError as err:
+                  return err.code
+
+          # Exercise the actual streamable MCP transport, not just its manifest.
+          handshake = Request(os.environ['API'] + '/mcp', data=json.dumps({
+              'jsonrpc': '2.0', 'id': 1, 'method': 'initialize',
+              'params': {'protocolVersion': '2025-03-26',
+                         'capabilities': {}, 'clientInfo': {'name': 'unauthorized-smoke', 'version': '1'}}
+          }).encode(), method='POST', headers={
+              'Content-Type': 'application/json',
+              'Accept': 'application/json, text/event-stream',
+              'MCP-Protocol-Version': '2025-03-26',
+          })
+          try:
+              with urlopen(handshake, timeout=30) as response:
+                  handshake_status = response.status
+          except HTTPError as err:
+              handshake_status = err.code
+          assert handshake_status in (401, 403), (
+              f'FAIL: unauthenticated MCP initialize returned HTTP {handshake_status}')
+          print(f'PASS MCP initialize denies missing token: HTTP {handshake_status}')
+
+          for path in ('/api/v1/meetings/usage', '/api/v1/mcp/oauth/connections'):
+              result = unauthenticated_status(path)
+              assert result in (401, 403), (
+                  f'FAIL: protected endpoint {path} returned HTTP {result} without a token')
+              print(f'PASS protected endpoint {path} denies anonymous access: HTTP {result}')
+
+
+          # Next.js can render the auth form after hydration; raw HTML is not a
+          # browser DOM. This is an HTTP application-shell check, not a signup test.
+          from html.parser import HTMLParser
+
+          class TitleParser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.in_title = False
+                  self.title = ''
+              def handle_starttag(self, tag, attrs):
+                  if tag == 'title':
+                      self.in_title = True
+              def handle_endtag(self, tag):
+                  if tag == 'title':
+                      self.in_title = False
+              def handle_data(self, data):
+                  if self.in_title:
+                      self.title += data
+
+          for path in ('/login', '/signup'):
+              status, body = fetch(path, os.environ['WEB'])
+              parser = TitleParser()
+              parser.feed(body)
+              assert status == 200 and 'Second Brain' in parser.title, (
+                  f'Unexpected HTML page for {path}: HTTP {status}, title {parser.title[:90]!r}')
+              assert '/_next/' in body, f'Next.js application assets not found at {path}'
+              print(f'PASS hosted Next.js application shell {path}, HTTP {status} (client-side auth flow NOT tested)')
+
+          print('PASS public shell/health/OAuth discovery and anonymous-access boundaries; real auth, Gemini, authorized MCP remain separate.')
+          PY

@@ -3,7 +3,6 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.provider import get_llm_provider
 from app.core.errors import (
     ConflictError,
     ErrorCode,
@@ -22,7 +21,13 @@ from app.repositories.profiles import ProfileRepository
 from app.repositories.projects import ProjectRepository
 from app.repositories.tasks import TaskRepository
 from app.repositories.ventures import VentureRepository
-from app.schemas import DashboardInsightsResponse, DashboardSummaryResponse
+from app.schemas.founder import (
+    DashboardInsightsResponse,
+    DashboardSummaryResponse,
+    KPIResponse,
+    TaskResponse,
+)
+from app.schemas.knowledge import MemoryResponse
 from app.utils.dates import get_user_today_bounds, validate_date_range
 from app.utils.identifiers import slugify
 
@@ -246,6 +251,20 @@ class KPIService:
             filters["category"] = category
         return await self.repo.list(self.db, self.user_id, pagination, **filters)
 
+    async def update_kpi(self, kpi_id: str, data: Dict[str, Any]) -> KPI:
+        res = await self.repo.update(self.db, self.user_id, kpi_id, data)
+        if not res:
+            raise NotFoundError("KPI not found.")
+        await self.db.commit()
+        return res
+
+    async def delete_kpi(self, kpi_id: str) -> bool:
+        res = await self.repo.delete(self.db, self.user_id, kpi_id)
+        if not res:
+            raise NotFoundError("KPI not found.")
+        await self.db.commit()
+        return res
+
     async def record_entry(self, kpi_id: str, data: Dict[str, Any]) -> KPIEntry:
         kpi = await self.repo.get_by_id(self.db, self.user_id, kpi_id)
         if not kpi:
@@ -256,6 +275,20 @@ class KPIService:
             kpi.current_value = entry.numeric_value
         await self.db.commit()
         return entry
+
+    async def update_entry(self, entry_id: str, data: Dict[str, Any]) -> KPIEntry:
+        entry = await self.entry_repo.update(self.db, self.user_id, entry_id, data)
+        if not entry:
+            raise NotFoundError("KPI Entry not found.")
+        await self.db.commit()
+        return entry
+
+    async def delete_entry(self, entry_id: str) -> bool:
+        res = await self.entry_repo.delete(self.db, self.user_id, entry_id, hard_delete=True)
+        if not res:
+            raise NotFoundError("KPI Entry not found.")
+        await self.db.commit()
+        return res
 
 
 class ReviewService:
@@ -301,26 +334,23 @@ class DashboardService:
         return DashboardSummaryResponse(
             active_ventures_count=v_count,
             in_progress_projects_count=p_count,
-            tasks_today=[t for t in today_tasks],
-            overdue_tasks=[t for t in overdue],
-            recent_memories=[m for m in memories],
-            kpi_highlights=[k for k in kpis][:4],
+            tasks_today=[TaskResponse.model_validate(t) for t in today_tasks],
+            overdue_tasks=[TaskResponse.model_validate(t) for t in overdue],
+            recent_memories=[MemoryResponse.model_validate(m) for m in memories],
+            kpi_highlights=[KPIResponse.model_validate(k) for k in kpis][:4],
         )
 
     async def get_insights(self) -> DashboardInsightsResponse:
-        llm = get_llm_provider()
-        prompt = "Analyze founder velocity and summarize active priorities across ventures and task queues."
-        synthesis = await llm.generate_content(
-            prompt, system_instruction="You are Taj's AI Chief of Staff."
-        )
-
+        summary = await self.get_summary()
+        overdue_count = len(summary.overdue_tasks)
+        today_count = len(summary.tasks_today)
         return DashboardInsightsResponse(
-            ai_summary=synthesis,
-            attention_required_projects=["Project Alpha", "Q3 Fundraise Prep"],
+            ai_summary=(f"{summary.active_ventures_count} active ventures and "
+                f"{summary.in_progress_projects_count} projects in progress. "
+                f"{today_count} tasks due today; {overdue_count} overdue. "
+                "This brief is calculated from your saved records."),
+            attention_required_projects=[],
             network_follow_ups=[],
-            productivity_velocity=1.24,
-            recommendations=[
-                "Delegate technical recruitment screenings",
-                "Accelerate MVP release milestone",
-            ],
+            productivity_velocity=None,
+            recommendations=["Review overdue tasks and adjust their dates."] if overdue_count else [],
         )

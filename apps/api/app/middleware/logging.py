@@ -12,13 +12,16 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         start_time = time.perf_counter()
         request_id = getattr(request.state, "request_id", "N/A")
 
+        path = request.url.path
+        if '/public/portfolio/' in path:
+            path = '/api/v1/public/portfolio/[redacted]'
         # We do not log full request body or authorization headers to protect user privacy and secrets
         logger.info(
-            f"Incoming request: {request.method} {request.url.path}",
+            f"Incoming request: {request.method} {path}",
             extra={
                 "request_id": request_id,
                 "method": request.method,
-                "path": request.url.path,
+                "path": path,
             },
         )
 
@@ -27,25 +30,24 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         except Exception as exc:
             duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
             logger.error(
-                f"Unhandled server failure during {request.method} {request.url.path}: {str(exc)}",
+                f"Unhandled server failure during {request.method} {path}: {type(exc).__name__}",
                 extra={
                     "request_id": request_id,
                     "method": request.method,
-                    "path": request.url.path,
+                    "path": path,
                     "duration_ms": duration_ms,
                     "status_code": 500,
                 },
-                exc_info=True,
             )
             raise exc
 
         duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
         logger.info(
-            f"Completed {request.method} {request.url.path} with status {response.status_code}",
+            f"Completed {request.method} {path} with status {response.status_code}",
             extra={
                 "request_id": request_id,
                 "method": request.method,
-                "path": request.url.path,
+                "path": path,
                 "duration_ms": duration_ms,
                 "status_code": response.status_code,
             },
