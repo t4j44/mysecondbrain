@@ -66,9 +66,9 @@ export function MeetingCorrections({ meeting, refresh }: { meeting: Meeting; ref
       }}><option value="">Choose a saved detail</option>{candidates.map(item => <option key={item.key} value={item.key}>{item.category.replaceAll('_', ' ')}: {item.candidate.description}</option>)}</select></label>
       {selected && <>
         <blockquote className="border-l-2 pl-3 text-sm text-muted-foreground">Original quotation: {selected.candidate.evidence_text}</blockquote>
-        <label className="block text-sm">Corrected detail<textarea className="mt-1 min-h-24 w-full rounded border bg-background p-3" maxLength={2000} value={description} onChange={event => setDescription(event.target.value)} /></label>
+        <label className="block text-sm">Corrected detail<textarea aria-label="Corrected detail" className="mt-1 min-h-24 w-full rounded border bg-background p-3" maxLength={2000} value={description} onChange={event => setDescription(event.target.value)} /></label>
         {['commitments', 'action_items', 'follow_ups'].includes(selected.category) && <label className="block text-sm">Deadline (your current timezone)<input type="datetime-local" className="mt-1 min-h-12 w-full rounded border bg-background p-3" value={due} onChange={event => setDue(event.target.value)} /><span className="block text-xs text-muted-foreground">Leave blank if no deadline was agreed.</span></label>}
-        <label className="block text-sm">Reason for correction<textarea className="mt-1 min-h-20 w-full rounded border bg-background p-3" maxLength={1000} value={reason} onChange={event => setReason(event.target.value)} /></label>
+        <label className="block text-sm">Reason for correction<textarea aria-label="Reason for correction" className="mt-1 min-h-20 w-full rounded border bg-background p-3" maxLength={1000} value={reason} onChange={event => setReason(event.target.value)} /></label>
         <p className="text-sm text-muted-foreground">Saving updates the existing record, clears summaries that may be outdated, and cancels pending reminders for a corrected commitment. Review any connected calendar event separately.</p>
         <Button disabled={busy || !description.trim() || !reason.trim()} onClick={() => void save()}>Confirm correction</Button>
       </>}

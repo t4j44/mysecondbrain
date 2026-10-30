@@ -23,6 +23,7 @@ from app.models.entities import (
     EntityEdge,
     Interaction,
     Memory,
+    Person,
     Task,
 )
 from app.schemas.meeting_intelligence import CANDIDATE_FIELDS, StrictModel
@@ -65,6 +66,10 @@ async def related_records(db, owner, meeting, capture):
         ContextEvent.source_type == 'meeting', ContextEvent.source_external_id == str(meeting.id))
         .order_by(ContextEvent.id).with_for_update().execution_options(populate_existing=True))).all()
     records.extend(events)
+    people = {str(row.person_id) for row in records if isinstance(row, Interaction) and row.person_id}
+    if people:
+        records.extend((await db.scalars(select(Person).where(Person.user_id == owner, Person.id.in_(people))
+            .order_by(Person.id).with_for_update().execution_options(populate_existing=True))).all())
     edges = (await db.scalars(select(EntityEdge).where(EntityEdge.user_id == owner,
         EntityEdge.source_entity_type == 'meeting', EntityEdge.source_entity_id == meeting.id,
         EntityEdge.valid_to.is_(None)).order_by(EntityEdge.id).with_for_update())).all()
@@ -153,12 +158,15 @@ async def correct_saved_detail(db, owner, identity, payload: SavedDetailCorrecti
             if row.status == 'done':
                 raise ConflictError('This task is completed. Its completion history must be reviewed separately.')
             row.title, row.due_date = description[:500], payload.due_at
+            row.description = 'Original quotation (historical speech): ' + before['evidence_text']
             row.calendar_sync_metadata = {**(row.calendar_sync_metadata or {}),
                 'correction_review_required': True, 'correction_request_id': str(payload.request_id)}
         elif kind == 'decision':
             row.title, row.decision = description[:255], description
+            row.context = f'Meeting {identity}. Original quotation (historical speech): ' + before['evidence_text']
         elif kind == 'memory':
             row.title, row.body = description[:255], description
+            row.summary = 'Original quotation (historical speech): ' + before['evidence_text']
             row.meta = {**(row.meta or {}), 'owner_corrected': True}
         queue_index(db, row)
         await invalidate_drafts(db, owner, str(row.id))
@@ -174,7 +182,12 @@ async def correct_saved_detail(db, owner, identity, payload: SavedDetailCorrecti
     meeting.action_items = [v['description'] for key in ('action_items', 'follow_ups')
         for i, v in enumerate(data.get(key, [])) if f'{key}:{i}' in selected]
     for row in records:
-        if isinstance(row, (Interaction, ContextEvent)):
+        if isinstance(row, Person):
+            row.metadata_payload = {key: value for key, value in (row.metadata_payload or {}).items()
+                if key not in {'ai_summary', 'relationship_summary', 'summary'}}
+            queue_index(db, row)
+            await invalidate_drafts(db, owner, str(row.id))
+        elif isinstance(row, (Interaction, ContextEvent)):
             row.summary = NOTICE
             queue_index(db, row)
             await invalidate_drafts(db, owner, str(row.id))

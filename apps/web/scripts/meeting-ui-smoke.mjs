@@ -17,7 +17,7 @@ export let meeting=JSON.parse(localStorage.getItem('meeting-fixture') || 'null')
 export const persist=()=>localStorage.setItem('meeting-fixture',JSON.stringify(meeting)); export const meetingApi={usage:async()=>({used_seconds:11400,limit_seconds:18000,remaining_seconds:6600,percentage_used:63.33,data_mode:'free_redacted',max_bytes:52428800,retention_days:7}),create:async()=>({id:'meeting-1',title:'Meeting'}),authorize:async()=>({max_bytes:52428800}),finalize:async()=>({}),get:async()=>structuredClone(meeting),map:async(_id,speaker,value)=>{meeting.capture.speaker_mappings[speaker]=value;persist();},confirm:async(_id,selected)=>{meeting.capture.state='completed';meeting.capture.confirmed_at='2026-10-08T09:00:00Z';meeting.capture.receipt={selected};persist();},retry:async()=>({})};`;
 const modules = {
   '@/lib/meetings/api': shared,
-  '@/lib/api/browser-client': `import {meeting,persist} from '@/lib/meetings/api';export const api={get:async(path)=>path.includes('/export/')?'# Meeting minutes\\nStatus: proposed\\nAttendees: Not confirmed':path.endsWith('/notes')?meeting.metadata.meeting_notes:path.includes('people-search')?[{id:'person-1',name:'Sarah Ahmed'}]:{items:[]},put:async(path,body)=>{if(path.endsWith('/notes')){meeting.metadata.meeting_notes={version:body.expected_version+1,markdown:body.markdown};persist();return meeting.metadata.meeting_notes;}return meeting;},post:async()=>({id:'person-2',name:'New person'})};`,
+  '@/lib/api/browser-client': `import {meeting,persist} from '@/lib/meetings/api';export const api={get:async(path)=>path.includes('/export/')?'# Meeting minutes\\nStatus: proposed\\nAttendees: Not confirmed':path.endsWith('/corrections')?{review_token:meeting.review_token,records_token:'b'.repeat(64),affected_records:1}:path.endsWith('/notes')?meeting.metadata.meeting_notes:path.includes('people-search')?[{id:'person-1',name:'Sarah Ahmed'}]:{items:[]},put:async(path,body)=>{if(path.endsWith('/notes')){meeting.metadata.meeting_notes={version:body.expected_version+1,markdown:body.markdown};persist();return meeting.metadata.meeting_notes;}return meeting;},post:async(path,body)=>{if(path.endsWith('/corrections')){meeting.capture.intelligence.commitments[0].description=body.description;persist();return {source_preserved:true};}return {id:'person-2',name:'New person'};}};`,
   '@/lib/supabase/client': `export const createClient=()=>({auth:{getSession:async()=>({data:{session:{access_token:'synthetic',user:{id:'owner'}}}})}});`,
   '@/lib/meetings/local-recordings': `export const listLocalRecordings=async()=>[];export const saveLocalRecording=async()=>{};export const deleteLocalRecording=async()=>{};`,
   '@/lib/meetings/recorder': `export class BrowserRecorderAdapter{async start(_pcm,onChunk){onChunk(new Blob(['synthetic'],{type:'audio/webm'}));}pause(){}resume(){}async stop(){return new Blob(['synthetic'],{type:'audio/webm'});}async dispose(){}}`,
@@ -81,6 +81,18 @@ try {
     await page.screenshot({fullPage:true,path:path.join(output,`detail-${width}.png`)});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await page.getByRole('button',{name:'Save all'}).click();await expect(page.getByText('Saved to your people and plans ✓')).toBeVisible();
+    await page.getByText('Correct a saved detail',{exact:true}).click();
+    await page.getByRole('button',{name:'Load saved details'}).click();
+    await page.getByLabel('Saved detail',{exact:true}).selectOption('commitments:0');
+    await page.screenshot({fullPage:true,path:path.join(output,`correction-selected-${width}.png`)});
+    await page.getByLabel('Corrected detail',{exact:true}).fill('Send the revised customer report');
+    await page.getByLabel('Reason for correction').fill('The deliverable was clarified after the meeting.');
+    await page.screenshot({fullPage:true,path:path.join(output,`correction-${width}.png`)});
+    await page.getByText('Correct a saved detail',{exact:true}).locator('..').screenshot({path:path.join(output,`correction-panel-${width}.png`)});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.getByRole('button',{name:'Confirm correction'}).click();
+    await expect(page.getByText(/Correction saved\. Existing records/)).toBeVisible();
+    expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('meeting-fixture')).transcript_text)).toContain('বাংলা');
     expect(errors).toEqual([]);console.log(`PASS: ${width}px capture, pause/resume, reconnect, upload, speaker mapping, confirmation, detailed side topic, evidence jump, transcript search, note persistence, no horizontal overflow or page errors`);await page.close();
   }
   console.log('3 viewport scenarios passed (synthetic API/adapters). Physical microphone and hosted provider behavior remain unverified.');

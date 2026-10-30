@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.ai.indexing import record_text
-from app.models.entities import AuditLog, Commitment, ContextEvent, Meeting, Task
+from app.models.entities import AuditLog, Commitment, ContextEvent, EntityEdge, Meeting, Task
 from tests.conftest import TestingSessionLocal
 from tests.test_meeting_intelligence import (  # noqa: F401
     audio_stub,
@@ -107,3 +107,30 @@ async def test_closed_commitment_cannot_be_silently_rewritten(async_client, auth
     assert response.status_code == 409
     current = (await async_client.get(path, headers=auth_headers)).json()
     assert not current['capture']['receipt'].get('corrections')
+
+
+async def test_linked_task_requires_explicit_review_instead_of_implicit_rewrite(async_client, auth_headers, test_user_id):
+    path, receipt = await saved(async_client, auth_headers, test_user_id)
+    async with TestingSessionLocal() as db:
+        db.add(EntityEdge(user_id=test_user_id, source_entity_type='task', source_entity_id=receipt['tasks'][0],
+            target_entity_type='commitment', target_entity_id=receipt['commitments'][0], relationship_type='fulfills'))
+        await db.commit()
+    payload = await edit_payload(async_client, auth_headers, path)
+    response = await async_client.post(path + '/corrections', headers=auth_headers, json=payload)
+    assert response.status_code == 409
+    assert 'linked task' in response.text
+    async with TestingSessionLocal() as db:
+        assert (await db.get(Commitment, receipt['commitments'][0])).description == 'Send the report'
+
+
+async def test_task_edit_keeps_its_identity_and_labels_source_as_historical(async_client, auth_headers, test_user_id):
+    path, receipt = await saved(async_client, auth_headers, test_user_id)
+    payload = await edit_payload(async_client, auth_headers, path, candidate_id='action_items:0')
+    response = await async_client.post(path + '/corrections', headers=auth_headers, json=payload)
+    assert response.status_code == 200, response.text
+    async with TestingSessionLocal() as db:
+        task = await db.get(Task, receipt['tasks'][0])
+        assert task.title == 'Send the revised estimate'
+        assert task.description == 'Original quotation (historical speech): I will send the report.'
+        assert task.calendar_sync_metadata['correction_review_required']
+        assert await db.scalar(select(func.count()).select_from(Task)) == 1

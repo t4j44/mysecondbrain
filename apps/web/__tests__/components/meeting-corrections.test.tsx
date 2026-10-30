@@ -14,7 +14,7 @@ function fixture(): Meeting {
       retained_until: null, audio_deleted_at: null, error_code: null, data_mode: 'free_redacted',
       receipt: { selected: ['commitments:0'] }, speaker_mappings: {}, transcript_segments: [],
       intelligence: { summary: 'Send report', commitments: [{ description: 'Send the report',
-        evidence_text: 'I will send the report.', confidence: 0.9 }] } } };
+        evidence_text: 'I will send the report.', confidence: 0.9, interpretation: false }] } } };
 }
 beforeEach(() => {
   vi.clearAllMocks();
