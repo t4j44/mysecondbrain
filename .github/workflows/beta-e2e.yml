@@ -1,9 +1,6 @@
 name: Closed beta staging E2E
 on:
   workflow_dispatch:
-  push:
-    branches: ['codex/e2e-four-credential-preflight-20261101']
-    paths: ['.github/workflows/beta-e2e.yml']
 permissions:
   contents: read
 jobs:
