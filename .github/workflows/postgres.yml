@@ -5,10 +5,15 @@ on:
   pull_request:
 jobs:
   postgres:
+    name: PostgreSQL ${{ matrix.pg_version }} schema, RLS and restore gate
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        pg_version: ['16', '17']
     services:
       postgres:
-        image: pgvector/pgvector:pg16
+        image: pgvector/pgvector:pg${{ matrix.pg_version }}
         env:
           POSTGRES_PASSWORD: test-only-password
           POSTGRES_DB: second_brain_test
@@ -35,11 +40,16 @@ jobs:
         env:
           RUN_ISOLATED_UPGRADE_PROOF: '1'
         run: python scripts/db/verify_v15_upgrade.py
-      - name: Install PostgreSQL recovery client
+      - name: Install matching PostgreSQL recovery client
         run: |
+          if [ "${{ matrix.pg_version }}" = "17" ]; then
+            sudo install -d -m 755 /usr/share/postgresql-common/pgdg
+            curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc > /dev/null
+            echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          fi
           sudo apt-get update
-          sudo apt-get install -y postgresql-client-16
-          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+          sudo apt-get install -y postgresql-client-${{ matrix.pg_version }}
+          echo "/usr/lib/postgresql/${{ matrix.pg_version }}/bin" >> "$GITHUB_PATH"
       - name: Prove isolated backup and restore
         env:
           RUN_ISOLATED_RESTORE_PROOF: '1'
@@ -63,7 +73,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: postgres-test-evidence
+          name: postgres-${{ matrix.pg_version }}-test-evidence
           path: |
             postgres-results.xml
             restore-results.xml
