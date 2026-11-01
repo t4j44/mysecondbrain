@@ -40,8 +40,13 @@ jobs:
         env:
           RUN_ISOLATED_UPGRADE_PROOF: '1'
         run: python scripts/db/verify_v15_upgrade.py
-      - name: Install PostgreSQL recovery client
+      - name: Install matching PostgreSQL recovery client
         run: |
+          if [ "${{ matrix.pg_version }}" = "17" ]; then
+            sudo install -d -m 755 /usr/share/postgresql-common/pgdg
+            curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc > /dev/null
+            echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          fi
           sudo apt-get update
           sudo apt-get install -y postgresql-client-${{ matrix.pg_version }}
           echo "/usr/lib/postgresql/${{ matrix.pg_version }}/bin" >> "$GITHUB_PATH"
