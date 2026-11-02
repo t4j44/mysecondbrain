@@ -50,7 +50,7 @@ jobs:
           version: 10.17.1
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @second-brain/web exec playwright install --with-deps chromium
-      - run: pnpm --filter @second-brain/web exec playwright test cross-tenant.spec.ts --project=chromium --retries=0 --max-failures=1
+      - run: pnpm --filter @second-brain/web exec playwright test --project=chromium --retries=0 --max-failures=1
       - run: python scripts/check_test_evidence.py apps/web/test-results/e2e-results.xml
       # Reports use dedicated synthetic test accounts. Do not upload cookies or auth state.
       - uses: actions/upload-artifact@v4
