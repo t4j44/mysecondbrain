@@ -79,11 +79,11 @@ def run() -> int:
 
     for label, path in (
         ("auth user without token", "/auth/v1/user"),
-        ("account-active RPC anonymously", "/rest/v1/rpc/account_active"),
+        ("account-active RPC anonymously", "/rest/v1/rpc/account_active?owner=00000000-0000-0000-0000-000000000000"),
     ):
         try:
             status, _ = request_status(path, key)
-            if status not in (401, 403, 404, 405):
+            if status not in (401, 403):
                 raise ValueError("Unexpected anonymous access response")
             print(f"PASS {label}: HTTP {status} (not an authenticated journey)")
         except (ValueError, urllib.error.URLError, TimeoutError, OSError) as error:
