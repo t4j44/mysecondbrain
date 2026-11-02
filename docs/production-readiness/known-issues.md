@@ -1,3 +1,5 @@
+> **Historical audit snapshot — NOT current production approval (2026-11-02).** The assertions below reflect the dated, limited local remediation scope and may use simulated providers or unproven host operations. **Second Brain remains NO-GO for public/paid production.** See [current release status](./CURRENT_LAUNCH_STATUS_2026-11-02.md) and [live gate #32](https://github.com/t4j44/mysecondbrain/issues/32). Never treat "READY" in this historical document as a completed hosted backup, two-account E2E, payment acceptance, or public promotion.
+
 # Known Issues and Non-Blocking Observations
 
 **Date**: August 6, 2026  
