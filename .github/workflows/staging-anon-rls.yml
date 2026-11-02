@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - main
-      - codex/staging-anon-rls-proof-20261102
     paths:
       - '.github/workflows/staging-anon-rls.yml'
       - '.github/workflows/beta-e2e.yml'
