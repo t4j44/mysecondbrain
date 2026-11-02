@@ -1,0 +1,26 @@
+name: Staging anonymous database isolation proof
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/staging-anon-rls.yml'
+      - '.github/workflows/beta-e2e.yml'
+      - 'scripts/staging/anonymous_rls_live.py'
+      - 'supabase/migrations/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  anonymous-rls-staging:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check public staging RLS without using real accounts
+        run: python scripts/staging/anonymous_rls_live.py
