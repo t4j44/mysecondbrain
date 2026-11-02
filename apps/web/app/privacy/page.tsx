@@ -13,7 +13,7 @@ export default function BetaPrivacyInformation() {
       <h1 className="text-3xl font-semibold">Closed-beta privacy information</h1>
       <p className="rounded-xl border p-4 text-sm">
         <strong>Pre-release disclosure — not a finalized legal privacy notice.</strong>{' '}
-        The beta operator must approve the controller's legal identity, contact address, lawful basis,
+        The beta operator must approve the controller&apos;s legal identity, contact address, lawful basis,
         processors, international transfers and local legal obligations before inviting external testers.
         Do not treat this draft as permission for public signups.
       </p>
@@ -39,7 +39,7 @@ export default function BetaPrivacyInformation() {
         <p>Account export provides supported structured records; <strong>original uploaded
           attachment bytes are not included</strong> in that archive. You must download or
           retain those files separately. Account deletion blocks access and queues cleanup;
-          copies in provider backups, independent exports or other people's systems are
+          copies in provider backups, independent exports or other people&apos;s systems are
           not necessarily removed immediately. No fixed backup-purge period has been verified.</p>
         <h2 className="text-xl font-semibold">Pilot retention and contact</h2>
         <p>The final retention schedule, identity and contact details of the responsible
