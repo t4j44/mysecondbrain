@@ -83,7 +83,12 @@ test.describe('Core Daily Driver lifecycles', () => {
       label: ventureName,
     });
     await page.getByPlaceholder('Description (optional)').fill('Linked project');
-    await page.getByRole('button', { name: 'Create Project' }).click();
+    // The empty-state CTA has the same accessible name as the submit button.
+    // Scope the action to the form containing this project's input.
+    const projectCreationForm = page.locator('form').filter({
+      has: page.getByPlaceholder('Project name *'),
+    });
+    await projectCreationForm.getByRole('button', { name: 'Create Project', exact: true }).click();
 
     const projectCard = cardByName(page, 'project-card', projectName);
     await expect(projectCard).toBeVisible();
