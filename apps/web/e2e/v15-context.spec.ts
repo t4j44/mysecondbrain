@@ -55,7 +55,7 @@ test.describe('V1.5 personal context acceptance', () => {
     await page.reload();
     await expect(page.getByText(outcome, {exact:true}).first()).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    const foreign = await browser.newContext();
+    const foreign = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     try {
       const other = await foreign.newPage(); await loginViaUi(other, getSecondaryE2EUser()!);
       const deniedProfile = other.waitForResponse(response => response.url().includes('/people/') && [403, 404].includes(response.status()));
