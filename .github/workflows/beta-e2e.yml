@@ -6,6 +6,7 @@ permissions:
 jobs:
   beta-journey:
     runs-on: ubuntu-latest
+    timeout-minutes: 45 # Stop a hung browser suite rather than consuming unbounded hosted runner time.
     environment: beta-staging
     env:
       CI: 'true'
