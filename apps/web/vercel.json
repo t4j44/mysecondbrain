@@ -3,7 +3,8 @@
   "git": {
     "deploymentEnabled": {
       "main": false,
-      "codex/second-brain-release-hardening": false
+      "codex/second-brain-release-hardening": false,
+      "codex/v2-demo-preview-20261102": true
     }
   }
 }
