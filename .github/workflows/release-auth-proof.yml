@@ -26,6 +26,8 @@ jobs:
       E2E_PASSWORD_B: ${{ secrets.E2E_PASSWORD_B }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
       - name: Require isolated staging and two test users
         shell: bash
         run: |
@@ -42,8 +44,6 @@ jobs:
           if [ "$PLAYWRIGHT_TEST_BASE_URL" != "https://second-brain-web-staging-seven.vercel.app" ]; then echo "Wrong web target"; exit 1; fi
           if [ "$NEXT_PUBLIC_API_BASE_URL" != "https://second-brain-api-staging.onrender.com/api/v1" ]; then echo "Wrong API target"; exit 1; fi
           if [ "$NEXT_PUBLIC_SUPABASE_URL" != "https://$BETA_SUPABASE_PROJECT_REF.supabase.co" ]; then echo "Staging project identity mismatch"; exit 1; fi
-        with:
-          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
