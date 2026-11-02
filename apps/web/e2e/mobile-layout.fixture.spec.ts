@@ -169,7 +169,15 @@ test('existing dark theme and collapsed desktop sidebar remain usable',async({pa
 test('authentication forms stay readable in both themes without calling a provider',async({page},info)=>{
  test.skip(page.viewportSize()!.width!==390,'Representative auth theme width');
  for(const theme of ['light','dark']) for(const route of ['login','signup','forgot-password','reset-password','verify']){
-  await page.goto(`/${route}?theme=${theme}`);await expect(page.locator('main h2')).toBeVisible();await noOverflow(page);
+  await page.goto(`/${route}?theme=${theme}`);
+  if (route === 'signup') {
+   // The closed beta defaults to an invitation-only page instead of a public registration form.
+   await expect(page.getByRole('heading', { name: 'Second Brain is invite-only' })).toBeVisible();
+   await expect(page.getByRole('button', { name: /provision workspace/i })).toHaveCount(0);
+  } else {
+   await expect(page.locator('main h2')).toBeVisible();
+  }
+  await noOverflow(page);
   const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();
   expect(result.violations.map((v:{id:string;nodes:unknown[]})=>({id:v.id,nodes:v.nodes}))).toEqual([]);
   await capture(page,`${route}-${theme}`,info.project.name);
