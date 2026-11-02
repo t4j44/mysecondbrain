@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/authenticated-test';
 import { getPrimaryE2EUser, getSecondaryE2EUser, hasSupabasePublicConfig } from './helpers/credentials';
 import { loginViaUi, uniqueId } from './helpers/ui';
 

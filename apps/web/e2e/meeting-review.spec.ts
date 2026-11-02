@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/authenticated-test';
 import { createClient } from '@supabase/supabase-js';
 import { getPrimaryE2EUser, getSecondaryE2EUser } from './helpers/credentials';
 
