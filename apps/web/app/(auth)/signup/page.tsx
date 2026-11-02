@@ -10,7 +10,7 @@ export default function SignupPage() {
   return (
     <main className="space-y-5">
       <h1 className="text-3xl font-semibold">Second Brain is invite-only</h1>
-      <p className="text-muted-foreground">We're testing a free, limited beta with a small
+      <p className="text-muted-foreground">We&apos;re testing a free, limited beta with a small
         group of invited users. Public registration is currently closed.</p>
       <p>Already have an invitation? <Link href="/login" className="underline">
         Sign in to your account</Link>.</p>
