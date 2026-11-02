@@ -23,9 +23,9 @@ export default function BetaParticipationInformation() {
           An invitation can be withdrawn and access may be suspended to protect the service.</p>
         <h2 className="text-xl font-semibold">Use restrictions</h2>
         <p>Use synthetic or low-risk information whenever possible. Do not upload sensitive,
-          confidential or regulated records, another person's data without permission,
+          confidential or regulated records, another person&apos;s data without permission,
           credentials, or anything you lack authority to share. Do not attempt to access
-          another user's workspace, evade access restrictions, or run abusive automated traffic.</p>
+          another user&apos;s workspace, evade access restrictions, or run abusive automated traffic.</p>
         <h2 className="text-xl font-semibold">Beta reliability and AI</h2>
         <p>Features may be incomplete, inaccurate or unavailable. AI answers, transcriptions,
           recommendations and inferred commitments require human verification. This beta is
