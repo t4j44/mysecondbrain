@@ -15,15 +15,15 @@ from pathlib import Path
 
 BASE = "https://rpkjmdrralzxhdsgceal.supabase.co"
 WORKFLOW = Path(__file__).resolve().parents[2] / ".github/workflows/beta-e2e.yml"
-TABLES = (
-    "assistant_preferences",
-    "messaging_connections",
-    "messaging_update_receipts",
-    "commitment_actions",
-    "notification_outbox",
-    "notification_delivery_attempts",
-    "messaging_callback_tokens",
-)
+TABLES = {
+    "assistant_preferences": "user_id",
+    "messaging_connections": "id",
+    "messaging_update_receipts": "update_id",
+    "commitment_actions": "id",
+    "notification_outbox": "id",
+    "notification_delivery_attempts": "id",
+    "messaging_callback_tokens": "id",
+}
 
 
 def publishable_key() -> str:
@@ -60,7 +60,7 @@ def run() -> int:
     failures: list[str] = []
     for table in TABLES:
         try:
-            status, body = request_status(f"/rest/v1/{table}?select=id&limit=1", key)
+            status, body = request_status(f"/rest/v1/{table}?select={TABLES[table]}&limit=1", key)
             if status in (401, 403):
                 print(f"PASS {table}: anonymous read denied (HTTP {status})")
             elif status == 200:
