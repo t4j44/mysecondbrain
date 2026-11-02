@@ -143,11 +143,13 @@ export default function LoginPage() {
 
       <GoogleSignIn next={redirectUrl} />
 
-      <div className="text-center text-sm text-muted-foreground ">
-        New to Second Brain?{' '}
-        <Link href="/signup" prefetch={false} className="inline-flex min-h-11 items-center text-primary hover:underline font-semibold font-sans">
-          Create an account
-        </Link>
+      <div className="space-y-2 text-center text-sm text-muted-foreground">
+        <p>Second Brain is currently available by invitation only.{' '}
+          <Link href="/signup" prefetch={false} className="underline">Beta access</Link>
+        </p>
+        <p><Link href="/privacy" className="underline">Privacy information</Link>{' · '}
+          <Link href="/terms" className="underline">Participation information</Link>
+        </p>
       </div>
     </div>
   );

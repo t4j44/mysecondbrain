@@ -11,6 +11,8 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/verify',
   '/callback',
   '/pricing',
+  '/privacy',
+  '/terms',
   '/widget',
   '/oauth/consent',
 ]);
