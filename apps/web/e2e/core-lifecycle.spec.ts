@@ -100,10 +100,15 @@ test.describe('Core Daily Driver lifecycles', () => {
     await cardByName(page, 'project-card', projectName)
       .getByRole('button', { name: 'Edit project' })
       .click();
-    const editInput = cardByName(page, 'project-card', projectName).locator('input').first();
+    // The card's name becomes an input value in edit mode, so it no longer
+    // matches a hasText filter. Only the active edit card contains inputs.
+    const editingProjectCard = page.getByTestId('project-card').filter({
+      has: page.locator('input'),
+    });
+    const editInput = editingProjectCard.locator('input').first();
     await expect(editInput).toHaveValue(projectName);
     await editInput.fill(renamed);
-    await cardByName(page, 'project-card', projectName).getByRole('button', { name: /save/i }).click();
+    await editingProjectCard.getByRole('button', { name: /save/i }).click();
     await expect(cardByName(page, 'project-card', renamed).getByText(ventureName)).toBeVisible();
 
     await logoutViaUi(page);
