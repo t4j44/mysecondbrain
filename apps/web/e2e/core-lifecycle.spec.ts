@@ -214,7 +214,7 @@ test.describe('Core Daily Driver lifecycles', () => {
     const renamed = `${personName} Edited`;
 
     await page.goto('/people');
-    await expect(page.getByRole('heading', { name: /relationship crm/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'People', exact: true })).toBeVisible();
     await page.getByTestId('person-create').click();
     await expect(page).toHaveURL(/\/people\/new/);
 
