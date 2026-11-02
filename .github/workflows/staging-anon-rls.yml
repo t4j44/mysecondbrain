@@ -2,11 +2,12 @@ name: Staging anonymous database isolation proof
 on:
   push:
     branches:
-      - codex/staging-anon-rls-proof-20261102
+      - main
     paths:
       - '.github/workflows/staging-anon-rls.yml'
       - '.github/workflows/beta-e2e.yml'
       - 'scripts/staging/anonymous_rls_live.py'
+      - 'supabase/migrations/**'
   workflow_dispatch:
 
 permissions:
