@@ -157,6 +157,11 @@ export default function SignupPage() {
       </div>
       <GoogleSignIn />
 
+      <p className="text-sm text-muted-foreground">Please review the{' '}
+        <Link href="/privacy" className="underline">privacy information</Link> and{' '}
+        <Link href="/terms" className="underline">participation information</Link>
+        before registering. The beta operator must approve the final policies before issuing invitations.
+      </p>
       <div className="text-center text-sm text-muted-foreground font-mono pt-4">
         Already registered?{' '}
         <Link href="/login" className="text-primary hover:underline font-semibold font-sans">
