@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/authenticated-test';
 import { getPrimaryE2EUser, hasSupabasePublicConfig } from './helpers/credentials';
 import { uniqueId } from './helpers/ui';
 
@@ -66,7 +66,7 @@ test.describe('Closed beta capture, retrieve, act and share', () => {
     await page.getByRole('button', { name: 'Publish reviewed copy' }).click();
     const share = await page.locator('a[href*="/p/"]').getAttribute('href');
     expect(share).toBeTruthy();
-    const publicContext = await browser.newContext();
+    const publicContext = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const visitor = await publicContext.newPage();
     try {
       await visitor.goto(share!);

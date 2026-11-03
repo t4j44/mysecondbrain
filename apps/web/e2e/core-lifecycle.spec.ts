@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/authenticated-test';
 import { getPrimaryE2EUser, hasSupabasePublicConfig } from './helpers/credentials';
 import {
   cardByName,
@@ -83,7 +83,12 @@ test.describe('Core Daily Driver lifecycles', () => {
       label: ventureName,
     });
     await page.getByPlaceholder('Description (optional)').fill('Linked project');
-    await page.getByRole('button', { name: 'Create Project' }).click();
+    // The empty-state CTA has the same accessible name as the submit button.
+    // Scope the action to the form containing this project's input.
+    const projectCreationForm = page.locator('form').filter({
+      has: page.getByPlaceholder('Project name *'),
+    });
+    await projectCreationForm.getByRole('button', { name: 'Create Project', exact: true }).click();
 
     const projectCard = cardByName(page, 'project-card', projectName);
     await expect(projectCard).toBeVisible();
@@ -95,10 +100,15 @@ test.describe('Core Daily Driver lifecycles', () => {
     await cardByName(page, 'project-card', projectName)
       .getByRole('button', { name: 'Edit project' })
       .click();
-    const editInput = cardByName(page, 'project-card', projectName).locator('input').first();
+    // The card's name becomes an input value in edit mode, so it no longer
+    // matches a hasText filter. Only the active edit card contains inputs.
+    const editingProjectCard = page.getByTestId('project-card').filter({
+      has: page.locator('input'),
+    });
+    const editInput = editingProjectCard.locator('input').first();
     await expect(editInput).toHaveValue(projectName);
     await editInput.fill(renamed);
-    await cardByName(page, 'project-card', projectName).getByRole('button', { name: /save/i }).click();
+    await editingProjectCard.getByRole('button', { name: /save/i }).click();
     await expect(cardByName(page, 'project-card', renamed).getByText(ventureName)).toBeVisible();
 
     await logoutViaUi(page);
@@ -204,7 +214,7 @@ test.describe('Core Daily Driver lifecycles', () => {
     const renamed = `${personName} Edited`;
 
     await page.goto('/people');
-    await expect(page.getByRole('heading', { name: /relationship crm/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'People', exact: true })).toBeVisible();
     await page.getByTestId('person-create').click();
     await expect(page).toHaveURL(/\/people\/new/);
 
