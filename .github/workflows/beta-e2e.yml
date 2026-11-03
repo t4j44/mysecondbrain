@@ -9,8 +9,11 @@ jobs:
     environment: beta-staging
     env:
       CI: 'true'
-      # These are deliberately pinned public staging endpoints; no dynamic production target.
-      PLAYWRIGHT_TEST_BASE_URL: https://second-brain-web-staging-seven.vercel.app
+      # Pin the verified protected V2 demo alias, never the obsolete public -seven alias.
+      # NOTE: This branch is an E2E target correction only. Playwright must obtain
+      # Vercel automation bypass securely before the hosted suite can execute.
+      # Do not disable deployment protection or upload authentication state.
+      PLAYWRIGHT_TEST_BASE_URL: https://second-brain-web-staging-git-co-d5f79c-thenadish-4808s-projects.vercel.app
       NEXT_PUBLIC_API_BASE_URL: https://second-brain-api-staging.onrender.com/api/v1
       NEXT_PUBLIC_SUPABASE_URL: https://rpkjmdrralzxhdsgceal.supabase.co
       BETA_SUPABASE_PROJECT_REF: rpkjmdrralzxhdsgceal
@@ -36,7 +39,7 @@ jobs:
           fi
           if [ "$BETA_SUPABASE_PROJECT_REF" != "rpkjmdrralzxhdsgceal" ]; then echo "Unexpected Supabase project"; exit 1; fi
           if [ "$BETA_SUPABASE_PROJECT_REF" = "$PRODUCTION_SUPABASE_PROJECT_REF" ]; then echo "Staging must differ from production"; exit 1; fi
-          if [ "$PLAYWRIGHT_TEST_BASE_URL" != "https://second-brain-web-staging-seven.vercel.app" ]; then echo "Wrong web target"; exit 1; fi
+          if [ "$PLAYWRIGHT_TEST_BASE_URL" != "https://second-brain-web-staging-git-co-d5f79c-thenadish-4808s-projects.vercel.app" ]; then echo "Wrong web target"; exit 1; fi
           if [ "$NEXT_PUBLIC_API_BASE_URL" != "https://second-brain-api-staging.onrender.com/api/v1" ]; then echo "Wrong API target"; exit 1; fi
           if [ "$NEXT_PUBLIC_SUPABASE_URL" != "https://$BETA_SUPABASE_PROJECT_REF.supabase.co" ]; then echo "Staging project identity mismatch"; exit 1; fi
       - uses: actions/setup-node@v4
