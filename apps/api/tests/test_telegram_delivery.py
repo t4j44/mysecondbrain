@@ -40,10 +40,10 @@ def enabled(monkeypatch):
     monkeypatch.setattr(settings, 'FRONTEND_URL', 'https://brain.example.test')
 
 
-def callback(raw, chat, *, update_id=101, message_id=19):
+def callback(raw, chat, *, update_id=101, message_id=19, message_date=None):
     return TelegramUpdate.model_validate({'update_id': update_id, 'callback_query': {
         'id': 'synthetic-callback', 'from': {'id': chat, 'is_bot': False}, 'data': raw,
-        'message': {'date': int(NOW.timestamp()), 'message_id': message_id,
+        'message': {'date': int((message_date or NOW).timestamp()), 'message_id': message_id,
             'from': {'id': 12345, 'is_bot': True}, 'chat': {'id': chat, 'type': 'private'}}}})
 
 

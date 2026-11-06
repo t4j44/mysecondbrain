@@ -54,5 +54,5 @@ if __name__ == '__main__':
         digest = transform(args.mode, args.source, args.destination,
             os.environ.get('BACKUP_PASSPHRASE') or getpass.getpass('Backup passphrase: '))
         print(f'Authenticated backup operation completed. SHA256: {digest}')
-    except Exception:
+    except Exception:  # noqa: BLE001 -- sanitized CLI boundary, never expose credentials in tracebacks
         raise SystemExit('Backup encryption/decryption failed; no successful recovery recorded.') from None

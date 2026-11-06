@@ -1,5 +1,5 @@
 import asyncio
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -99,7 +99,8 @@ async def test_concurrent_callbacks_apply_one_action_and_reconcile_unknown(pg_en
     buttons = {b['text']: b.get('callback_data') for line in client.send.call_args.args[2] for b in line}
     async with rls_db_session(owner) as db:
         chat = int(decrypt_token((await db.scalar(select(MessagingConnection))).encrypted_chat_id))
-    updates = [callback(buttons['Done'], chat, update_id=uuid4().int % (2**63)) for _ in range(2)]
+    updates = [callback(buttons['Done'], chat, update_id=uuid4().int % (2**63),
+        message_date=datetime.now(timezone.utc)) for _ in range(2)]
     await asyncio.gather(*(process_callback(update, client=client, clock=NOW) for update in updates))
     async with rls_db_session(owner) as db:
         assert await db.scalar(select(func.count()).select_from(CommitmentAction)) == 1
