@@ -48,6 +48,32 @@ try {
         $rejected = ($LASTEXITCODE -ne 0)
     } catch { $rejected = $true }
     $checks.git_folder_target_rejected = ($rejected -and -not [IO.File]::Exists($unsafe))
+
+    $checks.url_password_only_accepted = ((Resolve-PrivateConnection $urlValue '') -ceq $urlValue)
+    $checks.same_password_twice_accepted = ((Resolve-PrivateConnection $urlValue 'synthetic') -ceq $urlValue)
+    $placeholder = $urlValue.Replace(':synthetic@', ':[YOUR-PASSWORD]@')
+    $encoded = Resolve-PrivateConnection $placeholder 'Synthetic! @:/#'
+    $checks.placeholder_password_escaped = ($encoded -ceq $placeholder.Replace('[YOUR-PASSWORD]',[Uri]::EscapeDataString('Synthetic! @:/#')))
+    $checks.encoded_matching_duplicate_accepted = ((Resolve-PrivateConnection $encoded 'Synthetic! @:/#') -ceq $encoded)
+    $cases = @(
+        @{name='conflicting_passwords'; url=$urlValue; password='different'; stage='VALIDATING_DATABASE_PASSWORD'; error='DATABASE_PASSWORD_CONFLICT'},
+        @{name='missing_password'; url=$placeholder; password=''; stage='VALIDATING_DATABASE_PASSWORD'; error='DATABASE_PASSWORD_REQUIRED'},
+        @{name='wrong_pooler_project'; url=$urlValue.Replace('rpkjmdrralzxhdsgceal','otherproject'); password=''; stage='VALIDATING_PROJECT'; error='STAGING_PROJECT_MISMATCH'},
+        @{name='wrong_direct_project'; url='postgresql://postgres:synthetic@db.otherproject.supabase.co:5432/postgres'; password=''; stage='VALIDATING_PROJECT'; error='STAGING_PROJECT_MISMATCH'},
+        @{name='spoofed_pooler_host'; url=$urlValue.Replace('.pooler.supabase.com','.pooler.supabase.com.attacker.invalid'); password=''; stage='VALIDATING_PROJECT'; error='STAGING_PROJECT_MISMATCH'},
+        @{name='transaction_pooler'; url=$urlValue.Replace(':5432/',':6543/'); password=''; stage='VALIDATING_ENDPOINT'; error='INVALID_STAGING_ENDPOINT'},
+        @{name='query_target_override'; url=($urlValue+'?host=otherproject.invalid'); password=''; stage='VALIDATING_ENDPOINT'; error='UNSUPPORTED_CONNECTION_OPTION'}
+    )
+    foreach ($case in $cases) {
+        $caught = $false
+        try { $ignoredOutput = Resolve-PrivateConnection $case.url $case.password } catch {
+            $caught = $true
+            Write-InputStatus 'SAVE_FAILED' (Get-InputErrorType $_.Exception)
+        }
+        $safeStatus = Get-Content -LiteralPath ($target+'.status.json') -Raw | ConvertFrom-Json
+        $checks[$case.name+'_specific_diagnostic'] = ($caught -and $safeStatus.failure_stage -ceq $case.stage -and $safeStatus.error_type -ceq $case.error)
+    }
+    $checks.validation_does_not_change_saved_file = ($before -ceq (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash)
     if (@($checks.Values | Where-Object { $_ -ne $true }).Count -ne 0) { throw 'Private setup guard test failed.' }
     @{synthetic_private_input_guards='PASS'; checks=$checks} | ConvertTo-Json -Depth 3 -Compress
 } finally {

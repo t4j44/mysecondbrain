@@ -15,6 +15,7 @@ if (-not [String]::Equals([IO.Path]::GetDirectoryName($Destination), $privateFol
 if ([IO.File]::Exists($Destination)) { throw 'An existing setup will not be overwritten.' }
 if ($KeepSynthetic -and -not ($SelfTest -or $SelfTestClick)) { throw 'KeepSynthetic is a test-only option.' }
 $script:RecoveryDestination = $Destination
+$script:RecoveryStage = 'FORM_OPEN'
 
 function Set-PrivateDirectory([string]$Folder) {
     New-Item -ItemType Directory -Force -Path $Folder | Out-Null
@@ -33,6 +34,7 @@ function Set-PrivateDirectory([string]$Folder) {
 }
 
 function Assert-PrivateFile([string]$Target, [string]$DatabaseUrl, [string]$Passphrase) {
+    $script:RecoveryStage = 'FINAL_FILE_VERIFICATION'
     if (-not [IO.File]::Exists($Target)) { throw 'Final private setup file is missing.' }
     $protected = [IO.File]::ReadAllBytes($Target)
     $checked = $null
@@ -62,9 +64,65 @@ function Write-InputStatus([string]$Status, [string]$ErrorType='') {
     Set-PrivateDirectory $parent
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $metadata = @{status=$Status; file=$target; error_type=$ErrorType; account_sid=$identity.User.Value
+        failure_stage=$(if ($Status -eq 'SAVE_FAILED') { $script:RecoveryStage } else { '' })
         session_id=[Diagnostics.Process]::GetCurrentProcess().SessionId; process_id=$PID; computer=$env:COMPUTERNAME
         updated_at=[DateTime]::UtcNow.ToString('o')}
     [IO.File]::WriteAllText(($target + '.status.json'), ($metadata | ConvertTo-Json -Compress))
+}
+
+function Stop-InputValidation([string]$Code) {
+    $validationException = New-Object InvalidOperationException($Code)
+    $validationException.Data['private_setup_error_type'] = $Code
+    throw $validationException
+}
+
+function Get-InputErrorType([Exception]$Exception) {
+    $current = $Exception
+    while ($current) {
+        if ($current.Data.Contains('private_setup_error_type')) {
+            return [string]$current.Data['private_setup_error_type']
+        }
+        $current = $current.InnerException
+    }
+    return $Exception.GetType().Name
+}
+
+function Resolve-PrivateConnection([string]$DatabaseUrl, [string]$SeparatePassword) {
+    $script:RecoveryStage = 'VALIDATING_DATABASE_PASSWORD'
+    $value = $DatabaseUrl.Trim()
+    $placeholder = $value.Contains('[YOUR-PASSWORD]')
+    if ($placeholder) {
+        if (-not $SeparatePassword) { Stop-InputValidation 'DATABASE_PASSWORD_REQUIRED' }
+        $value = $value.Replace('[YOUR-PASSWORD]', [Uri]::EscapeDataString($SeparatePassword))
+    }
+    try { $parsed = [Uri]$value } catch { Stop-InputValidation 'INVALID_DATABASE_URL' }
+    if (-not $parsed.IsAbsoluteUri) { Stop-InputValidation 'INVALID_DATABASE_URL' }
+    $credentials = $parsed.UserInfo -split ':', 2
+    if ($credentials.Count -ne 2 -or -not $credentials[1]) { Stop-InputValidation 'DATABASE_PASSWORD_REQUIRED' }
+    # Supplying the same password twice is harmless. Conflicting values must
+    # fail explicitly instead of silently choosing one credential.
+    if (-not $placeholder -and $SeparatePassword -and
+        [Uri]::UnescapeDataString($credentials[1]) -cne $SeparatePassword) {
+        Stop-InputValidation 'DATABASE_PASSWORD_CONFLICT'
+    }
+    $script:RecoveryStage = 'VALIDATING_PROJECT'
+    $username = [Uri]::UnescapeDataString($credentials[0])
+    $direct = $parsed.Host -eq 'db.rpkjmdrralzxhdsgceal.supabase.co'
+    $pooler = $parsed.Host.EndsWith('.pooler.supabase.com') -and $username.EndsWith('.rpkjmdrralzxhdsgceal')
+    if ($parsed.Scheme -notin @('postgres','postgresql') -or -not ($direct -or $pooler)) {
+        Stop-InputValidation 'STAGING_PROJECT_MISMATCH'
+    }
+    $script:RecoveryStage = 'VALIDATING_ENDPOINT'
+    if ($parsed.AbsolutePath -ne '/postgres' -or $parsed.Port -notin @(-1,5432) -or $parsed.Fragment) {
+        Stop-InputValidation 'INVALID_STAGING_ENDPOINT'
+    }
+    if ($parsed.Query) {
+        foreach ($option in $parsed.Query.TrimStart('?').Split('&')) {
+            $key = [Uri]::UnescapeDataString($option.Split('=')[0])
+            if ($key -notin @('sslmode','connect_timeout')) { Stop-InputValidation 'UNSUPPORTED_CONNECTION_OPTION' }
+        }
+    }
+    return $value
 }
 
 function Save-PrivateSetup([string]$DatabaseUrl, [string]$Passphrase, [string]$Target) {
@@ -74,7 +132,9 @@ function Save-PrivateSetup([string]$DatabaseUrl, [string]$Passphrase, [string]$T
     try {
         $payload = @{database_url=$DatabaseUrl; passphrase=$Passphrase; format_version=1; synthetic_test=[bool]($SelfTest -or $SelfTestClick)}
         $bytes = [Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Compress))
+        $script:RecoveryStage = 'ENCRYPTION'
         $protected = [Security.Cryptography.ProtectedData]::Protect($bytes, $null, [Security.Cryptography.DataProtectionScope]::CurrentUser)
+        $script:RecoveryStage = 'FILE_SAVE'
         $parent = Split-Path -Parent $Target
         Set-PrivateDirectory $parent
         $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -86,6 +146,7 @@ function Save-PrivateSetup([string]$DatabaseUrl, [string]$Passphrase, [string]$T
         if ($verified.database_url -cne $DatabaseUrl -or $verified.passphrase -cne $Passphrase) { throw 'Private read-back failed.' }
         # Atomic move refuses to overwrite a previously saved setup.
         [IO.File]::Move($temporary, $Target)
+        $script:RecoveryStage = 'FINAL_FILE_VERIFICATION'
         $proof = Assert-PrivateFile $Target $DatabaseUrl $Passphrase
         $receipt = @{
             status='SAVED_AND_READ_BACK'; file=$Target; computer=$env:COMPUTERNAME
@@ -130,7 +191,7 @@ $url = New-Object Windows.Forms.TextBox
 $url.UseSystemPasswordChar = $true
 $url.SetBounds(15, 90, 630, 28)
 $databasePasswordLabel = New-Object Windows.Forms.Label
-$databasePasswordLabel.Text = 'Staging database password (only if the URL contains [YOUR-PASSWORD])'
+$databasePasswordLabel.Text = 'Staging database password (optional if already in URL; values must match)'
 $databasePasswordLabel.SetBounds(15, 130, 630, 22)
 $databasePassword = New-Object Windows.Forms.TextBox
 $databasePassword.UseSystemPasswordChar = $true
@@ -153,21 +214,10 @@ $button.SetBounds(430, 335, 210, 35)
 $button.Add_Click({
     try {
         Write-InputStatus 'SAVE_CLICK_RECEIVED'
-        $connectionUrl = $url.Text.Trim()
-        if ($connectionUrl.Contains('[YOUR-PASSWORD]')) {
-            if (-not $databasePassword.Text) { throw 'Enter the staging database password in its separate masked field.' }
-            $connectionUrl = $connectionUrl.Replace('[YOUR-PASSWORD]', [Uri]::EscapeDataString($databasePassword.Text))
-        } elseif ($databasePassword.Text) {
-            throw 'For a URL already containing its password, leave the separate database password field empty.'
-        }
-        $uri = [Uri]$connectionUrl
-        if ($uri.Scheme -notin @('postgres', 'postgresql') -or
-            ($uri.Host -ne 'db.rpkjmdrralzxhdsgceal.supabase.co' -and
-             -not ($uri.Host.EndsWith('.pooler.supabase.com') -and $uri.UserInfo.StartsWith('postgres.rpkjmdrralzxhdsgceal:')))) {
-            throw 'Use only the staging project database URL.'
-        }
-        if ($uri.AbsolutePath -ne '/postgres' -or $uri.Port -notin @(-1,5432) -or $uri.UserInfo -notmatch ':.+') { throw 'Use the session pooler on port 5432, database postgres.' }
-        if ($phrase.Text.Length -lt 20 -or $phrase.Text -ne $confirm.Text) { throw 'Passphrases must match and contain at least 20 characters.' }
+        $connectionUrl = Resolve-PrivateConnection $url.Text $databasePassword.Text
+        $script:RecoveryStage = 'VALIDATING_PASSPHRASE'
+        if ($phrase.Text.Length -lt 20 -or $phrase.Text -cne $confirm.Text) { Stop-InputValidation 'BACKUP_PASSPHRASE_INVALID' }
+        $script:RecoveryStage = 'FILE_SAVE'
         Write-InputStatus 'WRITING_ENCRYPTED_FILE'
         if ([IO.File]::Exists($script:RecoveryDestination)) {
             # A reader failure after the atomic save must allow verification to
@@ -176,6 +226,7 @@ $button.Add_Click({
         } else {
             Save-PrivateSetup $connectionUrl $phrase.Text $script:RecoveryDestination
         }
+        $script:RecoveryStage = 'INDEPENDENT_VERIFICATION'
         Write-InputStatus 'VERIFYING_WITH_BACKUP_READER'
         $python = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../apps/api/.venv/Scripts/python.exe'))
         $verifier = Join-Path $PSScriptRoot 'verify_private_setup.py'
@@ -188,9 +239,11 @@ $button.Add_Click({
         $receiptPath = $script:RecoveryDestination + '.receipt.json'
         $receipt = [IO.File]::ReadAllText($receiptPath) | ConvertFrom-Json
         if ($receipt.sha256 -cne $readerProof.sha256) { throw 'Independent final-file checksum mismatch.' }
-        $receipt | Add-Member -NotePropertyName backup_reader -NotePropertyValue 'PASS'
+        $receipt | Add-Member -NotePropertyName backup_reader -NotePropertyValue 'PASS' -Force
+        $script:RecoveryStage = 'VERIFICATION_RECEIPT_SAVE'
         [IO.File]::WriteAllText($receiptPath, ($receipt | ConvertTo-Json -Compress))
         if (-not [IO.File]::Exists($script:RecoveryDestination)) { throw 'Final file disappeared before success.' }
+        $script:RecoveryStage = 'COMPLETE'
         Write-InputStatus 'SAVED_AND_VERIFIED'
         $url.Clear(); $databasePassword.Clear(); $phrase.Clear(); $confirm.Clear()
         if (-not $SelfTestClick) {
@@ -199,7 +252,7 @@ $button.Add_Click({
         $form.DialogResult = [Windows.Forms.DialogResult]::OK
         $form.Close()
     } catch {
-        Write-InputStatus 'SAVE_FAILED' $_.Exception.GetType().Name
+        Write-InputStatus 'SAVE_FAILED' (Get-InputErrorType $_.Exception)
         if ($SelfTestClick) { $form.Close() } else {
             [Windows.Forms.MessageBox]::Show("Save or verification failed. No success was recorded. Your masked inputs remain in this form; leave it open so the private status can be diagnosed. An existing file will not be overwritten.`n`nDestination: $Destination", 'Private setup verification failed') | Out-Null
         }
