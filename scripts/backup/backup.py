@@ -24,18 +24,25 @@ def pg_environment(url):
     return environment
 
 
-def run_backup():
-    url = os.environ.get('DATABASE_URL')
+def run_backup(*, preserve_owners=False, snapshot=None, connection_url=None, backup_dir=None,
+        connection_environment=None):
+    url = connection_url or os.environ.get('DATABASE_URL')
     if not url:
         raise SystemExit('DATABASE_URL is required; do not paste it into logs.')
-    folder = Path(os.environ.get('BACKUP_DIR', './backups')).resolve()
+    folder = Path(backup_dir or os.environ.get('BACKUP_DIR', './backups')).resolve()
     folder.mkdir(parents=True, exist_ok=True)
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S') + '_' + uuid4().hex[:8]
     partial = folder / f'brain_{stamp}.partial'
     final = folder / f'brain_{stamp}.dump'
     try:
-        subprocess.run(['pg_dump', '--format=custom', '--no-owner', '--file', str(partial)],
-            env=pg_environment(url), check=True, timeout=600, stderr=subprocess.DEVNULL)
+        command = ['pg_dump', '--format=custom']
+        if not preserve_owners:
+            command.append('--no-owner')
+        if snapshot:
+            command.extend(['--snapshot', snapshot])
+        command.extend(['--file', str(partial)])
+        subprocess.run(command,
+            env=connection_environment or pg_environment(url), check=True, timeout=600, stderr=subprocess.DEVNULL)
         if not partial.exists() or partial.stat().st_size < 100:
             raise RuntimeError('Empty database dump')
         subprocess.run(['pg_restore', '--list', str(partial)], check=True, timeout=60,

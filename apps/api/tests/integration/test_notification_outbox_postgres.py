@@ -20,7 +20,7 @@ from tests.integration.test_assistant_connections_postgres import link_nonce, st
 from tests.integration.test_meeting_intelligence_postgres import identity as set_identity
 
 pytestmark = [pytest.mark.postgres, requires_postgres]
-NOW = datetime(2026, 11, 3, 12, tzinfo=timezone.utc)
+NOW = datetime.now(timezone.utc)
 
 
 @pytest.fixture

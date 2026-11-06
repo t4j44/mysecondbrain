@@ -21,7 +21,9 @@ from app.services.assistant_connections import identity_hash, revoke
 from app.services.commitment_actions import act
 from tests.conftest import TestingSessionLocal
 
-NOW = datetime(2026, 11, 3, 12, tzinfo=timezone.utc)
+# Explicit simulated clock at UTC noon keeps quiet-hour assertions deterministic,
+# while Snooze targets remain future times for the real canonical action validator.
+NOW = (datetime.now(timezone.utc) + timedelta(days=1)).replace(hour=12, minute=0, second=0, microsecond=0)
 
 
 @pytest.fixture

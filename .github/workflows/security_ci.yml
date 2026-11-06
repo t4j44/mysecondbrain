@@ -30,8 +30,11 @@ jobs:
         run: |
           ruff check apps/api
 
+      - name: Test private recovery guards and authenticated encryption
+        run: python -m unittest discover -s scripts/backup/tests -v
+
       - name: Audit locked Python dependencies in isolated tool environment
-        run: pipx run --spec pip-audit==2.10.1 pip-audit --require-hashes -r apps/api/requirements.lock
+        run: pipx run --python python3.12 --spec pip-audit==2.10.1 pip-audit --require-hashes -r apps/api/requirements.lock
 
       - name: Run Bandit Security Scanner
         run: |
