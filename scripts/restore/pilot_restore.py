@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import socket
@@ -19,6 +20,7 @@ from encrypt_backup import decrypt
 from staging_recovery import (
     SCHEMAS,
     manifest,
+    private_directory,
     private_setup,
     quote,
     unpack_private,
@@ -26,8 +28,13 @@ from staging_recovery import (
 
 
 def run(command, env=None, timeout=180):
-    return subprocess.run([str(item) for item in command], env=env, capture_output=True,
-        check=True, timeout=timeout).stdout
+    # A Windows postmaster can inherit pg_ctl's captured pipe handles and keep
+    # subprocess.communicate waiting after pg_ctl has exited. Daemons use NUL.
+    control = Path(command[0]).name.lower() in ('pg_ctl', 'pg_ctl.exe')
+    return subprocess.run([str(item) for item in command], env=env,
+        stdout=subprocess.DEVNULL if control else subprocess.PIPE,
+        stderr=subprocess.DEVNULL if control else subprocess.PIPE,
+        check=True, timeout=timeout).stdout or b''
 
 
 def free_port():
@@ -44,14 +51,22 @@ async def bootstrap(conn, original):
     for role in original['roles']:
         flags = ['SUPERUSER' if role['rolsuper'] else 'NOSUPERUSER',
             'INHERIT' if role['rolinherit'] else 'NOINHERIT',
+            'CREATEROLE' if role['rolcreaterole'] else 'NOCREATEROLE',
+            'CREATEDB' if role['rolcreatedb'] else 'NOCREATEDB',
+            'REPLICATION' if role['rolreplication'] else 'NOREPLICATION',
             'BYPASSRLS' if role['rolbypassrls'] else 'NOBYPASSRLS']
         await conn.execute(f'CREATE ROLE {quote(role["rolname"])} NOLOGIN ' + ' '.join(flags))
     for membership in original['memberships']:
         if membership['role'] == 'sb_recovery_operator' or membership['member'] == 'sb_recovery_operator':
             raise RuntimeError('Unexpected role collision.')
-        await conn.execute(f'GRANT {quote(membership["role"])} TO {quote(membership["member"])} '
-            + ('WITH ADMIN OPTION' if membership['admin_option'] else ''))
+        options = ', '.join(f'{name} {str(membership[key]).upper()}' for name, key in (
+            ('ADMIN', 'admin_option'), ('INHERIT', 'inherit_option'), ('SET', 'set_option')))
+        await conn.execute(f'GRANT {quote(membership["role"])} TO {quote(membership["member"])} WITH {options}')
     await conn.execute('CREATE SCHEMA IF NOT EXISTS extensions')
+    for schema in original['schemas']:
+        name, owner = quote(schema['nspname']), quote(schema['owner'])
+        await conn.execute(f'CREATE SCHEMA IF NOT EXISTS {name} AUTHORIZATION {owner}')
+        await conn.execute(f'ALTER SCHEMA {name} OWNER TO {owner}')
     for extension in original['extensions']:
         name = extension['extname']
         if name in ('plpgsql', 'supabase_vault'):
@@ -85,13 +100,48 @@ def comparison(original, restored):
         return value
 
     sections = ['tables', 'columns', 'policies', 'functions', 'constraints', 'indexes', 'triggers', 'schemas', 'default_acl']
-    return {section: canonical(original[section]) == canonical(restored[section]) for section in sections}
+    results = {section: canonical(original[section]) == canonical(restored[section]) for section in sections}
+    if 'roles' in original:
+        def role_permissions(rows):
+            return [{key: value for key, value in row.items() if key != 'rolcanlogin'}
+                for row in rows if row['rolname'] != 'sb_recovery_operator']
+
+        results['role_permissions'] = role_permissions(original['roles']) == role_permissions(restored['roles'])
+        results['role_memberships'] = original['memberships'] == restored['memberships']
+        results['source_role_logins_disabled'] = all(not row['rolcanlogin']
+            for row in restored['roles'] if row['rolname'] != 'sb_recovery_operator')
+    if 'extensions' in original:
+        def extensions(rows):
+            return [{key: value for key, value in row.items() if key != 'owner' or row['extname'] != 'plpgsql'}
+                for row in rows if row['extname'] != 'supabase_vault']
+
+        results['extension_versions'] = extensions(original['extensions']) == extensions(restored['extensions'])
+    return results
+
+
+def restore_list(contents):
+    """Select application objects plus schema/default ACLs, without managed extensions.
+
+    pg_restore --schema omits the schema objects themselves and their ACLs.
+    Schemas are created from the private manifest before applying this list.
+    """
+    schemas = '|'.join(re.escape(name) for name in SCHEMAS)
+    selected = []
+    for line in contents.splitlines():
+        entry = re.sub(r'^\d+; \d+ \d+ ', '', line)
+        namespaced = re.match(rf'^[A-Z ]+ ({schemas}) ', entry)
+        schema_metadata = re.match(rf'^(ACL|COMMENT|SECURITY LABEL) - SCHEMA ({schemas}) ', entry)
+        global_defaults = entry.startswith('DEFAULT ACL - ')
+        if namespaced or schema_metadata or global_defaults:
+            selected.append(line)
+    if not selected:
+        raise ValueError('No application objects in the backup.')
+    return '\n'.join(selected) + '\n'
 
 
 async def restore(encrypted, config_path, work_dir, server_root, client_root):
     config = private_setup(config_path)
-    work_dir = Path(work_dir).resolve()
-    work_dir.mkdir(parents=True, exist_ok=True)
+    work_dir = await asyncio.to_thread(private_directory, work_dir)
     scratch = Path(tempfile.mkdtemp(prefix='isolated_restore_', dir=work_dir)).resolve()
     if not scratch.is_relative_to(work_dir) or not scratch.name.startswith('isolated_restore_'):
         raise RuntimeError('Unsafe restore workspace.')
@@ -105,7 +155,6 @@ async def restore(encrypted, config_path, work_dir, server_root, client_root):
     env = {k: v for k, v in os.environ.items() if not k.startswith('PG')}
     env.update(PGHOST='127.0.0.1', PGPORT=str(port), PGDATABASE='postgres',
         PGUSER='sb_recovery_operator', PGPASSWORD=password, PGSSLMODE='disable', PGCONNECT_TIMEOUT='10')
-    started = False
     try:
         unpack_private(decrypt(Path(encrypted).read_bytes(), config['passphrase']), scratch)
         original = json.loads((scratch / 'manifest.json').read_text())
@@ -115,7 +164,6 @@ async def restore(encrypted, config_path, work_dir, server_root, client_root):
         password_file.unlink()
         await asyncio.to_thread(run, [server_root / 'bin/pg_ctl.exe', '-D', data,
             '-l', scratch / 'server-private.log', '-o', f'-h 127.0.0.1 -p {port} -c timezone=UTC', '-w', 'start'])
-        started = True
         conn = await asyncpg.connect(host='127.0.0.1', port=port, user='sb_recovery_operator',
             password=password, database='postgres', ssl=False, server_settings={'timezone': 'UTC'})
         try:
@@ -125,8 +173,11 @@ async def restore(encrypted, config_path, work_dir, server_root, client_root):
             await bootstrap(conn, original)
         finally:
             await conn.close()
+        toc = await asyncio.to_thread(run, [client_root / 'pg_restore.exe', '--list', scratch / 'database.dump'])
+        selection = scratch / 'restore.list'
+        selection.write_text(restore_list(toc.decode('utf-8')), encoding='utf-8')
         command = [client_root / 'pg_restore.exe', '--exit-on-error', '--single-transaction', '--no-tablespaces',
-            '--dbname', 'postgres', *[arg for name in SCHEMAS for arg in ('--schema', name)], scratch / 'database.dump']
+            '--dbname', 'postgres', '--use-list', selection, scratch / 'database.dump']
         await asyncio.to_thread(run, command, env, 600)
         conn = await asyncpg.connect(host='127.0.0.1', port=port, user='sb_recovery_operator',
             password=password, database='postgres', ssl=False, server_settings={'timezone': 'UTC'})
@@ -137,6 +188,7 @@ async def restore(encrypted, config_path, work_dir, server_root, client_root):
         finally:
             await conn.close()
         report = {'database_restore': 'PASS' if all(results.values()) else 'FAIL', 'checks': results,
+            'source_project': original.get('source_project', 'unknown'),
             'scope': SCHEMAS, 'table_count': len(restored['tables']), 'postgres': restored['version'],
             'vector': vector, 'encrypted_sha256': hashlib.sha256(Path(encrypted).read_bytes()).hexdigest(),
             'auth_service_config': 'SEPARATE_GATE', 'storage_file_bytes': 'SEPARATE_GATE',
@@ -149,7 +201,9 @@ async def restore(encrypted, config_path, work_dir, server_root, client_root):
         report_path = work_dir / 'restore-report.json'
         report_path.write_text(json.dumps(report, indent=2))
     finally:
-        if started:
+        # A startup command can time out after the postmaster has already started.
+        # Never delete its files until this exact newly initialized cluster stops.
+        if (data / 'postmaster.pid').exists():
             await asyncio.to_thread(run, [server_root / 'bin/pg_ctl.exe', '-D', data, '-m', 'fast', '-w', 'stop'])
         # Only this newly created cluster and plaintext extraction, never an existing/live target.
         if scratch.is_relative_to(work_dir) and scratch.name.startswith('isolated_restore_'):

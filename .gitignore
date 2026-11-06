@@ -51,3 +51,5 @@ graphify-out/cache/
 backups/
 *.dump
 *.partial
+*.dpapi
+*.dpapi.receipt.json

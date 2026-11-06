@@ -11,7 +11,7 @@ import subprocess
 import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import asyncpg
 import certifi
@@ -28,7 +28,8 @@ def staging_url(value):
     pooler = (bool(parsed.hostname) and parsed.hostname.endswith('.pooler.supabase.com')
         and (parsed.username or '').endswith('.' + PROJECT))
     if (parsed.scheme not in ('postgres', 'postgresql') or not (direct or pooler)
-            or parsed.path != '/postgres' or parsed.port not in (None, 5432) or not parsed.password):
+            or parsed.path != '/postgres' or parsed.port not in (None, 5432) or not parsed.password
+            or parsed.fragment or set(parse_qs(parsed.query, keep_blank_values=True)) - {'sslmode', 'connect_timeout'}):
         raise ValueError('Only the specified staging session/direct connection is accepted.')
     return value
 
@@ -59,6 +60,18 @@ def private_setup(path):
 
 def quote(name):
     return '"' + name.replace('"', '""') + '"'
+
+
+def private_directory(folder):
+    folder = Path(folder).resolve()
+    folder.mkdir(parents=True, exist_ok=True)
+    if os.name == 'nt':
+        identity = subprocess.run(['whoami'], capture_output=True, check=True, text=True).stdout.strip()
+        subprocess.run(['icacls', str(folder), '/inheritance:r', '/grant:r', identity + ':(OI)(CI)F'],
+            check=True, capture_output=True)
+    else:
+        folder.chmod(0o700)
+    return folder
 
 
 async def manifest(conn):
@@ -138,13 +151,7 @@ def unpack_private(data, folder):
 async def export(config_path, folder):
     config = private_setup(config_path)
     url = staging_url(config['database_url'])
-    folder = Path(folder).resolve()
-    folder.mkdir(parents=True, exist_ok=True)
-    if os.name == 'nt':
-        identity_result = await asyncio.to_thread(subprocess.run, ['whoami'], capture_output=True, check=True, text=True)
-        identity = identity_result.stdout.strip()
-        await asyncio.to_thread(subprocess.run, ['icacls', str(folder), '/inheritance:r', '/grant:r', identity + ':(OI)(CI)F'],
-            check=True, capture_output=True)
+    folder = await asyncio.to_thread(private_directory, folder)
     environment = pg_environment(url)
     environment.update(PGSSLMODE='verify-full', PGSSLROOTCERT=certifi.where(), PGCONNECT_TIMEOUT='15',
         PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=120000 -c lock_timeout=10000')
@@ -156,6 +163,7 @@ async def export(config_path, folder):
         async with conn.transaction(isolation='repeatable_read', readonly=True):
             snapshot = await conn.fetchval('SELECT pg_export_snapshot()')
             metadata = await manifest(conn)
+            metadata['source_project'] = PROJECT
             metadata['snapshot_at'] = datetime.now(timezone.utc).isoformat()
             dump = await asyncio.to_thread(run_backup, preserve_owners=True, snapshot=snapshot,
                 connection_url=url, backup_dir=folder, connection_environment=environment)

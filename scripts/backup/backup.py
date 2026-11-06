@@ -35,11 +35,12 @@ def run_backup(*, preserve_owners=False, snapshot=None, connection_url=None, bac
     partial = folder / f'brain_{stamp}.partial'
     final = folder / f'brain_{stamp}.dump'
     try:
-        command = ['pg_dump', '--format=custom', '--file', str(partial)]
+        command = ['pg_dump', '--format=custom']
         if not preserve_owners:
             command.append('--no-owner')
         if snapshot:
             command.extend(['--snapshot', snapshot])
+        command.extend(['--file', str(partial)])
         subprocess.run(command,
             env=connection_environment or pg_environment(url), check=True, timeout=600, stderr=subprocess.DEVNULL)
         if not partial.exists() or partial.stat().st_size < 100:
