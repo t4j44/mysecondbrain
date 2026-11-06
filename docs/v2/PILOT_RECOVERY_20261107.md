@@ -30,6 +30,22 @@ Subsequent verification still found no setup file, and the interactive task had 
 
 CI at `403943f5a465058c057c28dad7cf88db3dbeb230`: Security & Quality Audit PASS ([run](https://github.com/t4j44/mysecondbrain/actions/runs/42279138062)); PostgreSQL 16 and 17 schema/RLS/restore gates PASS ([run](https://github.com/t4j44/mysecondbrain/actions/runs/42279138135)). The hosted staging backup/restore is still NOT RUN; these checks do not substitute for it.
 
+## Version 4 save verification — synthetic data only
+
+The owner requested that repeated private-entry prompts stop. V3 was paused for investigation. Its latest receipt still said `FORM_OPEN`, with no credential file or recorded save failure; the original reported failure could not be reproduced conclusively. Two verification gaps were confirmed in the code: the click test unconditionally redirected output to a temporary folder, and the save routine decrypted the temporary file before renaming it rather than rereading the final target.
+
+V4 restricts destinations to the user's private `secure/SecondBrainRecovery` folder outside Git/worktrees. It writes DPAPI-encrypted bytes through a flushed exclusive stream, refuses overwrites, atomically moves the file into place, and then verifies the **final file**: existence, decrypted payload equality, owner-only access and SHA-256. A separate Python process uses the backup script's actual `private_setup` reader and staging guard before the form can record/show success. The receipt must match that reader's final-file hash. Missing/corrupt files or unavailable readers fail verification; masked inputs remain available. Receipts record the save stages without URLs, passwords or passphrases. Synthetic setup payloads are explicitly marked and rejected by normal backup/restore reads.
+
+Executed after the final relevant source changes:
+
+- **PASS:** save-button flow at the exact normal `staging.dpapi` path using synthetic inputs, through the same interactive Windows task launch/account/session as the owner form. The encrypted file existed (470 bytes), decrypted in an independent Python process, and matched the receipt hash. No database connection was made.
+- **PASS:** eleven Windows guards: final existence/read-back, owner-only permissions, disabled directory inheritance, independent backup reader, overwrite rejection, missing-file rejection, corrupt-file rejection by both readers, synthetic-data rejection for real backups, and Git-folder destination rejection. Unicode passphrase round-trip was included.
+- **PASS:** eleven existing Python recovery tests and Ruff. The low-level DPAPI self-test also passed in the desktop PowerShell runtime.
+- **PASS:** only verified, marked synthetic files were removed, including the exact-path test file. The completed synthetic task was removed. Real credentials were neither supplied nor processed by these tests.
+- The form was reopened once after these checks as **Second Brain STAGING - verified private setup v4**; its startup receipt and process/session were verified. No further credential-entry question was sent.
+
+The independent private test report is stored outside Git beside the private setup folder. It binds the results to SHA-256 digests of the tested form, verifier and backup-reader sources. These are **private-entry tool tests**, not evidence of a staging export, Drive upload or staging restore. Those operations remain NOT RUN until a real setup is independently verified.
+
 ## Operator recovery procedure
 
 1. Use the masked form to supply only the staging session/direct connection on port 5432 and a new 20+ character passphrase. Retain the passphrase in a password manager outside Google Drive. DPAPI is a local convenience, not independent key escrow.

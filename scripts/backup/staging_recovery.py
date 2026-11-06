@@ -34,7 +34,7 @@ def staging_url(value):
     return value
 
 
-def private_setup(path):
+def private_setup(path, *, allow_synthetic=False):
     if os.name != 'nt':
         raise RuntimeError('Private setup requires Windows DPAPI.')
     from ctypes import wintypes
@@ -52,7 +52,10 @@ def private_setup(path):
     if not crypt(ctypes.byref(source), None, None, None, None, 0, ctypes.byref(target)):
         raise RuntimeError('Private setup could not be unlocked by this Windows account.')
     try:
-        return json.loads(ctypes.string_at(target.data, target.length))
+        config = json.loads(ctypes.string_at(target.data, target.length))
+        if config.get('synthetic_test') and not allow_synthetic:
+            raise ValueError('Synthetic private setup cannot be used for a real backup.')
+        return config
     finally:
         ctypes.memset(target.data, 0, target.length)
         ctypes.windll.kernel32.LocalFree(ctypes.cast(target.data, ctypes.c_void_p))
