@@ -1,5 +1,5 @@
 # Private interactive input only. Credentials are protected by Windows DPAPI, never printed.
-param([string]$Destination, [switch]$SelfTest)
+param([string]$Destination, [switch]$SelfTest, [switch]$SelfTestClick)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Security
@@ -7,6 +7,21 @@ if (-not $Destination) {
     $Destination = Join-Path ([Environment]::GetFolderPath('UserProfile')) 'secure/SecondBrainRecovery/staging.dpapi'
 }
 $Destination = [IO.Path]::GetFullPath($Destination)
+if ($SelfTestClick) {
+    $Destination = Join-Path ([IO.Path]::GetTempPath()) ('sb-recovery-clicktest-' + [Guid]::NewGuid().ToString('N') + '/synthetic.dpapi')
+}
+
+function Write-InputStatus([string]$Status, [string]$ErrorType='') {
+    $parent = Split-Path -Parent $Destination
+    New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    & icacls.exe $parent /inheritance:r /grant:r "$($identity.Name):(OI)(CI)F" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Private directory permissions failed.' }
+    $metadata = @{status=$Status; file=$Destination; error_type=$ErrorType; account_sid=$identity.User.Value
+        session_id=[Diagnostics.Process]::GetCurrentProcess().SessionId; process_id=$PID; computer=$env:COMPUTERNAME
+        updated_at=[DateTime]::UtcNow.ToString('o')}
+    [IO.File]::WriteAllText(($Destination + '.status.json'), ($metadata | ConvertTo-Json -Compress))
+}
 
 function Save-PrivateSetup([string]$DatabaseUrl, [string]$Passphrase, [string]$Target) {
     $bytes = $null
@@ -57,7 +72,7 @@ if ($SelfTest) {
     exit
 }
 $form = New-Object Windows.Forms.Form
-$form.Text = 'Second Brain STAGING - verified private setup v2'
+$form.Text = 'Second Brain STAGING - verified private setup v3'
 $form.Size = New-Object Drawing.Size(680, 430)
 $form.StartPosition = 'CenterScreen'
 $form.TopMost = $true
@@ -106,15 +121,43 @@ $button.Add_Click({
         if ($uri.AbsolutePath -ne '/postgres' -or $uri.Port -notin @(-1,5432) -or $uri.UserInfo -notmatch ':.+') { throw 'Use the session pooler on port 5432, database postgres.' }
         if ($phrase.Text.Length -lt 20 -or $phrase.Text -ne $confirm.Text) { throw 'Passphrases must match and contain at least 20 characters.' }
         Save-PrivateSetup $connectionUrl $phrase.Text $Destination
+        Write-InputStatus 'SAVED_AND_VERIFIED'
         $url.Clear(); $databasePassword.Clear(); $phrase.Clear(); $confirm.Clear()
-        [Windows.Forms.MessageBox]::Show("Saved and verified for this Windows account.`n`n$Destination`n`nKeep your backup passphrase outside Google Drive. Codex will continue automatically.", 'Private recovery setup saved') | Out-Null
+        if (-not $SelfTestClick) {
+            [Windows.Forms.MessageBox]::Show("Saved and verified for this Windows account.`n`n$Destination`n`nKeep your backup passphrase outside Google Drive. Codex will continue automatically.", 'Private recovery setup saved') | Out-Null
+        }
         $form.DialogResult = [Windows.Forms.DialogResult]::OK
         $form.Close()
     } catch {
-        [Windows.Forms.MessageBox]::Show("The setup was not confirmed saved. Check the staging URL and matching passphrases, then retry. A previously saved setup will not be overwritten.`n`nDestination: $Destination", 'Private setup') | Out-Null
+        Write-InputStatus 'SAVE_FAILED' $_.Exception.GetType().Name
+        if ($SelfTestClick) { $form.Close() } else {
+            [Windows.Forms.MessageBox]::Show("The setup was not confirmed saved. Check the staging URL and matching passphrases, then retry. A previously saved setup will not be overwritten.`n`nDestination: $Destination", 'Private setup') | Out-Null
+        }
     }
 })
 $form.Controls.AddRange(@($instructions, $url, $databasePasswordLabel, $databasePassword, $phraseLabel, $phrase, $confirmLabel, $confirm, $button))
 $form.AcceptButton = $button
+Write-InputStatus 'FORM_OPEN'
+if ($SelfTestClick) {
+    $url.Text = 'postgresql://postgres.rpkjmdrralzxhdsgceal:[YOUR-PASSWORD]@aws-0-synthetic.pooler.supabase.com:5432/postgres'
+    $databasePassword.Text = 'Synthetic test only! @:/#'
+    $phrase.Text = 'Synthetic click test phrase only'
+    $confirm.Text = $phrase.Text
+    $form.Add_Shown({ $button.PerformClick() })
+}
 [void]$form.ShowDialog()
 $form.Dispose()
+if ($SelfTestClick) {
+    try {
+        $status = Get-Content -LiteralPath ($Destination + '.status.json') -Raw | ConvertFrom-Json
+        if ($status.status -ne 'SAVED_AND_VERIFIED' -or -not [IO.File]::Exists($Destination)) {
+            throw ('Save-button flow failed: ' + $status.error_type)
+        }
+        Write-Output 'Private form save-button flow PASS (synthetic inputs only).'
+    } finally {
+        foreach ($testFile in @($Destination, ($Destination + '.receipt.json'), ($Destination + '.status.json'))) {
+            if ([IO.File]::Exists($testFile)) { [IO.File]::Delete($testFile) }
+        }
+        [IO.Directory]::Delete([IO.Path]::GetDirectoryName($Destination))
+    }
+}
