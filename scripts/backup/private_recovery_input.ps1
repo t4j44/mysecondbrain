@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Security
 if (-not $Destination) {
-    $Destination = Join-Path $PSScriptRoot '../../.test-tmp/private-recovery/staging.dpapi'
+    $Destination = Join-Path ([Environment]::GetFolderPath('UserProfile')) 'secure/SecondBrainRecovery/staging.dpapi'
 }
 $Destination = [IO.Path]::GetFullPath($Destination)
 
@@ -57,34 +57,47 @@ if ($SelfTest) {
     exit
 }
 $form = New-Object Windows.Forms.Form
-$form.Text = 'Second Brain - private staging recovery setup'
-$form.Size = New-Object Drawing.Size(680, 350)
+$form.Text = 'Second Brain STAGING - verified private setup v2'
+$form.Size = New-Object Drawing.Size(680, 430)
 $form.StartPosition = 'CenterScreen'
 $form.TopMost = $true
 $instructions = New-Object Windows.Forms.Label
-$instructions.Text = 'Enter the STAGING session-pooler database URL for rpkjmdrralzxhdsgceal.' + "`n" + 'Choose a backup passphrase (20+ characters) and save it outside Google Drive.' + "`n" + 'Inputs stay local, encrypted for this Windows account. Do not send them in chat.'
+$instructions.Text = 'STAGING ONLY: second-brain-staging (rpkjmdrralzxhdsgceal), session-pooler URL.' + "`n" + 'Choose a backup passphrase (20+ characters) and save it outside Google Drive.' + "`n" + 'Saved outside Git/worktrees in your private Windows folder. Never send inputs in chat.'
 $instructions.SetBounds(15, 15, 640, 65)
 $url = New-Object Windows.Forms.TextBox
 $url.UseSystemPasswordChar = $true
 $url.SetBounds(15, 90, 630, 28)
+$databasePasswordLabel = New-Object Windows.Forms.Label
+$databasePasswordLabel.Text = 'Staging database password (only if the URL contains [YOUR-PASSWORD])'
+$databasePasswordLabel.SetBounds(15, 130, 630, 22)
+$databasePassword = New-Object Windows.Forms.TextBox
+$databasePassword.UseSystemPasswordChar = $true
+$databasePassword.SetBounds(15, 155, 630, 28)
 $phraseLabel = New-Object Windows.Forms.Label
 $phraseLabel.Text = 'Backup passphrase (save in your password manager)'
-$phraseLabel.SetBounds(15, 130, 620, 22)
+$phraseLabel.SetBounds(15, 205, 620, 22)
 $phrase = New-Object Windows.Forms.TextBox
 $phrase.UseSystemPasswordChar = $true
-$phrase.SetBounds(15, 155, 630, 28)
+$phrase.SetBounds(15, 230, 630, 28)
 $confirmLabel = New-Object Windows.Forms.Label
 $confirmLabel.Text = 'Confirm backup passphrase'
-$confirmLabel.SetBounds(15, 190, 620, 22)
+$confirmLabel.SetBounds(15, 265, 620, 22)
 $confirm = New-Object Windows.Forms.TextBox
 $confirm.UseSystemPasswordChar = $true
-$confirm.SetBounds(15, 215, 630, 28)
+$confirm.SetBounds(15, 290, 630, 28)
 $button = New-Object Windows.Forms.Button
 $button.Text = 'Save private setup'
-$button.SetBounds(430, 260, 210, 35)
+$button.SetBounds(430, 335, 210, 35)
 $button.Add_Click({
     try {
-        $uri = [Uri]$url.Text.Trim()
+        $connectionUrl = $url.Text.Trim()
+        if ($connectionUrl.Contains('[YOUR-PASSWORD]')) {
+            if (-not $databasePassword.Text) { throw 'Enter the staging database password in its separate masked field.' }
+            $connectionUrl = $connectionUrl.Replace('[YOUR-PASSWORD]', [Uri]::EscapeDataString($databasePassword.Text))
+        } elseif ($databasePassword.Text) {
+            throw 'For a URL already containing its password, leave the separate database password field empty.'
+        }
+        $uri = [Uri]$connectionUrl
         if ($uri.Scheme -notin @('postgres', 'postgresql') -or
             ($uri.Host -ne 'db.rpkjmdrralzxhdsgceal.supabase.co' -and
              -not ($uri.Host.EndsWith('.pooler.supabase.com') -and $uri.UserInfo.StartsWith('postgres.rpkjmdrralzxhdsgceal:')))) {
@@ -92,8 +105,8 @@ $button.Add_Click({
         }
         if ($uri.AbsolutePath -ne '/postgres' -or $uri.Port -notin @(-1,5432) -or $uri.UserInfo -notmatch ':.+') { throw 'Use the session pooler on port 5432, database postgres.' }
         if ($phrase.Text.Length -lt 20 -or $phrase.Text -ne $confirm.Text) { throw 'Passphrases must match and contain at least 20 characters.' }
-        Save-PrivateSetup $url.Text.Trim() $phrase.Text $Destination
-        $url.Clear(); $phrase.Clear(); $confirm.Clear()
+        Save-PrivateSetup $connectionUrl $phrase.Text $Destination
+        $url.Clear(); $databasePassword.Clear(); $phrase.Clear(); $confirm.Clear()
         [Windows.Forms.MessageBox]::Show("Saved and verified for this Windows account.`n`n$Destination`n`nKeep your backup passphrase outside Google Drive. Codex will continue automatically.", 'Private recovery setup saved') | Out-Null
         $form.DialogResult = [Windows.Forms.DialogResult]::OK
         $form.Close()
@@ -101,7 +114,7 @@ $button.Add_Click({
         [Windows.Forms.MessageBox]::Show("The setup was not confirmed saved. Check the staging URL and matching passphrases, then retry. A previously saved setup will not be overwritten.`n`nDestination: $Destination", 'Private setup') | Out-Null
     }
 })
-$form.Controls.AddRange(@($instructions, $url, $phraseLabel, $phrase, $confirmLabel, $confirm, $button))
+$form.Controls.AddRange(@($instructions, $url, $databasePasswordLabel, $databasePassword, $phraseLabel, $phrase, $confirmLabel, $confirm, $button))
 $form.AcceptButton = $button
 [void]$form.ShowDialog()
 $form.Dispose()
