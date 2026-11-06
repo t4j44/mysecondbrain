@@ -1,0 +1,38 @@
+name: Build local recovery pgvector dependency
+on:
+  push:
+    branches: ['codex/pilot-backup-recovery-20261107']
+    paths: ['.github/workflows/recovery-pgvector-windows.yml']
+permissions:
+  contents: read
+jobs:
+  windows-pg17-vector:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: pgvector/pgvector
+          ref: cab9da72c04353f143bb06b42ab70a403daac64a
+          persist-credentials: false
+      - name: Compile official pgvector 0.8.2 against PostgreSQL 17
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          set "PGROOT=C:\Program Files\PostgreSQL\17"
+          "%PGROOT%\bin\postgres.exe" --version
+          nmake /F Makefile.win
+          if errorlevel 1 exit /b 1
+      - name: Package only public recovery dependencies
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory recovery-vector | Out-Null
+          Copy-Item vector.dll, vector.control recovery-vector
+          Copy-Item sql/vector--*.sql recovery-vector
+          Get-ChildItem recovery-vector -File | Get-FileHash -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  $(Split-Path $_.Path -Leaf)" } | Set-Content recovery-vector/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: recovery-pg17-vector-0.8.2-windows-x64
+          path: recovery-vector/
+          retention-days: 7
+          if-no-files-found: error
