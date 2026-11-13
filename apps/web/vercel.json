@@ -3,6 +3,7 @@
   "git": {
     "deploymentEnabled": {
       "main": false,
+      "codex/v1-callback-clock-20261113": false,
       "codex/v1-protected-e2e-20261113": false,
       "codex/v1-pilot-foundation-20261113": false,
       "codex/v1-original-recording-20261113": false,

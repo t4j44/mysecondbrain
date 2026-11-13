@@ -3,12 +3,12 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from app.core.config import settings
 from app.dependencies.database import rls_db_session
-from app.models.assistant import AssistantPreferences, NotificationOutbox
+from app.models.assistant import AssistantPreferences, MessagingConnection, NotificationOutbox
 from app.models.entities import Commitment
 from app.services import notification_outbox as outbox
 from app.services.assistant_connections import process_update
@@ -33,6 +33,12 @@ async def prepare(owner):
     update.message.sender.id = update.message.chat.id = 1 + uuid4().int % (2**51)
     await process_update(update)
     async with rls_db_session(owner) as db:
+        # Linking uses wall time, while delivery and callback fixtures use NOW.
+        # Keep their synthetic chronology consistent without weakening the
+        # production rejection of messages predating the current connection.
+        connection = await db.scalar(select(MessagingConnection).where(MessagingConnection.user_id == owner))
+        assert connection is not None and connection.status == 'active'
+        connection.linked_at = NOW - timedelta(seconds=1)
         db.add(AssistantPreferences(user_id=owner, timezone='UTC', quiet_enabled=False,
             telegram_enabled=True, consent_at=NOW, daily_cap=1))
         commitments = [Commitment(user_id=owner, description='Synthetic', status='snoozed', reminder_at=NOW, source_timezone='UTC') for _ in range(2)]
