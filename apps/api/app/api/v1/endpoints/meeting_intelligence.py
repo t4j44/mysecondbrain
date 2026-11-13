@@ -19,7 +19,7 @@ from app.schemas.meeting_intelligence import (
 )
 from app.schemas.meetings import MeetingResponse
 from app.services import meeting_intelligence as service
-from app.services.meeting_audio import AudioStorage
+from app.services.meeting_audio import MIMES, AudioStorage, audio_mime
 from app.services.meeting_corrections import (
     SavedDetailCorrection,
     correct_saved_detail,
@@ -192,16 +192,42 @@ async def confirm(identity: UUID, payload: ConfirmIntelligence, user: Authentica
 
 @router.get('/{identity}/recording')
 async def recording(identity: UUID, user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    capture, ttl = await available_recording(db, user.id, identity)
+    storage = AudioStorage()
+    if storage.use_supabase:
+        return JSONResponse({'url': await storage.get_signed_url(capture.audio_path, ttl), 'expires_seconds': ttl},
+            headers={'Cache-Control': 'private, no-store'})
+    return Response(await storage.read_bounded(capture.audio_path), media_type=audio_mime(capture.audio_mime),
+        headers={'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff'})
+
+
+async def available_recording(db, owner: str, identity: UUID):
+    """Authorize before storage access; a playback URL must not outlive retention."""
     from datetime import datetime, timezone
-    _, capture = await service.capture_for(db, user.id, str(identity))
+    _, capture = await service.capture_for(db, owner, str(identity))
     expiry = capture.retained_until
     if expiry and expiry.tzinfo is None:
         expiry = expiry.replace(tzinfo=timezone.utc)
-    if not capture.audio_path or capture.audio_deleted_at or (expiry and expiry <= datetime.now(timezone.utc)):
-        raise ConflictError('This recording is no longer available. The transcript is saved.')
-    storage = AudioStorage()
-    if storage.use_supabase:
-        return JSONResponse({'url': await storage.get_signed_url(capture.audio_path, 300), 'expires_seconds': 300},
-            headers={'Cache-Control': 'no-store'})
-    return Response(await storage.read_bounded(capture.audio_path), media_type=capture.audio_mime,
-        headers={'Cache-Control': 'no-store'})
+    ttl = min(300, int((expiry - datetime.now(timezone.utc)).total_seconds())) if expiry else 300
+    if capture.audio_deleted_at or ttl < 1:
+        raise ConflictError('This recording is no longer available.', code='RECORDING_EXPIRED')
+    if not capture.audio_path:
+        raise ConflictError('This recording is not ready yet. Try again after upload.', code='RECORDING_NOT_READY')
+    if not capture.audio_path.startswith(f'{owner}/'):
+        raise ConflictError('This recording is unavailable.', code='RECORDING_UNAVAILABLE')
+    return capture, ttl
+
+
+@router.get('/{identity}/recording/download')
+async def download_recording(identity: UUID, user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
+    capture, _ = await available_recording(db, user.id, identity)
+    mime = audio_mime(capture.audio_mime)
+    # Reuse the existing 50 MB bounded reader. No transcoding, public storage URL,
+    # user-provided filename or browser credential is sent to another origin.
+    content = await AudioStorage().read_bounded(capture.audio_path)
+    return Response(content, media_type=mime, headers={
+        'Content-Disposition': f'attachment; filename="meeting-{identity}{MIMES[mime]}"',
+        'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff',
+        'Access-Control-Expose-Headers': 'Content-Disposition',
+    })
