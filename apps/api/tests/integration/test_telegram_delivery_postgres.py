@@ -138,6 +138,28 @@ async def test_delivery_tables_owner_fk_and_browser_denial(pg_engine, assistant_
             await db.execute(text(f'DROP ROLE {role}'))
 
 
+async def test_callback_before_current_link_does_not_apply_or_reconcile(pg_engine, assistant_owners, delivery_enabled):
+    owner = assistant_owners[0]
+    identity = await enqueue(owner, (await prepare(owner))[0])
+    client = AsyncMock()
+    client.send.return_value = TelegramResult('uncertain', 'DELIVERY_UNKNOWN')
+    await delivery.deliver_one(owner, identity, client=client, clock=NOW)
+    buttons = {b['text']: b.get('callback_data') for line in client.send.call_args.args[2] for b in line}
+    async with rls_db_session(owner) as db:
+        connection = await db.scalar(select(MessagingConnection))
+        chat = int(decrypt_token(connection.encrypted_chat_id))
+        linked_at = connection.linked_at
+    update = callback(buttons['Done'], chat, update_id=uuid4().int % (2**63))
+    update.callback_query.message.date = int(linked_at.timestamp()) - 1
+    await process_callback(update, client=client, clock=NOW)
+    async with rls_db_session(owner) as db:
+        assert await db.scalar(select(func.count()).select_from(CommitmentAction)) == 0
+        assert (await db.get(NotificationOutbox, identity)).status == 'uncertain'
+        assert all(token.used_at is None for token in (await db.scalars(select(MessagingCallbackToken))).all())
+    client.acknowledge.assert_not_called()
+    client.edit.assert_not_called()
+
+
 async def test_safe_rate_limit_retry_has_bounded_attempt_ledger(pg_engine, assistant_owners, delivery_enabled):
     owner = assistant_owners[0]
     identity = await enqueue(owner, (await prepare(owner))[0])

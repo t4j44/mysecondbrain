@@ -66,3 +66,9 @@ Next: finish compiler/lint and affected tests, independent review, commit focuse
 - Local production build failed before compilation because the reused dependency junction resolves Next client entrypoints across C: and E: drives. This is an environment/build blocker, not a passing build. Shared dependencies and original worktrees were not modified.
 - GitHub reports PostgreSQL gate run `43398469405` failed on #49; investigation pending. No CI PASS claimed.
 - Branch `codex/v1-protected-e2e-20261113` has Git deployment disabled. Trusted Sources authorization, private A/B credentials, real restore and deferred separate-project credential rotation remain unresolved; external invitations stay NO-GO.
+
+## 2026-11-13 — PostgreSQL fixture chronology correction
+
+- Protected harness is draft [PR #50](https://github.com/t4j44/mysecondbrain/pull/50), commit `7b8fd1d279f3a2d8d769c4a62cc2ddbc50684a9f`, stacked over #49. Issue #32 updated with all four PRs and validation boundaries.
+- Read #49 PostgreSQL 17 job logs: **84 PASS / 1 FAIL** in concurrent Telegram callback acceptance; later upgrade/restore/container steps skipped. The shared fixture links via wall-clock time while delivery/callback use fixed November 3. `message.date < linked_at` correctly rejects these inconsistent messages.
+- Test-only correction aligns the synthetic link timestamp with the fixture clock and adds a negative integration test: a message before that link must leave canonical actions empty, delivery uncertain and tokens unused. Production callback checks remain unchanged. Ruff and whitespace checks PASS; PostgreSQL rerun pending CI. No provider sends or hosted data access.
