@@ -57,3 +57,12 @@ Next: finish compiler/lint and affected tests, independent review, commit focuse
 - Git deployment explicitly disabled for these V1 review branches. This allows code review without creating a public deployment.
 - Shared shell/source search committed as `f3db97b04dc096d7fdc180abf3502a0942e0722f`, draft [PR #48](https://github.com/t4j44/mysecondbrain/pull/48), base main. Final TypeScript and lint PASS. Original recording is isolated on `codex/v1-original-recording-20261113` over #48; its final stale-expiry-body regression passes (**8 recording component tests**, TypeScript PASS).
 - Browser reconnected in a fresh Chrome tab to the same protected alias and still displayed app login. No signed-in session or A/B acceptance claimed. Owner sign-in handoff remains pending.
+
+## 2026-11-13 — protected acceptance harness
+
+- Original recording committed as `58afe85c3126084eda6ed60b229ae21ad78b5c3f`, draft [PR #49](https://github.com/t4j44/mysecondbrain/pull/49), stacked over #48. Independent source review found no remaining blockers in recovery, shell/search or recording scope; this is not hosted verification.
+- Reused existing protected-preview helper, fail-closed preflight and outcomes-only reporter. Each authenticated test now signs in with a fresh context; no shared persisted session. Hosted credentials are scoped to the pinned preview origin, do not follow redirects, and cannot enter traces/screenshots/raw error artifacts. Added guards for exact staging API/database and distinct synthetic accounts. Portfolio journey asserts publication stays disabled.
+- `vitest run __tests__/auth/{preview-access,safe-reporter,hosted-preflight}.test.ts --pool=threads --maxWorkers=1 --no-file-parallelism`: **17 PASS / 3 files**. TypeScript and lint PASS. Playwright discovery lists **28 cases; none were executed on hosted staging**. Independent read-only security review found no blocking findings in this slice.
+- Local production build failed before compilation because the reused dependency junction resolves Next client entrypoints across C: and E: drives. This is an environment/build blocker, not a passing build. Shared dependencies and original worktrees were not modified.
+- GitHub reports PostgreSQL gate run `43398469405` failed on #49; investigation pending. No CI PASS claimed.
+- Branch `codex/v1-protected-e2e-20261113` has Git deployment disabled. Trusted Sources authorization, private A/B credentials, real restore and deferred separate-project credential rotation remain unresolved; external invitations stay NO-GO.

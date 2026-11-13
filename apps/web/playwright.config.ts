@@ -1,26 +1,27 @@
 import { defineConfig, devices } from '@playwright/test';
 import {
-  AUTH_STATE_PATH,
-  getPrimaryE2EUser,
   hasSupabasePublicConfig,
 } from './e2e/helpers/credentials';
 
-const hasAuth = Boolean(getPrimaryE2EUser());
 const canBootWeb = hasSupabasePublicConfig();
+const hostedRun = Boolean(process.env.PLAYWRIGHT_TEST_BASE_URL);
 
 export default defineConfig({
+  globalSetup: hostedRun ? './e2e/hosted-preflight.ts' : undefined,
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: hostedRun ? 0 : process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : 2,
   timeout: 120_000,
   expect: { timeout: 15_000 },
-  reporter: [['list'], ['html', { open: 'never' }], ['junit', { outputFile: 'test-results/e2e-results.xml' }]],
+  reporter: hostedRun ? [['./e2e/safe-reporter.ts']] : [['list'], ['html', { open: 'never' }], ['junit', { outputFile: 'test-results/e2e-results.xml' }]],
   use: {
     baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000',
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
+    trace: hostedRun ? 'off' : 'retain-on-failure',
+    screenshot: hostedRun ? 'off' : 'only-on-failure',
+    video: 'off',
+    serviceWorkers: 'block',
   },
   webServer: canBootWeb && !process.env.PLAYWRIGHT_TEST_BASE_URL
     ? {
@@ -32,14 +33,6 @@ export default defineConfig({
       }
     : undefined,
   projects: [
-    ...(hasAuth
-      ? [
-          {
-            name: 'setup',
-            testMatch: /auth\.setup\.ts/,
-          },
-        ]
-      : []),
     {
       name: 'unauthenticated',
       testMatch: /unauthenticated\.spec\.ts/,
@@ -52,11 +45,9 @@ export default defineConfig({
     {
       name: 'chromium',
       testMatch: /meeting-review\.spec\.ts|v15-context\.spec\.ts|beta-journey\.spec\.ts|core-lifecycle\.spec\.ts|negative\.authenticated\.spec\.ts|cross-tenant\.spec\.ts/,
-      dependencies: hasAuth ? ['setup'] : [],
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1440, height: 900 },
-        ...(hasAuth ? { storageState: AUTH_STATE_PATH } : {}),
       },
     },
     {
@@ -64,9 +55,7 @@ export default defineConfig({
       testMatch: /meeting-review\.spec\.ts|v15-context\.spec\.ts|beta-journey\.spec\.ts|core-lifecycle\.spec\.ts|negative\.authenticated\.spec\.ts/,
       use: {
         ...devices['Pixel 5'],
-        ...(hasAuth ? { storageState: AUTH_STATE_PATH } : {}),
       },
-      dependencies: hasAuth ? ['setup'] : [],
     },
   ],
 });

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/authenticated-test';
 import { getPrimaryE2EUser, hasSupabasePublicConfig } from './helpers/credentials';
 import { uniqueId } from './helpers/ui';
 

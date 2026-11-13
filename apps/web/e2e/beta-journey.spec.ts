@@ -1,10 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/authenticated-test';
 import { getPrimaryE2EUser, hasSupabasePublicConfig } from './helpers/credentials';
 import { uniqueId } from './helpers/ui';
 
 test.describe('Closed beta capture, retrieve, act and share', () => {
   test.skip(!getPrimaryE2EUser() || !hasSupabasePublicConfig(), 'Requires a configured staging test account.');
-  test('reviewed capture persists, becomes a task and supports a revocable portfolio', async ({ page, browser }) => {
+  test('reviewed capture persists, becomes a task and keeps portfolio sharing disabled', async ({ page }) => {
     test.setTimeout(300000);
     const marker = uniqueId('betaproof').replace(/-/g, '');
     const note = `${marker} tested a prototype and promised to send a demo. Outcomes are not yet measured.`;
@@ -58,24 +58,8 @@ test.describe('Closed beta capture, retrieve, act and share', () => {
     await page.getByLabel('Public case study text').fill(approvedText);
     await page.getByRole('button', { name: 'Save private draft' }).click();
     await page.getByRole('checkbox', { name: /I reviewed this exact text/ }).check();
-    if (await page.getByText('Public sharing is disabled pending hosted verification for this release.', { exact: false }).isVisible()) {
-      await expect(page.getByRole('button', { name: 'Publish reviewed copy' })).toBeDisabled();
-      test.info().annotations.push({ type: 'release-gate', description: 'Public sharing disabled: private draft and disabled state tested; live publication remains unverified.' });
-      return;
-    }
-    await page.getByRole('button', { name: 'Publish reviewed copy' }).click();
-    const share = await page.locator('a[href*="/p/"]').getAttribute('href');
-    expect(share).toBeTruthy();
-    const publicContext = await browser.newContext();
-    const visitor = await publicContext.newPage();
-    try {
-      await visitor.goto(share!);
-      await expect(visitor.getByText(approvedText, { exact: true })).toBeVisible();
-      await expect(visitor.getByText(note, { exact: true })).toHaveCount(0);
-      await page.getByText(`${marker} · Public via link`, { exact: true }).locator('..').getByRole('button', { name: 'Revoke link' }).click();
-      await visitor.reload();
-      await expect(visitor.getByText(approvedText, { exact: true })).toHaveCount(0);
-    } finally { await publicContext.close(); }
+    await expect(page.getByText('Public sharing is disabled pending hosted verification for this release.', { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Publish reviewed copy' })).toBeDisabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   });
 });
