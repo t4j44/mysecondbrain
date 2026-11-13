@@ -31,11 +31,21 @@ def decrypt(data, passphrase):
     return AESGCM(key(passphrase, data[5:21])).decrypt(data[21:33], data[33:], MAGIC)
 
 
+def read_bounded(source, maximum=None):
+    maximum = MAX_BYTES + 49 if maximum is None else maximum
+    source = Path(source)
+    if source.stat().st_size > maximum:
+        raise ValueError('Backup exceeds the pilot encryption memory limit.')
+    with source.open('rb') as stream:
+        data = stream.read(maximum + 1)
+    if len(data) > maximum:
+        raise ValueError('Backup exceeds the pilot encryption memory limit.')
+    return data
+
+
 def transform(mode, src, dst, passphrase):
     src, dst = Path(src), Path(dst)
-    if src.stat().st_size > MAX_BYTES + 49:
-        raise ValueError('Backup exceeds the pilot encryption memory limit.')
-    data = (encrypt if mode == 'enc' else decrypt)(src.read_bytes(), passphrase)
+    data = (encrypt if mode == 'enc' else decrypt)(read_bounded(src), passphrase)
     # Authenticate fully before creating plaintext. Never overwrite an existing backup.
     with dst.open('xb') as output:
         output.write(data)

@@ -3,6 +3,7 @@
   "git": {
     "deploymentEnabled": {
       "main": false,
+      "codex/v1-recovery-guards-20261113": false,
       "codex/second-brain-release-hardening": false,
       "codex/v2-demo-preview-20261102": true
     }
