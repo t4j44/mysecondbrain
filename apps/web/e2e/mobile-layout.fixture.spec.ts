@@ -118,8 +118,10 @@ for(const route of ['dashboard','people','assistant','work','capture','meetings'
  await noOverflow(page);
  if(page.viewportSize()!.width<768){
   const nav=page.getByRole('navigation',{name:'Mobile Primary Navigation'});await expect(nav).toBeVisible();
-  await expect(nav.getByRole('link')).toHaveCount(4);
-  await expect(nav.getByRole('button',{name:'More',exact:true})).toBeVisible();
+  await expect(nav.getByRole('link')).toHaveCount(5);
+  await expect(nav.getByRole('link')).toHaveText(['Home','People','Meetings','Work','Ask']);
+  await expect(page.getByRole('button',{name:'Capture',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'More',exact:true})).toBeVisible();
   for(const link of await nav.locator('a, button').all()){const box=await link.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(44);expect(box!.width).toBeGreaterThanOrEqual(44);}
  }
  for(const button of await page.locator('main button:visible, header button:visible').all()){
@@ -258,11 +260,11 @@ test('drawer and page search trap focus, close on Escape and restore trigger foc
  await page.goto('/dashboard');
  if(page.viewportSize()!.width<768){
   await page.getByRole('button',{name:'More',exact:true}).click();const drawer=page.getByRole('dialog',{name:'Navigation',exact:true});await expect(drawer).toBeVisible();
-  await expect(drawer.getByRole('link',{name:'Documents',exact:true})).toBeVisible();
+  await expect(drawer.getByRole('link',{name:'Files & sources',exact:true})).toBeVisible();
   await page.keyboard.press('Tab');expect(await drawer.evaluate(element=>element.contains(document.activeElement))).toBe(true);await page.keyboard.press('Escape');await expect(drawer).toBeHidden();await expect(page.getByRole('button',{name:'More',exact:true})).toBeFocused();
  }
- await page.getByRole('button',{name:'Find a page',exact:true}).click();const search=page.getByRole('dialog',{name:'Find a page',exact:true});await expect(search).toBeVisible();
- await page.getByRole('searchbox',{name:'Search pages'}).fill('privacy');await expect(search.getByRole('link',{name:'Privacy',exact:true})).toBeVisible();await page.keyboard.press('Escape');await expect(search).toBeHidden();await expect(page.getByRole('button',{name:'Find a page',exact:true})).toBeFocused();
+ await page.getByRole('button',{name:'Search',exact:true}).click();const search=page.getByRole('dialog',{name:'Search your workspace',exact:true});await expect(search).toBeVisible();
+ await page.getByRole('searchbox',{name:'Search anything'}).fill('privacy');await expect(search.getByRole('link',{name:'Privacy',exact:true})).toBeVisible();await page.keyboard.press('Escape');await expect(search).toBeHidden();await expect(page.getByRole('button',{name:'Search',exact:true})).toBeFocused();
 });
 
 test('200 percent text remains usable without horizontal overflow',async({page},info)=>{

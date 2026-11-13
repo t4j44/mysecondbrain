@@ -1,18 +1,22 @@
-import { Home, Plus, Users, Briefcase, MessageCircle, CalendarDays, FileText } from 'lucide-react';
+import { Home, Users, Briefcase, MessageCircle, CalendarDays } from 'lucide-react';
 
 export const primaryNavigation = [
   { title: 'Home', href: '/dashboard', icon: Home },
   { title: 'People', href: '/people', icon: Users },
   { title: 'Meetings', href: '/meetings', icon: CalendarDays },
-  { title: 'Capture', href: '/capture', icon: Plus },
-  { title: 'Ask', href: '/assistant', icon: MessageCircle },
   { title: 'Work', href: '/work', icon: Briefcase },
-  { title: 'Documents', href: '/documents', icon: FileText },
+  { title: 'Ask', href: '/assistant', icon: MessageCircle },
 ];
 
-export const mobileNavigation = ['/dashboard', '/people', '/capture', '/meetings'].map(
-  href => primaryNavigation.find(item => item.href === href)!,
-);
+export const mobileNavigation = primaryNavigation;
+
+export const secondaryNavigation = [
+  { title: 'Files & sources', href: '/documents' },
+  { title: 'Projects', href: '/projects' },
+  { title: 'Integrations', href: '/settings/integrations' },
+  { title: 'Settings', href: '/settings' },
+  { title: 'Privacy', href: '/settings/privacy' },
+];
 
 export function isMoreActive(pathname: string) {
   return !mobileNavigation.some(item => isPrimaryActive(item.href, pathname));

@@ -74,7 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Skip to Main Content Accessibility Anchor */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:z-[999] focus:p-4 focus:bg-[#00ff9d] focus:text-[#0a0510] focus:font-mono focus:font-bold focus:shadow-2xl rounded-br-lg"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-[999] focus:p-4 focus:bg-primary focus:text-primary-foreground focus:font-bold focus:shadow-2xl rounded-br-lg"
       >
         Skip to main content
       </a>

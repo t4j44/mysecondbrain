@@ -6,7 +6,8 @@ import { Breadcrumbs } from './breadcrumbs';
 import { CommandMenu } from './command-menu';
 import { UserMenu } from './user-menu';
 import { BetaNotice } from '../shared/beta-notice';
-import { Plus, BrainCircuit, MessageCircle } from 'lucide-react';
+import { Plus, BrainCircuit } from 'lucide-react';
+import { MobileNavigation } from './mobile-navigation';
 
 interface TopBarProps {
   onOpenQuickCapture?: () => void;
@@ -16,30 +17,27 @@ export function TopBar({ onOpenQuickCapture }: TopBarProps) {
   return (
     <header className="app-top-bar sticky top-0 z-30 flex h-[56px] w-full min-w-0 shrink-0 items-center justify-between gap-2 border-b bg-background/95 px-2.5 sm:px-6">
       <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-        <Link href="/dashboard" aria-label="Second Brain Home" className="flex min-w-0 items-center gap-2 text-sm font-semibold tracking-tight lg:hidden"><BrainCircuit className="h-5 w-5 text-primary" /><span className="truncate">Second Brain</span></Link>
+        <Link href="/dashboard" aria-label="Second Brain Home" className="flex min-h-11 min-w-11 items-center justify-center gap-2 text-sm font-semibold tracking-tight lg:hidden"><BrainCircuit className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" /><span className="hidden truncate sm:inline">Second Brain</span></Link>
         <div className="hidden min-w-0 lg:block"><Breadcrumbs /></div>
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-        <Link href="/assistant" aria-label="Ask Second Brain" title="Ask Second Brain" className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"><MessageCircle className="h-5 w-5" aria-hidden="true" /></Link>
-        {/* Quick Capture Pill (Desktop / Tablet) */}
+        <CommandMenu />
         {onOpenQuickCapture && (
           <button
             type="button"
             onClick={onOpenQuickCapture}
-            className="hidden 2xl:inline-flex min-h-11 items-center gap-1.5 px-3 rounded-lg bg-primary/10 text-primary border text-sm"
-            title="1-Tap Smart Capture (Press Q or C)"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground"
+            aria-label="Capture"
+            title="Capture a note, recording, file or person"
           >
-            <Plus className="h-3.5 w-3.5 stroke-[3]" />
+            <Plus className="h-4 w-4" aria-hidden="true" />
             <span>Capture</span>
-            <kbd className="text-[10px] bg-[#0a0510] px-1 py-0.2 rounded border border-[#00ff9d]/30 text-[#00ff9d]">
-              Q
-            </kbd>
           </button>
         )}
 
-        <CommandMenu />
-        <div className="hidden sm:block"><BetaNotice /></div>
+        <div className="lg:hidden"><MobileNavigation /></div>
+        <div className="hidden xl:block"><BetaNotice /></div>
         <UserMenu />
       </div>
     </header>

@@ -3,60 +3,50 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    /* Retro-Futuristic Founder Terminal Theme Tokens (Dark Mode Default) */
-    --background: 268 56% 7%;      /* #12081d Deep Purple */
-    --foreground: 44 48% 94%;      /* #f7f4ea Cream Text */
-    
-    --card: 268 62% 4%;            /* #0a0510 Black Console Surface */
-    --card-foreground: 44 48% 94%;
-    
-    --popover: 268 62% 5%;
-    --popover-foreground: 44 48% 94%;
-    
-    --primary: 157 100% 50%;      /* #00ff9d Neon Green Operational Accent */
-    --primary-foreground: 268 62% 4%;
-    
-    --secondary: 271 42% 25%;     /* Electric Mauve Muted */
-    --secondary-foreground: 44 48% 94%;
-    
-    --muted: 268 40% 15%;
-    --muted-foreground: 265 20% 65%;
-    
-    --accent: 271 50% 30%;
-    --accent-foreground: 157 100% 50%;
-    
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 44 48% 94%;
-    
-    --border: 268 45% 20%;        /* Structural Console Grid Border */
-    --input: 268 45% 15%;
-    --ring: 157 100% 50%;         /* Neon Green Focus Ring */
-    
-    --radius: 0.5rem;
-  }
-
-  .light {
-    /* Clean Editorial Light Contrast Variation */
-    --background: 44 48% 96%;      /* Light Cream */
-    --foreground: 268 56% 10%;     /* Deepest Purple */
+  :root, .light {
+    color-scheme: light;
+    --background: 220 23% 97%;
+    --foreground: 210 30% 13%;
     --card: 0 0% 100%;
-    --card-foreground: 268 56% 10%;
+    --card-foreground: 210 30% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 268 56% 10%;
-    --primary: 268 60% 30%;        /* Solid Purple Primary in Light */
-    --primary-foreground: 44 48% 96%;
-    --secondary: 268 20% 88%;
-    --secondary-foreground: 268 56% 15%;
-    --muted: 268 15% 90%;
-    --muted-foreground: 268 20% 45%;
-    --accent: 157 80% 40%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
+    --popover-foreground: 210 30% 13%;
+    --primary: 177 65% 26%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 20% 94%;
+    --secondary-foreground: 210 30% 20%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 210 13% 40%;
+    --accent: 175 28% 92%;
+    --accent-foreground: 177 65% 23%;
+    --destructive: 4 73% 40%;
     --destructive-foreground: 0 0% 100%;
-    --border: 268 20% 82%;
-    --input: 268 20% 88%;
-    --ring: 268 60% 30%;
+    --border: 210 20% 88%;
+    --input: 210 15% 66%;
+    --ring: 223 80% 49%;
+    --radius: 0.75rem;
+  }
+  .dark {
+    color-scheme: dark;
+    --background: 221 39% 11%;
+    --foreground: 210 20% 96%;
+    --card: 215 28% 17%;
+    --card-foreground: 210 20% 96%;
+    --popover: 215 28% 17%;
+    --popover-foreground: 210 20% 96%;
+    --primary: 174 60% 65%;
+    --primary-foreground: 221 39% 11%;
+    --secondary: 215 25% 23%;
+    --secondary-foreground: 210 20% 96%;
+    --muted: 215 25% 23%;
+    --muted-foreground: 215 20% 72%;
+    --accent: 174 24% 23%;
+    --accent-foreground: 174 60% 80%;
+    --destructive: 0 80% 75%;
+    --destructive-foreground: 221 39% 11%;
+    --border: 215 20% 32%;
+    --input: 215 20% 50%;
+    --ring: 217 91% 75%;
   }
 }
 
@@ -65,7 +55,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased selection:bg-[#00ff9d] selection:text-[#0a0510];
+    @apply bg-background text-foreground antialiased selection:bg-primary selection:text-primary-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
   :where(a, button, input, textarea, select, summary):focus-visible {
@@ -145,20 +135,20 @@
   }
 }
 
-/* Custom Scrollbar for Terminal Console Vibe */
+/* Scrollbars follow the same theme as the workspace. */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0a0510;
+  background: hsl(var(--background));
 }
 ::-webkit-scrollbar-thumb {
-  background: #2d1645;
+  background: hsl(var(--border));
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #00ff9d;
+  background: hsl(var(--primary));
 }
 
 /* Shared interaction language — restrained, accessible and touch-safe. */

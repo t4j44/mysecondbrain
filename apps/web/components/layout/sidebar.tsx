@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Settings, Users, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { primaryNavigation, isPrimaryActive } from '@/lib/navigation';
+import { Settings, Users, PanelLeftClose, PanelLeftOpen, FolderOpen } from 'lucide-react';
+import { primaryNavigation, secondaryNavigation, isPrimaryActive } from '@/lib/navigation';
 
 interface SidebarProps { className?: string; onOpenQuickCapture?: () => void; collapsible?: boolean }
 
@@ -23,7 +23,7 @@ export function Sidebar({ className = '', collapsible = false }: SidebarProps) {
         <Icon className="h-5 w-5 shrink-0" /><span className={collapsed ? 'sr-only' : ''}>{item.title}</span>
       </Link>;
     })}</nav>
-    <div className="border-t p-3"><Link href="/settings" title={collapsed ? 'Settings' : undefined} className="flex min-h-11 items-center gap-3 rounded-lg px-4 text-sm text-muted-foreground hover:bg-muted"><Settings className="h-4 w-4 shrink-0" /><span className={collapsed ? 'sr-only' : ''}>Settings</span></Link>
+    <div className="border-t p-3"><nav aria-label="Workspace tools">{secondaryNavigation.map(item => <Link key={item.href} href={item.href} title={collapsed ? item.title : undefined} className="flex min-h-11 items-center gap-3 rounded-lg px-4 text-sm text-muted-foreground hover:bg-muted">{item.href === '/documents' ? <FolderOpen className="h-4 w-4 shrink-0" aria-hidden="true" /> : <Settings className="h-4 w-4 shrink-0" aria-hidden="true" />}<span className={collapsed ? 'sr-only' : ''}>{item.title}</span></Link>)}</nav>
       {!collapsed && <p className="px-4 pt-2 text-xs text-muted-foreground">Private workspace · Early beta</p>}</div>
   </aside>;
 }
