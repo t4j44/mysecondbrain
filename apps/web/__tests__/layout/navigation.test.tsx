@@ -4,6 +4,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { Breadcrumbs } from '@/components/layout/breadcrumbs';
 import { Sidebar } from '@/components/layout/sidebar';
+import { MobileNavigation } from '@/components/layout/mobile-navigation';
 import { MobileBottomBar } from '@/components/layout/mobile-bottom-bar';
 import { isMoreActive, isPrimaryActive } from '@/lib/navigation';
 
@@ -15,17 +16,18 @@ describe('Global App Shell & Navigation', () => {
     expect(screen.getByRole('link', {name: 'Back to Home'})).toHaveAttribute('href','/dashboard');
   });
 
-  it('exposes four mobile destinations and More while retaining desktop tools', () => {
+  it('exposes the same five destinations on desktop and mobile, with secondary tools in More', () => {
     render(<Sidebar />);
     render(<MobileBottomBar onOpenQuickCapture={() => {}} />);
     const desktop = within(screen.getByRole('navigation', { name: 'Primary Navigation' }));
-    expect(desktop.getAllByRole('link').map(link => link.textContent)).toEqual(['Home', 'People', 'Meetings', 'Capture', 'Ask', 'Work', 'Documents']);
+    expect(desktop.getAllByRole('link').map(link => link.textContent)).toEqual(['Home', 'People', 'Meetings', 'Work', 'Ask']);
     const mobile = within(screen.getByRole('navigation', { name: 'Mobile Primary Navigation' }));
-    expect(mobile.getAllByRole('link').map(link => link.textContent)).toEqual(['Home', 'People', 'Capture', 'Meetings']);
-    fireEvent.click(mobile.getByRole('button', { name: 'More' }));
+    expect(mobile.getAllByRole('link').map(link => link.textContent)).toEqual(['Home', 'People', 'Meetings', 'Work', 'Ask']);
+    render(<MobileNavigation />);
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
     const drawer = within(screen.getByRole('dialog', { name: 'Navigation' }));
     expect(drawer.getByRole('link', { name: 'Ask' })).toHaveAttribute('href', '/assistant');
-    expect(drawer.getByRole('link', { name: 'Documents' })).toHaveAttribute('href', '/documents');
+    expect(drawer.getByRole('link', { name: 'Files & sources' })).toHaveAttribute('href', '/documents');
     fireEvent.click(drawer.getByRole('button', { name: 'Close navigation' }));
     expect(screen.queryByText('Life KPIs')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
@@ -38,7 +40,7 @@ describe('Global App Shell & Navigation', () => {
     expect(isPrimaryActive('/work', '/work/commitments')).toBe(true);
     expect(isPrimaryActive('/people', '/meetings/meeting-id')).toBe(false);
     expect(isPrimaryActive('/people', '/people/person-id')).toBe(true);
-    expect(isMoreActive('/assistant')).toBe(true);
+    expect(isMoreActive('/assistant')).toBe(false);
     expect(isMoreActive('/settings/privacy')).toBe(true);
     expect(isMoreActive('/meetings/meeting-id')).toBe(false);
   });

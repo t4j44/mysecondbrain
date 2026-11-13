@@ -3,6 +3,9 @@
   "git": {
     "deploymentEnabled": {
       "main": false,
+      "codex/v1-pilot-foundation-20261113": false,
+      "codex/v1-original-recording-20261113": false,
+      "codex/v1-meeting-workflows-20261113": false,
       "codex/second-brain-release-hardening": false,
       "codex/v2-demo-preview-20261102": true
     }
