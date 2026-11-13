@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { newPreviewContext } from './helpers/preview-access';
+import { test, expect } from './fixtures';
 import { getPrimaryE2EUser, getSecondaryE2EUser, hasSupabasePublicConfig } from './helpers/credentials';
 import { cardByName, loginViaUi, uniqueId } from './helpers/ui';
 
@@ -16,7 +17,7 @@ test.describe('Cross-tenant isolation', () => {
 
     const ventureName = uniqueId('QA-Tenant-A-Venture');
 
-    const contextA = await browser.newContext();
+    const contextA = await newPreviewContext(browser);
     const pageA = await contextA.newPage();
     await loginViaUi(pageA, userA);
     await pageA.goto('/ventures');
@@ -26,7 +27,7 @@ test.describe('Cross-tenant isolation', () => {
     await expect(cardByName(pageA, 'venture-card', ventureName)).toBeVisible();
     await contextA.close();
 
-    const contextB = await browser.newContext({ storageState: undefined });
+    const contextB = await newPreviewContext(browser, { storageState: undefined });
     const pageB = await contextB.newPage();
     await loginViaUi(pageB, userB);
     await pageB.goto('/ventures');

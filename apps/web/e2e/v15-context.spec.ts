@@ -1,5 +1,6 @@
+import { newPreviewContext } from './helpers/preview-access';
 import { createHash, randomBytes } from 'node:crypto';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/authenticated-test';
 import { getPrimaryE2EUser, getSecondaryE2EUser, hasSupabasePublicConfig } from './helpers/credentials';
 import { loginViaUi, uniqueId } from './helpers/ui';
 
@@ -55,7 +56,7 @@ test.describe('V1.5 personal context acceptance', () => {
     await page.reload();
     await expect(page.getByText(outcome, {exact:true}).first()).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    const foreign = await browser.newContext();
+    const foreign = await newPreviewContext(browser);
     try {
       const other = await foreign.newPage(); await loginViaUi(other, getSecondaryE2EUser()!);
       const deniedProfile = other.waitForResponse(response => response.url().includes('/people/') && [403, 404].includes(response.status()));

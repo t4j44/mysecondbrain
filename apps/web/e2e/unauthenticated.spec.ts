@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { hasSupabasePublicConfig } from './helpers/credentials';
 
 test.describe('Unauthenticated and public form negatives', () => {
