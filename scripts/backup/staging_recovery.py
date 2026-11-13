@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import os
+import shutil
 import ssl
 import subprocess
 import tarfile
@@ -16,10 +17,13 @@ from urllib.parse import parse_qs, urlsplit
 import asyncpg
 import certifi
 from backup import pg_environment, run_backup
-from encrypt_backup import decrypt, encrypt
+from encrypt_backup import MAX_BYTES, decrypt, encrypt
 
 PROJECT = 'rpkjmdrralzxhdsgceal'
 SCHEMAS = ['public', 'auth', 'storage', 'supabase_migrations']
+MAX_MANIFEST_BYTES = 8 * 1024 * 1024
+# Reserve bounded tar/gzip overhead below the encryption envelope limit.
+MAX_DUMP_BYTES = MAX_BYTES - MAX_MANIFEST_BYTES - 1024 * 1024
 
 
 def staging_url(value):
@@ -66,13 +70,15 @@ def quote(name):
 
 
 def private_directory(folder):
-    folder = Path(folder).resolve()
-    folder.mkdir(parents=True, exist_ok=True)
+    folder = Path(folder).absolute()
     if os.name == 'nt':
-        identity = subprocess.run(['whoami'], capture_output=True, check=True, text=True).stdout.strip()
-        subprocess.run(['icacls', str(folder), '/inheritance:r', '/grant:r', identity + ':(OI)(CI)F'],
-            check=True, capture_output=True)
+        subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-File',
+            str(Path(__file__).with_name('private_directory.ps1')), '-Path', str(folder)],
+            check=True, capture_output=True, timeout=30)
     else:
+        if folder.is_symlink():
+            raise ValueError('Recovery work directory cannot be a symbolic link.')
+        folder.mkdir(parents=True, exist_ok=True)
         folder.chmod(0o700)
     return folder
 
@@ -127,13 +133,29 @@ async def manifest(conn):
 
 
 def archive_bytes(dump, metadata):
+    dump = Path(dump)
+    size = dump.stat().st_size
+    if size > MAX_DUMP_BYTES:
+        raise ValueError('Database dump exceeds the pilot recovery limit.')
+    # Encode incrementally so metadata cannot allocate an unbounded serialized copy.
+    manifest_data = io.BytesIO()
+    for part in json.JSONEncoder(sort_keys=True, default=str).iterencode(metadata):
+        encoded = part.encode()
+        if manifest_data.tell() + len(encoded) > MAX_MANIFEST_BYTES:
+            raise ValueError('Manifest exceeds the pilot recovery limit.')
+        manifest_data.write(encoded)
     output = io.BytesIO()
     with tarfile.open(fileobj=output, mode='w:gz') as archive:
-        for name, data in [('database.dump', Path(dump).read_bytes()),
-                ('manifest.json', json.dumps(metadata, sort_keys=True, default=str).encode())]:
-            info = tarfile.TarInfo(name)
-            info.size, info.mode = len(data), 0o600
-            archive.addfile(info, io.BytesIO(data))
+        info = tarfile.TarInfo('database.dump')
+        info.size, info.mode = size, 0o600
+        with dump.open('rb') as source:
+            archive.addfile(info, source)
+        info = tarfile.TarInfo('manifest.json')
+        info.size, info.mode = manifest_data.tell(), 0o600
+        manifest_data.seek(0)
+        archive.addfile(info, manifest_data)
+    if output.tell() > MAX_BYTES:
+        raise ValueError('Recovery archive exceeds the encryption limit.')
     return output.getvalue()
 
 
@@ -144,11 +166,46 @@ def unpack_private(data, folder):
         members = archive.getmembers()
         if sorted(item.name for item in members) != ['database.dump', 'manifest.json']:
             raise ValueError('Unexpected recovery archive members.')
+        limits = {'database.dump': MAX_DUMP_BYTES, 'manifest.json': MAX_MANIFEST_BYTES}
         for member in members:
-            if not member.isfile() or member.size > 512 * 1024 * 1024:
+            if not member.isfile() or not 0 <= member.size <= limits[member.name]:
                 raise ValueError('Invalid recovery archive member.')
+        for member in members:
             with (folder / member.name).open('xb') as target:
-                target.write(archive.extractfile(member).read())
+                shutil.copyfileobj(archive.extractfile(member), target, length=1024 * 1024)
+
+
+async def close_and_remove_dump(conn, dump):
+    """Cleanup still runs if a connection raises or never finishes closing."""
+    try:
+        await asyncio.wait_for(conn.close(), timeout=10)
+    finally:
+        if dump:
+            # Do not swallow an unlink failure: the CLI must remain BLOCKED.
+            Path(dump).unlink(missing_ok=True)
+
+
+async def run_private_dump(**options):
+    """A cancelled coroutine must still collect and remove its thread's plaintext.
+
+    pg_dump itself has a bounded subprocess timeout. Keep its snapshot alive until
+    it ends, even after cooperative cancellation. Forced process termination or
+    power loss cannot provide a cleanup guarantee.
+    """
+    worker = asyncio.create_task(asyncio.to_thread(run_backup, **options))
+    cancelled = False
+    while True:
+        try:
+            dump = await asyncio.shield(worker)
+            break
+        except asyncio.CancelledError:
+            cancelled = True
+            if worker.cancelled():
+                raise
+    if cancelled:
+        Path(dump).unlink(missing_ok=True)
+        raise asyncio.CancelledError
+    return dump
 
 
 async def export(config_path, folder):
@@ -168,7 +225,7 @@ async def export(config_path, folder):
             metadata = await manifest(conn)
             metadata['source_project'] = PROJECT
             metadata['snapshot_at'] = datetime.now(timezone.utc).isoformat()
-            dump = await asyncio.to_thread(run_backup, preserve_owners=True, snapshot=snapshot,
+            dump = await run_private_dump(preserve_owners=True, snapshot=snapshot,
                 connection_url=url, backup_dir=folder, connection_environment=environment)
             plaintext = archive_bytes(dump, metadata)
         encrypted = encrypt(plaintext, config['passphrase'])
@@ -184,9 +241,7 @@ async def export(config_path, folder):
             'table_count': len(metadata['tables']), 'storage_bytes_included': False}))
         return target
     finally:
-        await conn.close()
-        if dump:
-            dump.unlink(missing_ok=True)
+        await close_and_remove_dump(conn, dump)
 
 
 if __name__ == '__main__':

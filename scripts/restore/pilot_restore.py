@@ -16,7 +16,7 @@ from pathlib import Path
 import asyncpg
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backup'))
-from encrypt_backup import decrypt
+from encrypt_backup import decrypt, read_bounded
 from staging_recovery import (
     SCHEMAS,
     manifest,
@@ -156,7 +156,10 @@ async def restore(encrypted, config_path, work_dir, server_root, client_root):
     env.update(PGHOST='127.0.0.1', PGPORT=str(port), PGDATABASE='postgres',
         PGUSER='sb_recovery_operator', PGPASSWORD=password, PGSSLMODE='disable', PGCONNECT_TIMEOUT='10')
     try:
-        unpack_private(decrypt(Path(encrypted).read_bytes(), config['passphrase']), scratch)
+        envelope = read_bounded(encrypted)
+        encrypted_sha256 = hashlib.sha256(envelope).hexdigest()
+        unpack_private(decrypt(envelope, config['passphrase']), scratch)
+        del envelope
         original = json.loads((scratch / 'manifest.json').read_text())
         await asyncio.to_thread(run, [server_root / 'bin/initdb.exe', '-D', data,
             '-U', 'sb_recovery_operator', '-A', 'scram-sha-256', '--pwfile', password_file,
@@ -190,7 +193,7 @@ async def restore(encrypted, config_path, work_dir, server_root, client_root):
         report = {'database_restore': 'PASS' if all(results.values()) else 'FAIL', 'checks': results,
             'source_project': original.get('source_project', 'unknown'),
             'scope': SCHEMAS, 'table_count': len(restored['tables']), 'postgres': restored['version'],
-            'vector': vector, 'encrypted_sha256': hashlib.sha256(Path(encrypted).read_bytes()).hexdigest(),
+            'vector': vector, 'encrypted_sha256': encrypted_sha256,
             'auth_service_config': 'SEPARATE_GATE', 'storage_file_bytes': 'SEPARATE_GATE',
             'vault_extension': 'Managed Supabase extension excluded from local application-scope restore',
             'role_logins': 'Disabled on restored source roles; passwords not copied',

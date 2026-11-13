@@ -1,22 +1,135 @@
 import io
+import asyncio
+import os
+import subprocess
 import sys
 import tarfile
 import tempfile
+import threading
 import unittest
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 from cryptography.exceptions import InvalidTag
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'restore'))
-from encrypt_backup import decrypt, encrypt, transform
+from encrypt_backup import decrypt, encrypt, read_bounded, transform
 from pilot_restore import comparison, restore_list
-from staging_recovery import archive_bytes, staging_url, unpack_private
+from staging_recovery import archive_bytes, close_and_remove_dump, private_directory, run_private_dump, staging_url, unpack_private
 
 PHRASE = 'Synthetic recovery phrase for tests only'
 
 
 class PrivateRecoveryTests(unittest.TestCase):
+    def test_cancelled_dump_waits_for_thread_and_removes_plaintext(self):
+        with tempfile.TemporaryDirectory() as root:
+            dump = Path(root) / 'synthetic.dump'
+            release = threading.Event()
+            async def scenario():
+                started = asyncio.Event()
+                loop = asyncio.get_running_loop()
+                def fake_dump(**options):
+                    loop.call_soon_threadsafe(started.set)
+                    if not release.wait(5):
+                        raise RuntimeError('Synthetic worker not released')
+                    dump.write_bytes(b'synthetic')
+                    return dump
+                with patch('staging_recovery.run_backup', side_effect=fake_dump):
+                    task = asyncio.create_task(run_private_dump())
+                    await started.wait()
+                    task.cancel()
+                    await asyncio.sleep(0)
+                    self.assertFalse(task.done())
+                    release.set()
+                    with self.assertRaises(asyncio.CancelledError):
+                        await task
+                    self.assertFalse(dump.exists())
+            try:
+                asyncio.run(scenario())
+            finally:
+                release.set()
+
+    def test_oversize_encrypted_file_rejected_before_open(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = Path(root) / 'synthetic.enc'
+            source.write_bytes(b'12345')
+            with patch.object(Path, 'open') as opened:
+                with self.assertRaises(ValueError):
+                    read_bounded(source, maximum=4)
+                opened.assert_not_called()
+
+    def test_file_growth_cannot_escape_read_limit(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = Path(root) / 'synthetic.enc'
+            source.write_bytes(b'1')
+            with patch.object(Path, 'open', return_value=io.BytesIO(b'12345')):
+                with self.assertRaises(ValueError):
+                    read_bounded(source, maximum=4)
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows DACL regression')
+    def test_private_directory_rejects_existing_explicit_other_user_access(self):
+        with tempfile.TemporaryDirectory() as root:
+            private = Path(root) / 'private'
+            self.assertEqual(private_directory(private), private)
+            sentinel = private / 'synthetic.txt'
+            sentinel.write_text('synthetic only', encoding='utf-8')
+            self.assertEqual(private_directory(private), private)
+            subprocess.run(['icacls', str(private), '/grant', '*S-1-1-0:(OI)(CI)R'],
+                check=True, capture_output=True)
+            try:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    private_directory(private)
+                self.assertEqual(sentinel.read_text(encoding='utf-8'), 'synthetic only')
+            finally:
+                subprocess.run(['icacls', str(private), '/remove:g', '*S-1-1-0'],
+                    check=True, capture_output=True)
+
+    def test_oversize_dump_rejected_before_opening_content(self):
+        with tempfile.TemporaryDirectory() as root:
+            dump = Path(root) / 'input.dump'
+            dump.write_bytes(b'12345')
+            with patch('staging_recovery.MAX_DUMP_BYTES', 4), patch.object(Path, 'open') as opened:
+                with self.assertRaises(ValueError):
+                    archive_bytes(dump, {})
+                opened.assert_not_called()
+
+    def test_oversize_manifest_rejected_before_opening_dump(self):
+        with tempfile.TemporaryDirectory() as root:
+            dump = Path(root) / 'input.dump'
+            dump.write_bytes(b'synthetic')
+            with patch('staging_recovery.MAX_MANIFEST_BYTES', 8), patch.object(Path, 'open') as opened:
+                with self.assertRaises(ValueError):
+                    archive_bytes(dump, {'tables': ['synthetic']})
+                opened.assert_not_called()
+
+    def test_oversize_member_does_not_create_partial_plaintext(self):
+        stream = io.BytesIO()
+        with tarfile.open(fileobj=stream, mode='w:gz') as archive:
+            for name, value in [('database.dump', b'12345'), ('manifest.json', b'{}')]:
+                member = tarfile.TarInfo(name)
+                member.size = len(value)
+                archive.addfile(member, io.BytesIO(value))
+        with tempfile.TemporaryDirectory() as root, patch('staging_recovery.MAX_DUMP_BYTES', 4):
+            with self.assertRaises(ValueError):
+                unpack_private(stream.getvalue(), root)
+            self.assertEqual(list(Path(root).iterdir()), [])
+
+    def test_plaintext_removed_when_connection_close_fails(self):
+        with tempfile.TemporaryDirectory() as root:
+            dump = Path(root) / 'synthetic.dump'
+            dump.write_bytes(b'synthetic')
+            conn = AsyncMock()
+            conn.close.side_effect = RuntimeError('synthetic close failure')
+            with self.assertRaises(RuntimeError):
+                asyncio.run(close_and_remove_dump(conn, dump))
+            self.assertFalse(dump.exists())
+
+    def test_cleanup_failure_is_not_reported_as_success(self):
+        with patch.object(Path, 'unlink', side_effect=PermissionError('synthetic')):
+            with self.assertRaises(PermissionError):
+                asyncio.run(close_and_remove_dump(AsyncMock(), Path('synthetic.dump')))
+
     def test_restore_selection_keeps_schema_grants_and_excludes_managed_objects(self):
         entries = [
             '9; 2615 1 SCHEMA - auth postgres',
