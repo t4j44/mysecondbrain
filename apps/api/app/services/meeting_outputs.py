@@ -89,6 +89,7 @@ def minutes_markdown(meeting):
 
 
 def export_markdown(meeting, kind):
+    from app.services.meeting_templates import TEMPLATES, template_markdown
     data, meta = meeting.capture.intelligence or {}, meeting.meta or {}
     lines = ['# ' + meeting.title, '', f'Meeting ID: {meeting.id}',
         'Source: owner-authorized canonical meeting transcript',
@@ -101,6 +102,8 @@ def export_markdown(meeting, kind):
             lines += [f'- {correction["at"]}: {correction["candidate_id"]} — {correction["reason"]}',
                 '  Before: ' + correction['before']['description'], '  After: ' + correction['after']['description'],
                 '  Corrected deadline: ' + (correction['after'].get('due_at') or 'Not specified')]
+    if kind in TEMPLATES:
+        return '\n'.join([*lines, template_markdown(meeting, kind)]) + '\n'
     if kind in {'all', 'detailed'}:
         lines += ['## At a glance — AI draft', data.get('executive_summary') or data.get('summary', ''),
             '', '## Detailed summary — AI draft', data.get('detailed_summary') or 'Not available for this older extraction.', '']

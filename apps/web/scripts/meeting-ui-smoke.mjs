@@ -27,6 +27,9 @@ const modules = {
   'next/navigation': `export const useParams=()=>({meetingId:'meeting-1'});export const useRouter=()=>({push(){}});`,
   'next/link': `import React from 'react';export default function Link({href,children,...props}){return React.createElement('a',{href,...props},children);}`,
 };
+// Synthetic output exercises real template controls, not provider generation.
+modules['@/lib/api/browser-client'] = modules['@/lib/api/browser-client'].replace('get:async(path)=>',
+  `get:async(path,options)=>['founder','client','interview'].includes(options?.params?.kind)?'# '+options.params.kind+' template\\nProposal — not confirmed.\\nNo supported information available.':`);
 const bundle = await build({entryPoints:[path.join(root,'scripts/meeting-ui-smoke.fixture.tsx')],bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',tsconfig:path.join(root,'tsconfig.json'),define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'synthetic-meeting-adapters',setup(b){b.onResolve({filter:/.*/},args=>args.path in modules?{path:args.path,namespace:'meeting-smoke'}:undefined);b.onLoad({filter:/.*/,namespace:'meeting-smoke'},args=>({contents:modules[args.path],loader:'jsx',resolveDir:root}));}}]});
 const loadConfig = require('tailwindcss/loadConfig');
 const tailwindConfig = loadConfig(path.join(root,'tailwind.config.ts'));
@@ -75,6 +78,16 @@ try {
     await page.reload();
     await page.locator('summary').filter({hasText:/^Meeting notes$/}).click();
     await expect(page.getByLabel('Meeting notes')).toHaveValue('# Reviewed notes\nUAE only with permission.');
+    await page.getByText('Use a meeting template',{exact:true}).click();
+    for (const kind of ['founder','client','interview']) {
+      await page.getByLabel('Meeting template',{exact:true}).selectOption(kind);
+      await page.getByRole('button',{name:'Preview template',exact:true}).click();
+      await expect(page.getByLabel('Template preview')).toContainText(kind+' template');
+    }
+    await page.getByText('Use a meeting template',{exact:true}).locator('..').screenshot({path:path.join(output,`template-${width}.png`)});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.getByRole('button',{name:'Append to notes',exact:true}).click();
+    await expect(page.getByLabel('Meeting notes')).toHaveValue(/UAE only with permission\.[\s\S]*interview template/);
     await page.getByRole('combobox',{name:'Map speaker 1'}).selectOption('me');
     await expect(page.getByRole('combobox',{name:'Map speaker 2'})).toBeEnabled();await page.getByRole('combobox',{name:'Map speaker 2'}).selectOption('person-1');
     await expect(page.getByRole('button',{name:'Save all'})).toBeEnabled();await page.getByText('Review details',{exact:true}).click();
