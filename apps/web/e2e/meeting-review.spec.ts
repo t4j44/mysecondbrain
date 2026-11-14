@@ -25,16 +25,19 @@ test('owner notes/export persist and user B is denied on real isolated staging',
   try {
     await page.goto(`/meetings/${meeting.id}`);
     await expect(page.getByRole('heading', { name: 'Synthetic staging meeting notes', exact: true })).toBeVisible();
+    await page.locator('summary').filter({ hasText: /^Meeting notes$/ }).click();
     await page.getByLabel('Meeting notes').fill('# Synthetic owner notes\nNo real meeting or provider inference is represented.');
     await page.getByRole('button', { name: 'Save notes', exact: true }).click();
     await expect(page.getByText('Notes saved.', { exact: true })).toBeVisible();
     await page.reload();
+    await page.locator('summary').filter({ hasText: /^Meeting notes$/ }).click();
     await expect(page.getByLabel('Meeting notes')).toHaveValue('# Synthetic owner notes\nNo real meeting or provider inference is represented.');
     const exported = await request.get(`${path}/export/markdown?kind=notes`, { headers });
     expect(exported.status()).toBe(200); expect(await exported.text()).toContain('Synthetic owner notes');
     expect(exported.headers()['cache-control']).toBe('no-store');
     expect((await request.put(`${path}/notes`, { headers, data: { expected_version: 0, markdown: 'Stale write' } })).status()).toBe(409);
-    for (const suffix of ['', '/notes', '/export/markdown', '/recording']) {
+    for (const suffix of ['', '/notes', '/export/markdown', '/recording', '/recording/download',
+      '/export/markdown?kind=founder', '/export/markdown?kind=client', '/export/markdown?kind=interview']) {
       expect((await request.get(path + suffix, { headers: foreign })).status()).toBe(404);
       expect((await request.get(path + suffix)).status()).toBe(401);
     }
