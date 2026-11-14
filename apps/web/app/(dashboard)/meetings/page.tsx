@@ -44,9 +44,9 @@ export default function MeetingsPage() {
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Meetings</h1>
         <p className="text-sm text-muted-foreground">Remember conversations. Keep the promises that matter.</p>
       </div>
-      <button type="button" disabled={captureActive} onClick={() => setCaptureOpen(open => !open)} aria-expanded={captureOpen} aria-controls="meeting-capture" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-60">
+      <div className="flex flex-wrap gap-2"><Link href="/meetings/schedule" className="inline-flex min-h-11 items-center rounded-xl border px-4 py-2 text-sm">Schedule</Link><button type="button" disabled={captureActive} onClick={() => setCaptureOpen(open => !open)} aria-expanded={captureOpen} aria-controls="meeting-capture" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-60">
         {captureOpen ? 'Hide recorder' : '+ Record or upload'}
-      </button>
+      </button></div>
     </header>
 
     {!loading && !error && meetings.length > 0 && <div className="grid grid-cols-3 gap-2 sm:gap-3" aria-label="Meeting overview">
