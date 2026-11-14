@@ -3,6 +3,7 @@
   "git": {
     "deploymentEnabled": {
       "main": false,
+      "codex/v1-meeting-acceptance-20261114": false,
       "codex/v1-dependency-fixes-20261114": false,
       "codex/v1-manual-calendar-20261114": false,
       "codex/v1-ci-python-20261114": false,

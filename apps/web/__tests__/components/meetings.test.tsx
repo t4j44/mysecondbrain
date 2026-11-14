@@ -25,6 +25,7 @@ describe('meeting capture', () => {
   it('keeps the recorder mounted when collapsed and prevents hiding active capture', async () => {
     mocks.list.mockResolvedValue({ items: [], total: 0 });
     render(<MeetingsPage />);
+    expect(screen.getByRole('link', { name: 'Schedule' })).toHaveAttribute('href', '/meetings/schedule');
     fireEvent.click(screen.getByRole('button', { name: '+ Record or upload' }));
     await consent();
     fireEvent.change(screen.getByLabelText('Meeting name (optional)'), { target: { value: 'Retained title' } });
@@ -35,9 +36,12 @@ describe('meeting capture', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Record meeting' }));
     await screen.findByText('● Recording');
     expect(screen.getByRole('button', { name: 'Hide recorder' })).toBeDisabled();
+    expect(screen.queryByRole('link', { name: 'Schedule' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Schedule' })).toBeDisabled();
     expect(mocks.dispose).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'End meeting' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Hide recorder' })).toBeEnabled());
+    expect(screen.getByRole('link', { name: 'Schedule' })).toHaveAttribute('href', '/meetings/schedule');
     expect(mocks.finalize).toHaveBeenCalledWith('meeting-1');
   });
   it('shows quota and requires recording consent and free-tier acceptance', async () => { render(<CapturePanel onSaved={() => undefined} />); await waitFor(() => expect(screen.getByText(/3h 10m/)).toBeInTheDocument()); expect(screen.getByRole('button',{name:'Record meeting'})).toBeDisabled(); expect(screen.getByText(/Avoid confidential meetings/)).toBeInTheDocument(); await consent(); expect(screen.getByRole('button',{name:'Record meeting'})).toBeEnabled(); });
