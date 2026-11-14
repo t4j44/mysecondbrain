@@ -56,14 +56,14 @@ Do not describe an agent as having access to all user accounts unless the specif
 ## 6. Durable session checkpoint
 ### Active implementation checkpoint — 2026-11-14
 
-- Isolated candidate: `E:/second brain/.worktrees/v1-pilot`, now `codex/v1-meeting-acceptance-20261114`, based on #55 `f5250ce`. Original checkout preserved.
-- Draft PR chain: #48 shell/search, #49 original audio, #50 protected E2E, #51 callback fixture, #52 templates, #53 CI interpreter, #54 manual calendar draft, #55 dependency fixes; separate #47 recovery guards over #46. None merged or deployed. Acceptance follow-up is the next PR.
+- Isolated candidate: `E:/second brain/.worktrees/v1-pilot`, now `codex/v1-snooze-test-clock-20261114`, based on #56 `ef467a8`. Original checkout preserved.
+- Draft PR chain: #48 shell/search, #49 original audio, #50 protected E2E, #51 callback fixture, #52 templates, #53 CI interpreter, #54 manual calendar draft, #55 dependency fixes, #56 meeting acceptance; separate #47 recovery guards over #46. None merged or deployed. Snooze fixture follow-up is the next PR (38 affected local tests PASS).
 - Evidence: 129 earlier frontend tests; final affected search/recording 25 PASS, final recording component 8 PASS, 35 synthetic browser checks; 110 affected API tests and final 15 recording tests. Protected harness 17 PASS; 28 hosted cases discovered, not executed. TypeScript/lint PASS. Final template/correction API 18 PASS, template component 14 PASS after review fixes.
 - #55 PostgreSQL 16/17 CI PASS, including disposable restore, upgrade and API container checks: run `43622885461`. Python audit/Bandit PASS; quality run `43622850094` has 631 backend PASS and one fixed-clock snooze fixture FAIL, so frontend/build skipped. Local frontend production build remains blocked by cross-drive dependency junctions. No actual staging recovery claim.
 - Final template Chromium scenarios PASS at 320/390/1440px. Manual calendar draft: 13 backend and 3 component tests PASS; no booking/reservation, invitations or provider automation. Acceptance follow-up: 15 meeting component tests, TypeScript and lint PASS; 2 hosted cases discovered only. See WORK_LOG for distinct evidence scopes.
 - Recovery follow-up is isolated on `codex/v1-recovery-guards-20261113` over #46. Five confirmed issues addressed, 20 synthetic recovery tests passed including real Windows ACL and cancellation checks. Actual backup/Drive/restore still unverified.
 - Protected preview still needs observed application sign-in; latest browser connection unavailable. No secrets read, hosted mutations or public deployments.
-- Next: fix the isolated snooze fixture clock and complete clean CI, then continue protected A/B acceptance when private access is available. Follow `WORK_LOG.md` for exact commands, current results and remaining gates.
+- Next: complete clean CI after the snooze fixture correction, then continue protected A/B acceptance when private access is available. Follow `WORK_LOG.md` for exact commands, current results and remaining gates.
 
 At end of each work batch update `docs/second-brain-v1/WORK_LOG.md` (create during execution) with:
 - current HEAD/branch and dirty working-tree state;
