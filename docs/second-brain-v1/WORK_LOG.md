@@ -102,3 +102,9 @@ Next: finish compiler/lint and affected tests, independent review, commit focuse
 - Schedule now becomes disabled while the recorder reports active work, preventing this newly added navigation from unmounting capture. Existing recorder lifecycle regression extended; **15 meeting component tests PASS**. This narrow guard does not claim to protect every global navigation action.
 - Browser handoff could not be inspected because the previously connected Chrome browser is unavailable. No session, credential or signed-in acceptance claim.
 - Final TypeScript (`tsc --noEmit`), Next lint and whitespace checks PASS. Playwright discovery lists both desktop/mobile notes cases; neither was executed against hosted staging. Independent source reviewer found no blockers in this follow-up. Next independent action: align the synthetic snooze fixture clock, preserving canonical future-time rejection.
+
+## 2026-11-14 — deterministic snooze acceptance
+
+- Meeting acceptance follow-up is [PR #56](https://github.com/t4j44/mysecondbrain/pull/56), `ef467a8cbfd5d74986139fa2c56e44c0413f8d58`.
+- Isolated branch `codex/v1-snooze-test-clock-20261114` aligns only the parameterized callback test's canonical-action clock with its fixed delivery clock. Production future-time validation remains unchanged; replay, one-hour reminder and timezone assertions remain intact. Separate past/naive/missing-zone rejection cases still run against real time.
+- `pytest apps/api/tests/test_telegram_delivery.py apps/api/tests/test_commitment_actions.py --no-cov -q`: **38 PASS**, existing deprecation warnings only. Ruff and whitespace checks PASS. Independent source review found no blockers. Clean updated-lock CI remains pending. Branch Git deployment disabled; no provider sends or hosted changes.

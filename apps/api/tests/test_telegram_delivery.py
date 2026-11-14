@@ -1,7 +1,7 @@
 import io
 import json
 import zipfile
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock
 
 import httpx
@@ -97,7 +97,15 @@ async def test_uncertain_send_never_retries_and_callback_can_supply_receipt(test
 
 
 @pytest.mark.parametrize('label,expected', [('Done', 'completed'), ('Working', 'in_progress'), ('Snooze 1h', 'snoozed'), ('Help', 'snoozed')])
-async def test_buttons_use_canonical_actions_and_replay_once(test_user_id, enabled, label, expected):
+async def test_buttons_use_canonical_actions_and_replay_once(test_user_id, enabled, monkeypatch, label, expected):
+    # Callback delivery uses NOW. Keep the canonical action's validation on that
+    # same synthetic clock, so its one-hour snooze stays in the test's future.
+    class FixtureDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return NOW.astimezone(tz) if tz is not None else NOW.replace(tzinfo=None)
+
+    monkeypatch.setattr('app.services.commitment_actions.datetime', FixtureDateTime)
     identity, source, chat, buttons, client = await sent(test_user_id)
     for update_id in (101, 101, 102):
         await process_callback(callback(buttons[label], chat, update_id=update_id), client=client, clock=NOW)
