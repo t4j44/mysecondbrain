@@ -1,11 +1,12 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api/browser-client';
 import { ApiError } from '@/lib/api/errors';
 import { Button } from '@/components/ui/button';
 import type { EvidenceRef, Meeting } from '@/lib/meetings/types';
 import { MeetingCorrections } from './meeting-corrections';
+import { MeetingTemplate } from './meeting-template';
 
 type NoteRevision = { version: number; markdown: string; updated_at: string };
 type Notes = { version: number; markdown: string; author?: string; revisions?: NoteRevision[] };
@@ -40,6 +41,7 @@ export function MeetingOutputs({ meeting, refresh }: { meeting: Meeting; refresh
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const operationActive = useRef(false);
   const [minutes, setMinutes] = useState('');
   const [title, setTitle] = useState(meeting.title);
   const [purpose, setPurpose] = useState(String(meeting.metadata?.purpose || ''));
@@ -78,8 +80,10 @@ export function MeetingOutputs({ meeting, refresh }: { meeting: Meeting; refresh
     return () => { active = false; };
   }, [meeting.id, meeting.capture?.confirmed_at, meeting.metadata?.review_version, meeting.capture?.state, meeting.capture?.intelligence, meeting.capture?.speaker_mappings]); // eslint-disable-line react-hooks/exhaustive-deps
   async function perform(work: () => Promise<void>) {
+    if (operationActive.current) return;
+    operationActive.current = true;
     setBusy(true); setMessage('');
-    try { await work(); } catch (error) { setMessage(error instanceof ApiError && error.status === 409 ? 'Conflict: your edit is not saved. Copy it, reload the saved version, and compare before retrying.' : 'This change was not saved. Retry when connected.'); } finally { setBusy(false); }
+    try { await work(); } catch (error) { setMessage(error instanceof ApiError && error.status === 409 ? 'Conflict: your edit is not saved. Copy it, reload the saved version, and compare before retrying.' : 'This change was not saved. Retry when connected.'); } finally { operationActive.current = false; setBusy(false); }
   }
   if (!meeting.capture) return null;
   return <>
@@ -106,7 +110,13 @@ export function MeetingOutputs({ meeting, refresh }: { meeting: Meeting; refresh
       {data.discussion_sections.some(s => ['secondary', 'side'].includes(s.kind)) && <div><h3 className="font-semibold">Other important discussions</h3>{data.discussion_sections.filter(s => ['secondary', 'side'].includes(s.kind)).map(s => <article key={s.id} className="mt-4"><h4 className="font-medium">{s.title}</h4><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{s.summary}</p>{s.key_points.map((p, i) => <div className="mt-2 break-words text-sm" key={i}>{p.text}<EvidenceLinks evidence={p.evidence} /></div>)}<EvidenceLinks evidence={s.evidence} /></article>)}</div>}
     </details>}
     <details className="mt-6 space-y-3 rounded-xl border bg-card p-4 sm:p-6"><summary className="min-h-11 cursor-pointer font-semibold">Meeting notes{dirty && <span className="ml-2 text-sm font-normal text-muted-foreground">Unsaved edits</span>}</summary><p className="text-sm text-muted-foreground">{notes.version ? `Your notes · version ${notes.version}` : 'AI draft · not saved'}{dirty ? ' · Unsaved edits' : ''}. Editing notes does not confirm tasks or promises.</p>
-      <textarea aria-label="Meeting notes" className="min-h-64 w-full rounded border bg-background p-3 text-sm" value={notes.markdown} onChange={e => { setNotes(n => ({ ...n, markdown: e.target.value })); setDirty(true); }} />
+      <MeetingTemplate meeting={meeting} disabled={busy} append={text => {
+        if (busy) return;
+        const combined = [notes.markdown, text].filter(Boolean).join('\n\n');
+        if (combined.length > 100000) { setMessage('The combined notes exceed the 100,000 character limit. Shorten your notes before adding a template.'); return; }
+        setNotes(n => ({ ...n, markdown: combined })); setDirty(true); setMessage('Template appended to your draft. Review it, then save notes.');
+      }} />
+      <textarea aria-label="Meeting notes" disabled={busy} className="min-h-64 w-full rounded border bg-background p-3 text-sm disabled:opacity-60" value={notes.markdown} onChange={e => { setNotes(n => ({ ...n, markdown: e.target.value })); setDirty(true); }} />
       <div className="flex flex-wrap gap-2"><Button disabled={busy || !dirty} onClick={() => void perform(async () => { const saved = await api.put<Notes>(`/meetings/${meeting.id}/notes`, { expected_version: notes.version, markdown: notes.markdown }); setNotes(saved); setDirty(false); await refresh(); setMessage('Notes saved.'); })}>Save notes</Button>
         <Button variant="outline" onClick={() => void perform(async () => { await navigator.clipboard.writeText(notes.markdown); setMessage('Notes copied.'); })}>Copy notes</Button>
         <Button variant="outline" onClick={() => void perform(async () => { const saved = await api.get<Notes>(`/meetings/${meeting.id}/notes`); if (window.confirm('Replace the editor with the latest saved notes? Copy unsaved edits first.')) { setNotes(saved); setDirty(false); } })}>Reload saved notes</Button>

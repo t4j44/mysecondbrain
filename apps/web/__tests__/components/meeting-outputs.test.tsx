@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { MeetingOutputs } from '@/components/meetings/meeting-outputs';
 import { ApiError } from '@/lib/api/errors';
@@ -108,4 +108,97 @@ it('refreshes minutes when extraction completes and speaker mappings change', as
   const mapped = fixture(); mapped.capture!.speaker_mappings = { 'c1:unknown': { kind: 'person', person_id: 'person', person_name: 'Ahmed' } };
   rerender(<MeetingOutputs meeting={mapped} refresh={vi.fn()} />);
   await screen.findByText('Responsible person: Ahmed');
+});
+
+it('previews a template and appends without replacing unsaved notes or confirming memory', async () => {
+  get.mockImplementation(async (path: string, options?: { params?: { kind?: string } }) =>
+    options?.params?.kind === 'interview' ? '## User interview\nParticipant claims, not product facts.' : path.includes('/export/') ? 'Minutes' : { items: [] });
+  render(<MeetingOutputs meeting={fixture()} refresh={vi.fn()} />);
+  fireEvent.click(screen.getByText('Meeting notes', { selector: 'summary' }));
+  fireEvent.change(screen.getByLabelText('Meeting notes'), { target: { value: 'My unsaved note' } });
+  fireEvent.click(screen.getByText('Use a meeting template'));
+  fireEvent.change(screen.getByLabelText('Meeting template'), { target: { value: 'interview' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Preview template' }));
+  expect(await screen.findByLabelText('Template preview')).toHaveTextContent('Participant claims');
+  expect(screen.getByLabelText('Meeting notes')).toHaveValue('My unsaved note');
+  fireEvent.click(screen.getByRole('button', { name: 'Append to notes' }));
+  expect(screen.getByLabelText<HTMLTextAreaElement>('Meeting notes').value).toBe('My unsaved note\n\n## User interview\nParticipant claims, not product facts.');
+  expect(put).not.toHaveBeenCalled();
+});
+
+it('discards a stale template after its selected type changes', async () => {
+  let resolve!: (text: string) => void;
+  get.mockImplementation(async (path: string, options?: { params?: { kind?: string } }) =>
+    options?.params?.kind === 'founder' ? new Promise<string>(done => { resolve = done; }) : path.includes('/export/') ? 'Minutes' : { items: [] });
+  render(<MeetingOutputs meeting={fixture()} refresh={vi.fn()} />);
+  fireEvent.click(screen.getByText('Meeting notes', { selector: 'summary' }));
+  fireEvent.click(screen.getByText('Use a meeting template'));
+  fireEvent.click(screen.getByRole('button', { name: 'Preview template' }));
+  fireEvent.change(screen.getByLabelText('Meeting template'), { target: { value: 'client' } });
+  resolve('Stale founder draft');
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Preview template' })).toBeEnabled());
+  expect(screen.queryByLabelText('Template preview')).not.toBeInTheDocument();
+  expect(put).not.toHaveBeenCalled();
+});
+
+it('keeps existing notes on template load failure and permits retry', async () => {
+  get.mockImplementation(async (path: string, options?: { params?: { kind?: string } }) => {
+    if (options?.params?.kind === 'founder') throw new Error('offline');
+    return path.includes('/export/') ? 'Minutes' : { items: [] };
+  });
+  render(<MeetingOutputs meeting={fixture()} refresh={vi.fn()} />);
+  fireEvent.click(screen.getByText('Meeting notes', { selector: 'summary' }));
+  fireEvent.click(screen.getByText('Use a meeting template'));
+  fireEvent.click(screen.getByRole('button', { name: 'Preview template' }));
+  expect(await screen.findByText('Template could not be loaded. Retry when connected.')).toBeInTheDocument();
+  expect(screen.getByLabelText<HTMLTextAreaElement>('Meeting notes').value).toContain('UAE expansion');
+  expect(screen.getByRole('button', { name: 'Preview template' })).toBeEnabled();
+});
+
+it.each([false, true])('invalidates a template when selections are confirmed with the same review token (pending=%s)', async pending => {
+  let resolve!: (text: string) => void;
+  get.mockImplementation(async (path: string, options?: { params?: { kind?: string } }) =>
+    options?.params?.kind === 'founder' ? new Promise<string>(done => { resolve = done; }) : path.includes('/export/') ? 'Minutes' : { items: [] });
+  const original = fixture();
+  const { rerender } = render(<MeetingOutputs meeting={original} refresh={vi.fn()} />);
+  fireEvent.click(screen.getByText('Meeting notes', { selector: 'summary' }));
+  fireEvent.click(screen.getByText('Use a meeting template'));
+  fireEvent.click(screen.getByRole('button', { name: 'Preview template' }));
+  if (!pending) await act(async () => { resolve('Unselected suggestion'); });
+  const confirmed = fixture();
+  confirmed.capture!.confirmed_at = '2026-11-13T12:00:00Z';
+  confirmed.capture!.receipt = { selected: [] };
+  rerender(<MeetingOutputs meeting={confirmed} refresh={vi.fn()} />);
+  if (pending) await act(async () => { resolve('Unselected suggestion'); });
+  expect(screen.queryByLabelText('Template preview')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Append to notes' })).not.toBeInTheDocument();
+});
+
+it('prevents template append and editing while a note save is pending', async () => {
+  let resolveSave!: (notes: { version: number; markdown: string }) => void;
+  put.mockImplementation(() => new Promise(done => { resolveSave = done; }));
+  get.mockImplementation(async (path: string, options?: { params?: { kind?: string } }) =>
+    options?.params?.kind === 'founder' ? 'Founder draft' : path.includes('/export/') ? 'Minutes' : { items: [] });
+  render(<MeetingOutputs meeting={fixture()} refresh={vi.fn().mockResolvedValue(undefined)} />);
+  fireEvent.click(screen.getByText('Meeting notes', { selector: 'summary' }));
+  fireEvent.change(screen.getByLabelText('Meeting notes'), { target: { value: 'Saving this note' } });
+  fireEvent.click(screen.getByText('Use a meeting template'));
+  fireEvent.click(screen.getByRole('button', { name: 'Preview template' }));
+  await screen.findByLabelText('Template preview');
+  fireEvent.click(screen.getByRole('button', { name: /^Save notes$/ }));
+  expect(screen.getByRole('button', { name: 'Append to notes' })).toBeDisabled();
+  expect(screen.getByLabelText('Meeting notes')).toBeDisabled();
+  const callsBeforeOverlap = get.mock.calls.length;
+  fireEvent.click(screen.getByRole('button', { name: 'Copy notes' }));
+  fireEvent.click(screen.getByText('Compare saved note revisions'));
+  fireEvent.click(screen.getByRole('button', { name: 'Load history' }));
+  await act(async () => {});
+  expect(get.mock.calls.length).toBe(callsBeforeOverlap);
+  expect(screen.getByRole('button', { name: 'Append to notes' })).toBeDisabled();
+  expect(screen.getByLabelText('Meeting notes')).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Append to notes' }));
+  await act(async () => { resolveSave({ version: 1, markdown: 'Saving this note' }); });
+  expect(screen.getByLabelText('Meeting notes')).toHaveValue('Saving this note');
+  fireEvent.click(screen.getByRole('button', { name: 'Append to notes' }));
+  expect(screen.getByLabelText('Meeting notes')).toHaveValue('Saving this note\n\nFounder draft');
 });

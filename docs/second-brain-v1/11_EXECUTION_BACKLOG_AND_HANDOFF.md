@@ -56,12 +56,13 @@ Do not describe an agent as having access to all user accounts unless the specif
 ## 6. Durable session checkpoint
 ### Active implementation checkpoint — 2026-11-13
 
-- Isolated candidate: `E:/second brain/.worktrees/v1-pilot`, `codex/v1-pilot-foundation-20261113`, based on main `a8f3880`. Original checkout preserved.
-- Shared IA/tokens, universal source search, and original-audio access are implemented locally. Focused PRs are being prepared; none is a hosted acceptance claim.
-- Evidence: 129 frontend tests passed before the final search/recording review fixes; final targeted rerun pending. 21 Chromium core-layout checks and 14 additional tablet/WebKit checks passed without skips. 110 affected meeting API tests passed before the final recording error-code refinement; final targeted rerun pending. TypeScript and lint passed before the last review fixes.
+- Isolated candidate: `E:/second brain/.worktrees/v1-pilot`, now `codex/v1-meeting-workflows-20261113`, based on #51 `c3bcb2d`. Original checkout preserved.
+- Draft PR chain: #48 shell/search, #49 original audio, #50 protected E2E, #51 synthetic callback chronology; separate #47 recovery guards over #46. None merged or deployed. Templates are the next slice.
+- Evidence: 129 earlier frontend tests; final affected search/recording 25 PASS, final recording component 8 PASS, 35 synthetic browser checks; 110 affected API tests and final 15 recording tests. Protected harness 17 PASS; 28 hosted cases discovered, not executed. TypeScript/lint PASS. Final template/correction API 18 PASS, template component 14 PASS after review fixes.
+- #51 PostgreSQL 16/17 CI PASS, including disposable restore, upgrade and API container checks: run `43445904521`. This does not replace actual staging backup/recovery. Local frontend production build remains blocked by cross-drive dependency junctions; preserve-symlink retry also failed on dependency resolution.
 - Recovery follow-up is isolated on `codex/v1-recovery-guards-20261113` over #46. Five confirmed issues addressed, 20 synthetic recovery tests passed including real Windows ACL and cancellation checks. Actual backup/Drive/restore still unverified.
 - Protected preview still needs observed application sign-in; user sign-in handoff remains pending. No secrets read, hosted mutations or public deployments.
-- Next: publish reviewed focused PRs/evidence to #32, then continue meeting templates/manual scheduling and protected A/B acceptance. Follow `WORK_LOG.md` for exact commands, current results and remaining gates.
+- Next: finish template PR/evidence, then manual scheduling and protected A/B acceptance. Follow `WORK_LOG.md` for exact commands, current results and remaining gates.
 
 At end of each work batch update `docs/second-brain-v1/WORK_LOG.md` (create during execution) with:
 - current HEAD/branch and dirty working-tree state;

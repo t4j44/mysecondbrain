@@ -100,7 +100,7 @@ async def review(identity: UUID, payload: MeetingReview, user: AuthenticatedUser
 
 
 @router.get('/{identity}/export/markdown')
-async def markdown(identity: UUID, kind: Literal['notes', 'minutes', 'detailed', 'all'] = 'all',
+async def markdown(identity: UUID, kind: Literal['notes', 'minutes', 'detailed', 'all', 'founder', 'client', 'interview'] = 'all',
         user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
     from app.services.meeting_outputs import export_markdown
     meeting, _ = await service.capture_for(db, user.id, str(identity))
