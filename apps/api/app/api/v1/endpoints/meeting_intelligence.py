@@ -19,6 +19,7 @@ from app.schemas.meeting_intelligence import (
 )
 from app.schemas.meetings import MeetingResponse
 from app.services import meeting_intelligence as service
+from app.services.calendar_drafts import CalendarDraft
 from app.services.meeting_audio import MIMES, AudioStorage, audio_mime
 from app.services.meeting_corrections import (
     SavedDetailCorrection,
@@ -118,6 +119,15 @@ async def live(socket: WebSocket, identity: UUID):
 @router.get('/usage')
 async def usage(user: AuthenticatedUser = Depends(get_current_user), db=Depends(get_rls_db_session)):
     return await quota_view(db, user.id)
+
+
+@router.post('/schedule/preview')
+async def schedule_preview(payload: CalendarDraft, user: AuthenticatedUser = Depends(get_current_user)):
+    from datetime import datetime, timezone
+
+    from app.services.calendar_drafts import calendar_draft
+    return JSONResponse(calendar_draft(payload, datetime.now(timezone.utc)),
+        headers={'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff'})
 
 
 @router.get('/people-search')

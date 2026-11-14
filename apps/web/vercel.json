@@ -3,6 +3,7 @@
   "git": {
     "deploymentEnabled": {
       "main": false,
+      "codex/v1-manual-calendar-20261114": false,
       "codex/v1-ci-python-20261114": false,
       "codex/v1-callback-clock-20261113": false,
       "codex/v1-protected-e2e-20261113": false,
