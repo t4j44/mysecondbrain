@@ -270,6 +270,13 @@ test('drawer and page search trap focus, close on Escape and restore trigger foc
 test('200 percent text remains usable without horizontal overflow',async({page},info)=>{
  for(const route of ['dashboard','people','assistant','capture','work']){
   await page.goto('/'+route);await page.locator('html').evaluate(element=>{element.style.fontSize='200%';});await noOverflow(page);
+  if(route==='dashboard'){
+   for(const name of ['Search','Capture','Account options',...(page.viewportSize()!.width<1024?['More']:[])]){
+    const control=page.getByRole('button',{name,exact:true});await control.scrollIntoViewIfNeeded();await expect(control).toBeVisible();
+    expect(await control.evaluate(button=>{const box=button.getBoundingClientRect();const hit=document.elementFromPoint(box.x+box.width/2,box.y+box.height/2);return {name:button.getAttribute('aria-label'),within:box.left>=0&&box.right<=document.documentElement.clientWidth+1,uncovered:button.contains(hit),cover:hit?.tagName};})).toEqual(expect.objectContaining({within:true,uncovered:true}));
+   }
+   await capture(page,'home-text-200',info.project.name);
+  }
   if(route==='assistant'){
    await page.getByRole('textbox',{name:'Your question'}).fill('Readable at 200%');
    const send=page.getByRole('button',{name:'Send question'});

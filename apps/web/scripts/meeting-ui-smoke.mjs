@@ -30,6 +30,10 @@ const modules = {
 // Synthetic output exercises real template controls, not provider generation.
 modules['@/lib/api/browser-client'] = modules['@/lib/api/browser-client'].replace('get:async(path)=>',
   `get:async(path,options)=>['founder','client','interview'].includes(options?.params?.kind)?'# '+options.params.kind+' template\\nProposal — not confirmed.\\nNo supported information available.':`);
+// Calendar arithmetic/escaping has API tests; this fixture verifies UI and download bytes.
+const calendarFixture = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Second Brain//Synthetic QA//EN\r\nBEGIN:VEVENT\r\nUID:synthetic-calendar@example.test\r\nDTSTAMP:20270101T000000Z\r\nDTSTART:20270115T043000Z\r\nDTEND:20270115T050000Z\r\nSUMMARY:Synthetic call\r\nSTATUS:TENTATIVE\r\nCLASS:PRIVATE\r\nTRANSP:TRANSPARENT\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n';
+modules['@/lib/api/browser-client'] = modules['@/lib/api/browser-client'].replace('post:async(path,body)=>{',
+  `post:async(path,body)=>{if(path==='/meetings/schedule/preview')return ${JSON.stringify({status:'draft',host_start:'2027-01-15T10:30:00+06:00',host_end:'2027-01-15T11:00:00+06:00',guest_start:'2027-01-14T23:30:00-05:00',guest_end:'2027-01-15T00:00:00-05:00',calendar:calendarFixture})};`);
 const bundle = await build({entryPoints:[path.join(root,'scripts/meeting-ui-smoke.fixture.tsx')],bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',tsconfig:path.join(root,'tsconfig.json'),define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'synthetic-meeting-adapters',setup(b){b.onResolve({filter:/.*/},args=>args.path in modules?{path:args.path,namespace:'meeting-smoke'}:undefined);b.onLoad({filter:/.*/,namespace:'meeting-smoke'},args=>({contents:modules[args.path],loader:'jsx',resolveDir:root}));}}]});
 const loadConfig = require('tailwindcss/loadConfig');
 const tailwindConfig = loadConfig(path.join(root,'tailwind.config.ts'));
@@ -106,7 +110,29 @@ try {
     await page.getByRole('button',{name:'Confirm correction'}).click();
     await expect(page.getByText(/Correction saved\. Existing records/)).toBeVisible();
     expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('meeting-fixture')).transcript_text)).toContain('বাংলা');
-    expect(errors).toEqual([]);console.log(`PASS: ${width}px capture, pause/resume, reconnect, upload, speaker mapping, confirmation, detailed side topic, evidence jump, transcript search, note persistence, no horizontal overflow or page errors`);await page.close();
+    expect(errors).toEqual([]);console.log(`PASS: ${width}px capture, pause/resume, reconnect, upload, speaker mapping, confirmation, detailed side topic, evidence jump, transcript search, note persistence, no horizontal overflow or page errors`);
+    await page.goto(url+'/?schedule=1&light=1');
+    await expect(page.getByRole('heading',{name:'Schedule a conversation'})).toBeVisible();
+    await expect(page.getByText(/This is a draft, not a booking/)).toBeVisible();
+    await page.getByLabel('Title',{exact:true}).fill('Synthetic call');
+    await page.getByLabel('Date and time in your time zone',{exact:true}).fill('2027-01-15T10:30');
+    await page.getByLabel('Your time zone',{exact:true}).fill('Asia/Dhaka');
+    await page.getByLabel('Guest time zone',{exact:true}).fill('America/New_York');
+    await page.getByRole('button',{name:'Review calendar draft',exact:true}).click();
+    const draft=page.getByRole('region',{name:'Calendar draft'});
+    await expect(draft).toContainText('2027-01-15 10:30');
+    await expect(draft).toContainText('2027-01-14 23:30');
+    const downloadPromise=page.waitForEvent('download');
+    await page.getByRole('button',{name:'Download calendar file (.ics)',exact:true}).click();
+    const download=await downloadPromise;
+    expect(download.suggestedFilename()).toBe('second-brain-calendar-draft.ics');
+    expect(await fs.readFile(await download.path(),'utf8')).toBe(calendarFixture);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.screenshot({fullPage:true,path:path.join(output,`schedule-${width}.png`)});
+    await page.getByLabel('Title',{exact:true}).fill('Changed proposal');
+    await expect(draft).toHaveCount(0);
+    await expect(page.getByRole('button',{name:'Download calendar file (.ics)',exact:true})).toHaveCount(0);
+    expect(errors).toEqual([]);console.log(`PASS: ${width}px light calendar draft, two dates/zones, exact downloaded bytes, stale preview removal, no overflow or page errors`);await page.close();
   }
   console.log('3 viewport scenarios passed (synthetic API/adapters). Physical microphone and hosted provider behavior remain unverified.');
 } finally {await browser?.close();await new Promise(resolve=>server.close(resolve));}
