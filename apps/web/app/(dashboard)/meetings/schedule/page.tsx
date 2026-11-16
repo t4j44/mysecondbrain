@@ -49,7 +49,7 @@ export default function SchedulePage() {
   return <ResponsivePageContainer>
     <Link href="/meetings" className="inline-flex min-h-11 items-center text-sm underline">Back to Meetings</Link>
     <header><h1 className="text-2xl font-semibold tracking-tight">Schedule a conversation</h1><p className="mt-2 text-muted-foreground">Prepare a calendar file to review and share manually.</p></header>
-    <p className="rounded-xl border bg-card p-4 text-sm">This is a draft, not a booking. Check calendars and agree a time with your guest. Second Brain does not reserve availability, send invitations or reminders, or save this draft to your meetings.</p>
+    <p className="max-w-2xl rounded-xl border bg-card p-4 text-sm">This is a draft, not a booking. Check availability and send invitations yourself.</p>
     <form onSubmit={event => void preview(event)} onChange={invalidate} className="max-w-2xl space-y-4">
       <label className="block text-sm">Title<input required maxLength={255} className={field} value={title} onChange={event => setTitle(event.target.value)} /></label>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -58,18 +58,19 @@ export default function SchedulePage() {
         <label className="block text-sm">Your time zone<input required maxLength={100} placeholder="Asia/Dhaka" className={field} value={hostZone} onChange={event => setHostZone(event.target.value)} /></label>
         <label className="block text-sm">Guest time zone<input required maxLength={100} placeholder="Europe/London" className={field} value={guestZone} onChange={event => setGuestZone(event.target.value)} /></label>
       </div>
-      <p className="text-sm text-muted-foreground">Use a city-based time zone, such as Asia/Dhaka, Europe/London or America/New_York. Daylight-saving changes are checked before preview.</p>
+      <p className="text-sm text-muted-foreground">Use a city-based zone, such as Asia/Dhaka or Europe/London.</p>
       <label className="block text-sm">Location or meeting link (optional)<input maxLength={255} className={field} value={location} onChange={event => setLocation(event.target.value)} /></label>
       <details><summary className="min-h-11 cursor-pointer py-3 text-sm">If the clock repeats this time</summary>
         <label htmlFor="clock-occurrence" className="text-sm">Clock occurrence</label><select id="clock-occurrence" className={field} value={occurrence} onChange={event => setOccurrence(event.target.value)}><option value="">Ask me if this time is ambiguous</option><option value="earlier">Earlier occurrence</option><option value="later">Later occurrence</option></select>
       </details>
       <Button type="submit" disabled={busy || !title.trim()}>{busy ? 'Preparing…' : 'Review calendar draft'}</Button>
+      <p className="text-sm text-muted-foreground">Drafts are not saved to Meetings. Reminders and calendar sync are off.</p>
     </form>
     {error && <p role="alert" className="max-w-2xl rounded-xl border p-4 text-sm">{error}</p>}
     {draft && <section aria-label="Calendar draft" className="max-w-2xl space-y-3 rounded-xl border bg-card p-4">
       <h2 className="text-lg font-semibold">Review before downloading</h2><p className="break-words">{title}</p>
       <dl className="space-y-3 text-sm"><div><dt className="font-medium">Your time · {hostZone}</dt><dd>{displayTime(draft.host_start)} → {displayTime(draft.host_end)}</dd></div><div><dt className="font-medium">Guest time · {guestZone}</dt><dd>{displayTime(draft.guest_start)} → {displayTime(draft.guest_end)}</dd></div></dl>
-      <p className="text-sm text-muted-foreground">The file contains the title, times and location you entered. It contains no saved meeting notes or contacts. Import it into your calendar to review; agree the time and send any invitation yourself. Changes or cancellations must also be handled there.</p>
+      <p className="text-sm text-muted-foreground">Only the details entered above are included. Import into your calendar, review, and send invitations there. Manage changes and cancellations in your calendar.</p>
       <Button onClick={download}>Download calendar file (.ics)</Button>
     </section>}
   </ResponsivePageContainer>;

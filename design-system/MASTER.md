@@ -17,13 +17,13 @@ Implemented source: `apps/web/app/globals.css`, `components/ui/*`, `components/l
 
 | Surface | Current behavior | Remaining acceptance |
 |---|---|---|
-| Home | Today, one capture action, onboarding and follow-ups | Populated signed-in staging and unfamiliar-user comprehension |
+| Home | Today; direct note, meeting and person choices; follow-ups | Populated signed-in staging and unfamiliar-user comprehension |
 | People | Existing list/detail/timeline; shared shell and tokens | Real corrections and cross-user denied access |
 | Meetings | Existing upload/review; new original recording controls in separate change | Hosted playback/download and physical microphone |
 | Work | Existing commitment/project routes retained | Hosted source-linked completion and conflict recovery |
 | Ask | Existing conversation/source UI retained | Hosted evidence quality, abstention and two-user history |
 | Capture | Existing recorder/file/note flow; global entry | Physical device and provider acceptance |
-| Secondary tools | Files & sources, Projects, Integrations, Settings, Privacy | Legacy screens retain denser content; no claim of completed redesign |
+| Secondary tools | Desktop More disclosure, mobile drawer; Settings remains direct | Legacy screens retain denser content; no claim of completed redesign |
 
 ## Evidence and boundaries
 
