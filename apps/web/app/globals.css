@@ -72,13 +72,16 @@
 .conversation-shell { height: max(100dvh, 32rem); min-height: 0; overflow: clip; }
 .conversation-shell .workspace-main { padding-bottom: var(--bottom-nav-height, calc(3.75rem + env(safe-area-inset-bottom))); }
 .chat-surface { min-height: 0; flex: 1; }
+/* Wrapped enlarged controls must scroll away rather than cover page actions. */
+.app-shell[data-expanded-text="true"] { position: relative; }
+.app-shell[data-expanded-text="true"] .app-top-bar { position: static; }
 /* Enlarged text needs document scrolling when the header and composer no longer
    fit in a short viewport. Preserve the normal conversation scroller otherwise. */
 .conversation-shell[data-expanded-text="true"] { position: relative; height: auto; min-height: 100dvh; overflow: visible; }
 .conversation-shell[data-expanded-text="true"] .chat-surface { min-height: 24rem; }
-/* At enlarged text sizes the whole conversation scrolls. Anchor navigation to
-   that document, so viewport scrolling cannot place it over the composer. */
-.conversation-shell[data-expanded-text="true"] .mobile-bottom-bar { position: absolute; }
+/* At enlarged text sizes navigation can fill much of a short screen. Anchor it
+   to the document so it cannot cover header controls or the composer. */
+.app-shell[data-expanded-text="true"] .mobile-bottom-bar { position: absolute; }
 @media (max-width: 1023px) {
   .workspace-main { padding-bottom: var(--bottom-nav-height, calc(5rem + env(safe-area-inset-bottom))); }
   .conversation-shell { height: max(var(--app-height, 100dvh), 32rem); }
