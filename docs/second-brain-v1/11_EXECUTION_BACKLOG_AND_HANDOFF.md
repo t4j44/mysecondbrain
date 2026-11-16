@@ -54,6 +54,13 @@ Ask explicit approval for: entering/retrieving private credentials, changing pro
 Do not describe an agent as having access to all user accounts unless the specific connection permission is proven.
 
 ## 6. Durable session checkpoint
+### Founder-visible correction — 2026-11-16 (supersedes URL/login assumptions below)
+
+- Active branch: `codex/v1-visible-workspace-20261116`, based on #58. New Home choices, simpler secondary navigation, compact header and calendar copy; connected browser route fixed. Local 18 browser + 12 component checks, TypeScript/lint PASS; independent source review complete.
+- Founder **is signed in** at `second-brain-web-staging-seven.vercel.app`, serving `c94c632`, not the earlier protected alias serving `2ec0928`. Home loaded on inspection, but screenshot service error remains undiagnosed. Do not ask for another login on the basis of inspecting the wrong origin.
+- Read `VISIBLE_PRODUCT_STATUS_20261116.md` for feature locations, synthetic screenshots and a concrete protected staging update boundary. No migration/model delta versus live API `7a986638`; private UI update permission is separate from the external-pilot recovery gate. No deployment/merge/migration or credential change performed.
+- Next: publish this reviewed follow-up, verify its checks, then obtain the necessary scoped permission to change previously frozen staging. Deploy matched protected web/API only after that permission, verify the actual signed-in journeys, and keep external invitations NO-GO until recovery/privacy gates pass.
+
 ### Active implementation checkpoint — 2026-11-16
 
 - Isolated candidate: `E:/second brain/.worktrees/v1-pilot`, now `codex/v1-calendar-browser-20261114`, based on #57 `015fdb4`. Original checkout preserved.

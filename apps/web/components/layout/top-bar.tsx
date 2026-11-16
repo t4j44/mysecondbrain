@@ -15,13 +15,13 @@ interface TopBarProps {
 
 export function TopBar({ onOpenQuickCapture }: TopBarProps) {
   return (
-    <header className="app-top-bar sticky top-0 z-30 flex min-h-[56px] w-full min-w-0 shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-background/95 px-2.5 py-1 sm:px-6">
+    <header className="app-top-bar sticky top-0 z-30 flex min-h-[56px] w-full min-w-0 shrink-0 flex-wrap items-center justify-between gap-1 border-b bg-background/95 px-2.5 py-1 sm:gap-2 sm:px-6">
       <div className="flex min-w-0 items-center gap-2 sm:gap-4">
         <Link href="/dashboard" aria-label="Second Brain Home" className="flex min-h-11 min-w-11 items-center justify-center gap-2 text-sm font-semibold tracking-tight lg:hidden"><BrainCircuit className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" /><span className="hidden truncate sm:inline">Second Brain</span></Link>
         <div className="hidden min-w-0 lg:block"><Breadcrumbs /></div>
       </div>
 
-      <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
+      <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1 sm:gap-3">
         <CommandMenu />
         {onOpenQuickCapture && (
           <button

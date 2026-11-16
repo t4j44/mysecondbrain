@@ -13,6 +13,31 @@ async function capture(page:Page,name:string,project:string){
  await page.screenshot({path:path.join(out,`${name}-${project}.png`),fullPage:false,animations:'disabled'});
 }
 
+test('Home exposes meeting capture even when context fails, and Schedule opens inside the shell',async({page},info)=>{
+ await page.route('**/api/v1/relationships/home',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:{code:'SERVICE_UNAVAILABLE',message:'Synthetic unavailable'}})}));
+ await page.goto('/dashboard');
+ await expect(page.getByRole('heading',{name:'Your saved context could not be loaded'})).toBeVisible();
+ const actions=page.getByRole('region',{name:'Quick actions'});
+ await expect(actions.getByRole('link',{name:/Capture a note/})).toHaveAttribute('href','/capture');
+ await expect(actions.getByRole('link',{name:/Add a person/})).toHaveAttribute('href','/people/new');
+ await actions.getByRole('link',{name:/Record or upload a meeting/}).click();
+ await expect(page.getByRole('button',{name:'Record meeting',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Record meeting',exact:true})).toBeDisabled();
+ await page.getByRole('link',{name:'Schedule',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Schedule a conversation'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Capture',exact:true})).toBeVisible();
+ await expect(page.getByText(/This is a draft, not a booking/)).toBeVisible();
+ await noOverflow(page);
+ await capture(page,'schedule-in-workspace',info.project.name);
+ await page.getByRole('main').getByRole('link',{name:'Back to Meetings',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Meetings',exact:true})).toBeVisible();
+ await page.unroute('**/api/v1/relationships/home');
+ await page.goto('/dashboard');
+ await expect(page.getByRole('heading',{name:'Needs your attention'})).toBeVisible();
+ await noOverflow(page);await capture(page,'home-quick-actions',info.project.name);
+ if(info.project.name.endsWith('-390'))expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+});
+
 test('commitment actions: sourced Help, explicit Snooze and conflict recovery',async({page},info)=>{
  let revision=1,status='open',conflict=false;
  const row=()=>({id:'synthetic-promise',description:'Send the reviewed proposal বাংলা',direction:'owed_by_me',due_at:null,from_person_id:null,to_person_id:null,revision,status,reminder_at:null,source_timezone:null});

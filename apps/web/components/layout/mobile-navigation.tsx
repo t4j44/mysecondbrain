@@ -18,7 +18,7 @@ export function MobileNavigation() {
       <Dialog.Content aria-describedby={undefined} className="fixed inset-y-0 left-0 z-[201] w-80 max-w-[90vw] overflow-y-auto bg-background shadow-xl">
         <Dialog.Title className="sr-only">Navigation</Dialog.Title>
         <Dialog.Close asChild><button type="button" className="absolute right-2 top-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-lg bg-background" aria-label="Close navigation"><X className="h-5 w-5" /></button></Dialog.Close>
-        <Sidebar className="min-h-full w-full border-none" />
+        <Sidebar className="min-h-full w-full border-none" secondaryExpanded />
       </Dialog.Content>
     </Dialog.Portal>
   </Dialog.Root>;
